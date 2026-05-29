@@ -16,11 +16,12 @@ import { MetricasTab } from './tabs/MetricasTab'
 import { AgendaTab } from './tabs/AgendaTab'
 import { ComissoesTab } from './tabs/ComissoesTab'
 import { VendedoresTab } from './tabs/VendedoresTab'
+import { ApresentacaoTab } from './tabs/ApresentacaoTab'
 import { MAIN_FLOW, SECONDARY_FLOW, ALL_COLUMNS } from './types'
 import type { Lead, LeadStatus } from './types'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
-type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'comissoes' | 'vendedores'
+type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'comissoes' | 'vendedores' | 'apresentacao'
 type OperationFilter = 'todos' | 'brasil' | 'eua'
 
 interface CurrentUser { id: string; name: string; role: string }
@@ -39,11 +40,12 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
   const canSeeVendedores = currentUser.role === 'admin' || currentUser.role === 'financeiro'
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'funil',      label: 'Funil' },
-    { key: 'pipeline',   label: 'Pipeline' },
-    { key: 'metricas',   label: 'Métricas' },
-    { key: 'agenda',     label: 'Agenda' },
-    { key: 'comissoes',  label: 'Comissões' },
+    { key: 'funil',         label: 'Funil' },
+    { key: 'pipeline',      label: 'Pipeline' },
+    { key: 'metricas',      label: 'Métricas' },
+    { key: 'agenda',        label: 'Agenda' },
+    { key: 'comissoes',     label: 'Comissões' },
+    { key: 'apresentacao',  label: 'Apresentação' },
     ...(canSeeVendedores ? [{ key: 'vendedores' as Tab, label: 'Vendedores' }] : []),
   ]
 
@@ -214,11 +216,12 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
           </DndContext>
         )}
 
-        {tab === 'pipeline'  && <PipelineTab leads={filteredLeads} />}
-        {tab === 'metricas'  && <MetricasTab leads={filteredLeads} />}
-        {tab === 'agenda'    && <AgendaTab leads={filteredLeads} />}
-        {tab === 'comissoes' && <ComissoesTab currentUser={currentUser} />}
-        {tab === 'vendedores' && canSeeVendedores && <VendedoresTab />}
+        {tab === 'pipeline'     && <PipelineTab leads={filteredLeads} />}
+        {tab === 'metricas'     && <MetricasTab leads={filteredLeads} />}
+        {tab === 'agenda'       && <AgendaTab leads={filteredLeads} />}
+        {tab === 'comissoes'    && <ComissoesTab currentUser={currentUser} />}
+        {tab === 'apresentacao' && <ApresentacaoTab />}
+        {tab === 'vendedores'   && canSeeVendedores && <VendedoresTab currentUser={currentUser} />}
       </div>
 
       {/* Modals */}

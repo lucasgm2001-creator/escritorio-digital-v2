@@ -3,12 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 
 const PAGE_TITLES: Record<string, string> = {
-  '/hall': 'Hall',
-  '/comercial': 'Comercial',
-  '/clientes': 'Clientes',
-  '/financeiro': 'Financeiro',
-  '/trafego': 'Tráfego',
+  '/hall':           'Hall',
+  '/comercial':      'Comercial',
+  '/clientes':       'Clientes',
+  '/financeiro':     'Financeiro',
+  '/trafego':        'Tráfego',
   '/administrativo': 'Administrativo',
+  '/configuracoes':  'Configurações',
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

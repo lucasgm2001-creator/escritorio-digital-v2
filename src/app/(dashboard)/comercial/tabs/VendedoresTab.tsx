@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Seller } from '@/types'
 
-export function VendedoresTab() {
+interface Props { currentUser: { id: string; name: string; role: string } }
+
+export function VendedoresTab({ currentUser }: Props) {
   const [sellers, setSellers] = useState<Seller[]>([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
@@ -12,6 +14,7 @@ export function VendedoresTab() {
   const [saving, setSaving] = useState(false)
 
   const supabase = createClient()
+  const isAdmin = currentUser.role === 'admin'
 
   useEffect(() => {
     supabase.from('sellers').select('*').order('name').then(({ data }) => {
@@ -55,18 +58,20 @@ export function VendedoresTab() {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-slate-800">Vendedores</h3>
-          <p className="text-xs text-slate-400 mt-0.5">{active} ativos · {inactive} inativos</p>
+          <h3 className="font-semibold text-foreground">Vendedores</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{active} ativos · {inactive} inativos</p>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 bg-primary-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-800 transition-colors shadow-sm"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Novo Vendedor
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-500 transition-colors shadow-glow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Novo Vendedor
+          </button>
+        )}
       </div>
 
       {/* Add form */}

@@ -10,9 +10,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
+        // DR Growth brand (sidebar / brand elements)
+        brand: {
           DEFAULT: '#0f2044',
-          50: '#e8edf5',
+          50:  '#e8edf5',
           100: '#c5d0e5',
           200: '#9eb0d3',
           300: '#7690c0',
@@ -24,25 +25,44 @@ const config: Config = {
           900: '#0f2044',
           950: '#09152d',
         },
+        // Interactive primary — indigo/blue accent
+        primary: {
+          DEFAULT: '#6366f1',
+          50:  '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
+          950: '#1e1b4b',
+        },
         secondary: {
-          DEFAULT: '#1e3a6e',
+          DEFAULT: '#8b5cf6',
           foreground: '#ffffff',
         },
-        accent: {
-          DEFAULT: '#2563eb',
-          foreground: '#ffffff',
-        },
-        background: '#f8fafc',
-        foreground: '#0f172a',
+        // Dark theme surface tokens
+        background: '#0d1117',
+        foreground: '#e6edf3',
         muted: {
-          DEFAULT: '#f1f5f9',
-          foreground: '#64748b',
+          DEFAULT: '#161b22',
+          foreground: '#7d8590',
         },
-        border: '#e2e8f0',
+        border: '#2d3748',
+        input: '#2d3748',
+        ring: '#6366f1',
         card: {
-          DEFAULT: '#ffffff',
-          foreground: '#0f172a',
+          DEFAULT: '#161b22',
+          foreground: '#e6edf3',
         },
+        popover: {
+          DEFAULT: '#1e2533',
+          foreground: '#e6edf3',
+        },
+        // Status colors
         destructive: {
           DEFAULT: '#ef4444',
           foreground: '#ffffff',
@@ -55,6 +75,10 @@ const config: Config = {
           DEFAULT: '#f59e0b',
           foreground: '#ffffff',
         },
+        accent: {
+          DEFAULT: '#1e2533',
+          foreground: '#e6edf3',
+        },
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
@@ -66,8 +90,24 @@ const config: Config = {
         sm: '0.375rem',
       },
       boxShadow: {
-        card: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-        'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        card:        '0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)',
+        'card-hover':'0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)',
+        glow:        '0 0 20px rgba(99,102,241,0.25)',
+        'glow-sm':   '0 0 10px rgba(99,102,241,0.15)',
+      },
+      backgroundImage: {
+        'gradient-card':    'linear-gradient(135deg, #161b22 0%, #1a2233 100%)',
+        'gradient-sidebar': 'linear-gradient(180deg, #0d1520 0%, #0a1018 100%)',
+        'gradient-hero':    'linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a2033 100%)',
+      },
+      animation: {
+        'fade-in':    'fadeIn 0.2s ease-out',
+        'slide-up':   'slideUp 0.25s ease-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      keyframes: {
+        fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        slideUp: { '0%': { opacity: '0', transform: 'translateY(8px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
       },
     },
   },
