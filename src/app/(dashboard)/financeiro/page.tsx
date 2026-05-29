@@ -1,30 +1,49 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { createClient } from '@/lib/supabase/server'
+import { FinanceiroClient } from './FinanceiroClient'
 
-export default function FinanceiroPage() {
+export default async function FinanceiroPage() {
+  const supabase = createClient()
+
+  // Busca todos os pagamentos
+  const { data: payments } = await supabase
+    .from('payments')
+    .select('*')
+    .order('due_date', { ascending: false })
+
+  const all = payments ?? []
+
+  const receitas   = all.filter(p => p.type === 'receita' && p.status === 'pago')
+  const despesas   = all.filter(p => p.type === 'despesa' && p.status === 'pago')
+  const pendentes  = all.filter(p => p.status === 'pendente' && p.type === 'receita')
+
+  const totalReceitas  = receitas.reduce((s, p) => s + p.amount, 0)
+  const totalDespesas  = despesas.reduce((s, p) => s + p.amount, 0)
+  const totalPendentes = pendentes.reduce((s, p) => s + p.amount, 0)
+  const saldo          = totalReceitas - totalDespesas
+
+  // Monta série histórica dos últimos 6 meses
+  const now   = new Date()
+  const serie = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+    const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+    const rec = all
+      .filter(p => p.type === 'receita' && p.status === 'pago' && p.due_date?.startsWith(key))
+      .reduce((s, p) => s + p.amount, 0)
+
+    const dep = all
+      .filter(p => p.type === 'despesa' && p.status === 'pago' && p.due_date?.startsWith(key))
+      .reduce((s, p) => s + p.amount, 0)
+
+    return { label, rec, dep }
+  })
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-primary-900 mb-6">Financeiro</h1>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Receitas mês', value: 'R$ 68.400', color: 'text-green-600' },
-          { label: 'Despesas mês', value: 'R$ 21.200', color: 'text-red-600' },
-          { label: 'Saldo', value: 'R$ 47.200', color: 'text-primary-700' },
-          { label: 'A receber', value: 'R$ 12.800', color: 'text-amber-600' },
-        ].map(s => (
-          <Card key={s.label} className="shadow-card">
-            <CardContent className="pt-5">
-              <p className="text-sm text-muted-foreground">{s.label}</p>
-              <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <Card className="shadow-card">
-        <CardHeader><CardTitle>Fluxo de Caixa</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">Gráficos e tabelas financeiras serão implementados aqui.</p>
-        </CardContent>
-      </Card>
-    </div>
+    <FinanceiroClient
+      stats={{ receitas: totalReceitas, despesas: totalDespesas, saldo, pendentes: totalPendentes }}
+      serie={serie}
+      payments={all}
+    />
   )
 }
