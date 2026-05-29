@@ -10,16 +10,25 @@ export default async function ComercialPage() {
     .order('score', { ascending: false })
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Busca o perfil completo do usuário autenticado
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, name, role')
     .eq('id', user?.id ?? '')
     .single()
 
+  // Role real do banco — sem fallback genérico que pode esconder permissões
+  const role = profile?.role ?? user?.user_metadata?.role ?? ''
+
   return (
     <KanbanBoard
       initialLeads={leads ?? []}
-      currentUser={{ id: profile?.id ?? '', name: profile?.name ?? 'Usuário', role: profile?.role ?? 'comercial' }}
+      currentUser={{
+        id:   profile?.id   ?? user?.id   ?? '',
+        name: profile?.name ?? user?.email?.split('@')[0] ?? 'Usuário',
+        role,
+      }}
     />
   )
 }

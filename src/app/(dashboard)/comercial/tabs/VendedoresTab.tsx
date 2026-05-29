@@ -14,7 +14,7 @@ export function VendedoresTab({ currentUser }: Props) {
   const [saving, setSaving] = useState(false)
 
   const supabase = createClient()
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = ['admin', 'administrador'].includes((currentUser.role ?? '').toLowerCase())
 
   useEffect(() => {
     supabase.from('sellers').select('*').order('name').then(({ data }) => {
