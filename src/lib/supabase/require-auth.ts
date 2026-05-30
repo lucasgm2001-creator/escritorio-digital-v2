@@ -25,7 +25,7 @@ export async function requireAuth(requiredRole?: AuthRole) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== requiredRole && profile?.role !== 'admin') {
+    if (profile?.role !== requiredRole) {
       return {
         error: NextResponse.json(
           { error: 'Acesso negado' },

@@ -99,17 +99,32 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
         if (status === 'SUBSCRIBED') await presenceChannel.track({ user_id: userId, name: userName })
       })
 
-    return () => { supabase.removeChannel(dataChannel); supabase.removeChannel(presenceChannel) }
+    return () => {
+      dataChannel.unsubscribe().then(() => supabase.removeChannel(dataChannel))
+      presenceChannel.unsubscribe().then(() => supabase.removeChannel(presenceChannel))
+    }
   }, [userId, userName])
 
   const handlePostNotice = async () => {
     if (!noticeForm.title.trim()) return
     setSavingNotice(true)
-    const supabase = createClient()
-    await supabase.from('notices').insert({ ...noticeForm, author_id: userId, author_name: userName })
-    setNoticeForm({ title: '', content: '', priority: 'info' })
-    setShowNoticeForm(false)
-    setSavingNotice(false)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('notices').insert({ ...noticeForm, author_id: userId, author_name: userName })
+      if (error) {
+        console.error('Erro ao postar aviso:', error)
+        alert('Erro ao postar aviso. Tente novamente.')
+        setSavingNotice(false)
+        return
+      }
+      setNoticeForm({ title: '', content: '', priority: 'info' })
+      setShowNoticeForm(false)
+    } catch (err) {
+      console.error('Erro ao postar aviso:', err)
+      alert('Erro ao postar aviso. Tente novamente.')
+    } finally {
+      setSavingNotice(false)
+    }
   }
 
   return (

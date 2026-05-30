@@ -5,6 +5,31 @@ import { createClient } from '@/lib/supabase/server'
 export class SuperAgent {
   private supabase = createClient()
 
+  private async generateAIResponse(
+    systemPrompt: string,
+    userMessage: string,
+    maxTokens: number = 400,
+    model: 'haiku' | 'sonnet' = 'haiku'
+  ): Promise<string> {
+    const modelId = model === 'sonnet'
+      ? 'claude-3-5-sonnet-20241022'
+      : 'claude-haiku-4-5-20251001'
+
+    const { text } = await generateText({
+      model: anthropic(modelId),
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userMessage,
+        },
+      ],
+      maxOutputTokens: maxTokens,
+    })
+
+    return text
+  }
+
   // Dados disponíveis para o agente analisar
   async getContextData() {
     const [
@@ -44,57 +69,36 @@ export class SuperAgent {
       filteredContext = { leads: context.leads, clients: [], payments: [], campaigns: context.campaigns }
     }
 
-    const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
-      system: `Você é um assistente inteligente do Escritório Digital DR Growth. Você ajuda a equipe respondendo perguntas sobre leads, clientes, pagamentos e campanhas. Seja conciso, prático e orientado a ações. Responda em português.`,
-      messages: [
-        {
-          role: 'user',
-          content: `Dados disponíveis:\n${JSON.stringify(filteredContext, null, 2)}\n\nPergunta do usuário (${userRole}): ${userQuestion}`,
-        },
-      ],
-      maxOutputTokens: 400,
-    })
-
-    return text
+    return this.generateAIResponse(
+      `Você é um assistente inteligente do Escritório Digital DR Growth. Você ajuda a equipe respondendo perguntas sobre leads, clientes, pagamentos e campanhas. Seja conciso, prático e orientado a ações. Responda em português.`,
+      `Dados disponíveis:\n${JSON.stringify(filteredContext, null, 2)}\n\nPergunta do usuário (${userRole}): ${userQuestion}`,
+      400,
+      'haiku'
+    )
   }
 
   // Gerar relatório semanal completo (para Daniel/admin)
   async gerarRelatorioSemanal(): Promise<string> {
     const context = await this.getContextData()
 
-    const { text } = await generateText({
-      model: anthropic('claude-sonnet-4-6'),
-      system: 'Você é um analista de negócios da DR Growth. Gere um relatório executivo semanal em português com: 1) Resumo de resultados, 2) Principais KPIs, 3) Pontos de atenção, 4) Recomendações.',
-      messages: [
-        {
-          role: 'user',
-          content: `Dados da semana:\n${JSON.stringify(context, null, 2)}`,
-        },
-      ],
-      maxOutputTokens: 800,
-    })
-
-    return text
+    return this.generateAIResponse(
+      'Você é um analista de negócios da DR Growth. Gere um relatório executivo semanal em português com: 1) Resumo de resultados, 2) Principais KPIs, 3) Pontos de atenção, 4) Recomendações.',
+      `Dados da semana:\n${JSON.stringify(context, null, 2)}`,
+      800,
+      'sonnet'
+    )
   }
 
   // Gerar resumo diário
   async gerarResumoDiario(): Promise<string> {
     const context = await this.getContextData()
 
-    const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
-      system: 'Gere um resumo diário conciso em português com: leads novos, vendas, pagamentos recebidos, alertas urgentes.',
-      messages: [
-        {
-          role: 'user',
-          content: `Dados de hoje:\n${JSON.stringify(context, null, 2)}`,
-        },
-      ],
-      maxOutputTokens: 300,
-    })
-
-    return text
+    return this.generateAIResponse(
+      'Gere um resumo diário conciso em português com: leads novos, vendas, pagamentos recebidos, alertas urgentes.',
+      `Dados de hoje:\n${JSON.stringify(context, null, 2)}`,
+      300,
+      'haiku'
+    )
   }
 
   // Postar mensagem no Hall
@@ -122,7 +126,16 @@ export class SuperAgent {
       assigned_name: lead.assigned_name || 'Sistema',
     }).select().single()
 
-    if (!error && data) {
+    if (error) {
+      console.error('Erro ao criar cliente do lead:', error)
+      await this.postarNoHall(
+        `❌ Falha ao criar cliente: ${lead.name}. Tente novamente.`,
+        'alert'
+      )
+      return null
+    }
+
+    if (data) {
       await this.postarNoHall(
         `🎉 Novo contrato fechado — ${lead.name}`,
         'success'

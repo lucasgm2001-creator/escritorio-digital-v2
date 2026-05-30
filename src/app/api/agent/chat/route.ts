@@ -12,10 +12,19 @@ export async function POST(req: Request) {
   }
 
   // Rate limiting (20 req/min)
-  if (!checkRateLimit(authResult.user.id)) {
+  const rateLimitInfo = checkRateLimit(authResult.user.id)
+  if (!rateLimitInfo.allowed) {
     return NextResponse.json(
       { error: 'Muitas requisições. Aguarde um momento.' },
-      { status: 429 }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil((rateLimitInfo.resetTime - Date.now()) / 1000)),
+          'X-RateLimit-Limit': '20',
+          'X-RateLimit-Remaining': String(rateLimitInfo.remaining),
+          'X-RateLimit-Reset': String(Math.ceil(rateLimitInfo.resetTime / 1000)),
+        },
+      }
     )
   }
 
@@ -31,13 +40,22 @@ export async function POST(req: Request) {
 
     // Buscar role do usuário
     const supabase = createClient()
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', authResult.user.id)
       .single()
 
-    const userRole = profile?.role || 'comercial'
+    if (profileError || !profile) {
+      console.error('Failed to fetch user profile:', profileError)
+      return NextResponse.json(
+        { error: 'Erro ao carregar perfil do usuário.' },
+        { status: 500 }
+      )
+    }
+
+    const validRoles = ['admin', 'comercial', 'financeiro', 'trafego']
+    const userRole = validRoles.includes(profile.role) ? profile.role : 'comercial'
 
     // Chamar SuperAgent para responder
     const resposta = await getSuperAgent().chat(question, authResult.user.id, userRole)

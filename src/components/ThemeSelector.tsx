@@ -10,11 +10,16 @@ export function ThemeSelector() {
 
   useEffect(() => {
     setMounted(true)
-    const saved = localStorage.getItem('theme') as Theme | null
-    if (saved) {
-      setTheme(saved)
-      applyTheme(saved)
-    } else {
+    try {
+      const saved = localStorage.getItem('theme') as Theme | null
+      if (saved) {
+        setTheme(saved)
+        applyTheme(saved)
+      } else {
+        applyTheme('auto')
+      }
+    } catch (error) {
+      console.error('localStorage not available:', error)
       applyTheme('auto')
     }
   }, [])
@@ -38,7 +43,11 @@ export function ThemeSelector() {
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
+    try {
+      localStorage.setItem('theme', newTheme)
+    } catch (error) {
+      console.error('Failed to save theme preference:', error)
+    }
     applyTheme(newTheme)
   }
 

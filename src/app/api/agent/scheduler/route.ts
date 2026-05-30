@@ -18,9 +18,14 @@ export async function POST() {
   // para permitir apenas requisições automáticas
 
   try {
+    // Usar UTC para garantir consistência entre timezones
     const now = new Date()
-    const hour = now.getHours()
-    const day = now.getDay()
+    const utcHour = now.getUTCHours()
+    const utcDay = now.getUTCDay()
+
+    // Horários esperados em UTC:
+    // 22h diário = 01:00 UTC (ajuste conforme necessário)
+    // Segunda 10h = segunda em UTC (ajuste conforme fuso horário)
 
     // Executar automações baseadas no horário
     const logs: string[] = []
@@ -39,15 +44,15 @@ export async function POST() {
     const mrr = await getSuperAgent().verificarMRR()
     logs.push(`MRR atual: R$ ${mrr.toFixed(2)}`)
 
-    // Resumo diário ao final do dia (22h)
-    if (hour === 22) {
+    // Resumo diário ao final do dia (01:00 UTC = 22:00 BRT)
+    if (utcHour === 1) {
       logs.push('Gerando resumo diário...')
       const resumo = await getSuperAgent().gerarResumoDiario()
       await getSuperAgent().postarNoHall(`📊 Resumo do dia:\n\n${resumo}`, 'info')
     }
 
-    // Relatório semanal toda segunda (10h)
-    if (day === 1 && hour === 10) {
+    // Relatório semanal toda segunda (14:00 UTC = 10:00 BRT)
+    if (utcDay === 1 && utcHour === 14) {
       logs.push('Gerando relatório semanal...')
       const relatorio = await getSuperAgent().gerarRelatorioSemanal()
       await getSuperAgent().postarNoHall(`📈 Relatório semanal:\n\n${relatorio}`, 'info')

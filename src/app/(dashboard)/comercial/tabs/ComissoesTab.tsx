@@ -91,8 +91,43 @@ export function ComissoesTab({ currentUser }: Props) {
     setCreating(true)
 
     try {
-      if (!createForm.seller_id || !createForm.percentage || !createForm.amount) {
+      if (!createForm.seller_id || createForm.percentage === '' || createForm.amount === '') {
         throw new Error('Preencha todos os campos obrigatórios')
+      }
+
+      const percentageNum = parseFloat(createForm.percentage)
+      const amountNum = parseFloat(createForm.amount)
+
+      if (isNaN(percentageNum) || isNaN(amountNum)) {
+        throw new Error('Percentual e valor devem ser números válidos')
+      }
+
+      if (percentageNum < 0 || percentageNum > 100) {
+        throw new Error('Percentual deve estar entre 0 e 100')
+      }
+
+      if (amountNum < 0) {
+        throw new Error('Valor não pode ser negativo')
+      }
+
+      if (!createForm.password || createForm.password.length === 0) {
+        throw new Error('Digite sua senha para confirmar')
+      }
+
+      // Validar senha
+      const passwordRes = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: createForm.password }),
+      })
+
+      if (!passwordRes.ok) {
+        throw new Error('Erro ao validar senha. Tente novamente.')
+      }
+
+      const passwordData = await passwordRes.json()
+      if (!passwordData.valid) {
+        throw new Error('Senha incorreta.')
       }
 
       const seller = sellers.find(s => s.id === createForm.seller_id)
@@ -272,6 +307,15 @@ export function ComissoesTab({ currentUser }: Props) {
                 onClick={() => {
                   setShowCreateModal(false)
                   setCreateError('')
+                  setCreateForm({
+                    seller_id: '',
+                    lead_id: '',
+                    cargo: '',
+                    percentage: '10',
+                    amount: '',
+                    due_date: '',
+                    password: '',
+                  })
                 }}
                 className="text-muted-foreground hover:text-foreground text-2xl leading-none"
               >
@@ -384,6 +428,15 @@ export function ComissoesTab({ currentUser }: Props) {
                   onClick={() => {
                     setShowCreateModal(false)
                     setCreateError('')
+                    setCreateForm({
+                      seller_id: '',
+                      lead_id: '',
+                      cargo: '',
+                      percentage: '10',
+                      amount: '',
+                      due_date: '',
+                      password: '',
+                    })
                   }}
                   disabled={creating}
                   className="flex-1 bg-[#1e2533] border border-[#2d3748] text-foreground px-4 py-2 rounded-lg font-medium hover:bg-[#262d35] transition-colors disabled:opacity-50"
