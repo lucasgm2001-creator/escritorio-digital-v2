@@ -45,10 +45,12 @@ export function ThemeSelector() {
     setTheme(newTheme)
     try {
       localStorage.setItem('theme', newTheme)
+      applyTheme(newTheme)
     } catch (error) {
       console.error('Failed to save theme preference:', error)
+      // Ainda aplicar tema mesmo se localStorage falhar (private mode, quota exceeded)
+      applyTheme(newTheme)
     }
-    applyTheme(newTheme)
   }
 
   if (!mounted) return null

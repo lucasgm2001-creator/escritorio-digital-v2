@@ -12,10 +12,16 @@ export async function POST(req: Request) {
   }
 
   // Verificar rate limiting (20 req/min por usuário)
-  if (!checkRateLimit(authResult.user.id)) {
+  const rateLimitInfo = checkRateLimit(authResult.user.id)
+  if (!rateLimitInfo.allowed) {
     return NextResponse.json(
       { error: 'Muitas requisições. Aguarde um momento.' },
-      { status: 429 }
+      { status: 429, headers: {
+        'Retry-After': String(Math.ceil((rateLimitInfo.resetTime - Date.now()) / 1000)),
+        'X-RateLimit-Limit': '20',
+        'X-RateLimit-Remaining': String(rateLimitInfo.remaining),
+        'X-RateLimit-Reset': String(Math.ceil(rateLimitInfo.resetTime / 1000)),
+      }}
     )
   }
 

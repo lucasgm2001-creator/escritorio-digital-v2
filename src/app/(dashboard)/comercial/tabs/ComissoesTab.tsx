@@ -115,19 +115,41 @@ export function ComissoesTab({ currentUser }: Props) {
       }
 
       // Validar senha
-      const passwordRes = await fetch('/api/auth/verify-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: createForm.password }),
-      })
+      let passwordValid = false
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
 
-      if (!passwordRes.ok) {
-        throw new Error('Erro ao validar senha. Tente novamente.')
+        const passwordRes = await fetch('/api/auth/verify-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: createForm.password }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!passwordRes.ok) {
+          throw new Error('Erro ao validar senha. Verifique sua conexão e tente novamente.')
+        }
+
+        const passwordData = await passwordRes.json()
+        if (!passwordData.valid) {
+          throw new Error('Senha incorreta.')
+        }
+        passwordValid = true
+      } catch (passwordErr) {
+        throw new Error(
+          passwordErr instanceof Error && passwordErr.message.includes('timeout')
+            ? 'Validação de senha expirou. Verifique sua conexão e tente novamente.'
+            : passwordErr instanceof Error
+              ? passwordErr.message
+              : 'Erro ao validar senha. Tente novamente.'
+        )
       }
 
-      const passwordData = await passwordRes.json()
-      if (!passwordData.valid) {
-        throw new Error('Senha incorreta.')
+      if (!passwordValid) {
+        throw new Error('Falha ao validar senha.')
       }
 
       const seller = sellers.find(s => s.id === createForm.seller_id)
