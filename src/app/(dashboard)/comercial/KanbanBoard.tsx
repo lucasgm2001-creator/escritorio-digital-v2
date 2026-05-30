@@ -6,6 +6,7 @@ import {
   type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
+import { DraggableTabs } from '@/components/DraggableTabs'
 import { KanbanColumn } from './KanbanColumn'
 import { LeadCard } from './LeadCard'
 import { LeadModal } from './LeadModal'
@@ -146,21 +147,9 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex px-6 gap-0 overflow-x-auto">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                tab === t.key
-                  ? 'border-primary-500 text-primary-400'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-[#3d4f6a]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Tabs - Draggable */}
+        <div className="px-6">
+          <DraggableTabs tabs={TABS} activeTab={tab} onTabChange={(key) => setTab(key as Tab)} sectionKey="comercial" />
         </div>
       </div>
 

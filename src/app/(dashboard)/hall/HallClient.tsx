@@ -49,6 +49,16 @@ function computeGreeting(): string {
   return 'Boa noite'
 }
 
+function computeDayView() {
+  const now = new Date()
+  const hours = Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    label: `${String(i).padStart(2, '0')}:00`,
+    isNow: now.getHours() === i,
+  }))
+  return hours
+}
+
 function computeWeekDays() {
   const now = new Date()
   const jsDay = now.getDay()
@@ -63,6 +73,45 @@ function computeWeekDays() {
   })
 }
 
+function computeMonthDays() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const startDate = new Date(firstDay)
+  startDate.setDate(startDate.getDate() - firstDay.getDay())
+
+  const days: { date: number; isToday: boolean; isCurrentMonth: boolean }[] = []
+  const todayStr = now.toDateString()
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate)
+    d.setDate(startDate.getDate() + i)
+    days.push({
+      date: d.getDate(),
+      isToday: d.toDateString() === todayStr,
+      isCurrentMonth: d.getMonth() === month,
+    })
+  }
+  return days
+}
+
+function computeYearMonths() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const monthDate = new Date(year, i, 1)
+    return {
+      month: i,
+      label: monthDate.toLocaleDateString('pt-BR', { month: 'short' }),
+      isCurrentMonth: i === now.getMonth(),
+    }
+  })
+  return months
+}
+
+type CalendarView = 'daily' | 'weekly' | 'monthly' | 'annual'
+
 export function HallClient({ initialActivities, initialNotices, userName, userRole, userId }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('activities')
   const [activities, setActivities] = useState<Activity[]>(initialActivities)
@@ -70,6 +119,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
   const [greeting, setGreeting]     = useState('')
   const [today, setToday]           = useState('')
   const [weekDays, setWeekDays]     = useState<{ label: string; date: number; isToday: boolean }[]>([])
+  const [calendarView, setCalendarView] = useState<CalendarView>('weekly')
   const [onlineCount, setOnlineCount] = useState(1)
   const [showNoticeForm, setShowNoticeForm] = useState(false)
   const [noticeForm, setNoticeForm] = useState({ title: '', content: '', priority: 'info' as 'info' | 'warning' | 'urgent' })
@@ -81,6 +131,15 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
     setGreeting(computeGreeting())
     setToday(new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
     setWeekDays(computeWeekDays())
+
+    try {
+      const savedView = localStorage.getItem('hall-calendar-view') as CalendarView | null
+      if (savedView && ['daily', 'weekly', 'monthly', 'annual'].includes(savedView)) {
+        setCalendarView(savedView)
+      }
+    } catch (error) {
+      console.error('Failed to load calendar view:', error)
+    }
   }, [])
 
   useEffect(() => {
@@ -104,6 +163,15 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
       presenceChannel.unsubscribe().then(() => supabase.removeChannel(presenceChannel))
     }
   }, [userId, userName])
+
+  const handleChangeCalendarView = (view: CalendarView) => {
+    setCalendarView(view)
+    try {
+      localStorage.setItem('hall-calendar-view', view)
+    } catch (error) {
+      console.error('Failed to save calendar view:', error)
+    }
+  }
 
   const handlePostNotice = async () => {
     if (!noticeForm.title.trim()) return
@@ -264,26 +332,114 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
         </div>
       )}
 
-      {/* Semana Atual */}
+      {/* Calendário com Múltiplas Visualizações */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Semana Atual</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">
+              {calendarView === 'daily' ? '📅 Hoje' : calendarView === 'weekly' ? '📆 Semana' : calendarView === 'monthly' ? '📋 Mês' : '📊 Ano'}
+            </CardTitle>
+            <div className="flex gap-1">
+              {(['daily', 'weekly', 'monthly', 'annual'] as CalendarView[]).map(view => (
+                <button
+                  key={view}
+                  onClick={() => handleChangeCalendarView(view)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    calendarView === view
+                      ? 'bg-primary-600 text-white shadow-glow-sm'
+                      : 'bg-[#1a2133] text-muted-foreground border border-[#2d3748] hover:border-primary-600'
+                  }`}
+                >
+                  {view === 'daily' ? 'Diário' : view === 'weekly' ? 'Semanal' : view === 'monthly' ? 'Mensal' : 'Anual'}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-2">
-            {(weekDays.length > 0 ? weekDays : ['Seg','Ter','Qua','Qui','Sex'].map(l => ({ label: l, date: 0, isToday: false }))).map(({ label, date, isToday }) => (
-              <div key={label} className={`rounded-xl p-3 text-center border transition-all duration-150 ${
-                isToday
-                  ? 'bg-primary-600/20 border-primary-600/40 shadow-glow-sm'
-                  : 'bg-[#1a2133] border-[#2d3748] hover:border-[#3d4f6a]'
-              }`}>
-                <p className={`text-xs font-medium ${isToday ? 'text-primary-400' : 'text-muted-foreground'}`}>{label}</p>
-                <p className={`text-xl font-bold mt-1 tabular-nums ${isToday ? 'text-primary-300' : 'text-foreground'}`}>
-                  {date || '—'}
-                </p>
+          {calendarView === 'daily' && (
+            <div className="grid grid-cols-6 gap-1">
+              {computeDayView().map(({ hour, label, isNow }) => (
+                <div
+                  key={hour}
+                  className={`rounded-lg p-2 text-center border transition-all text-xs font-medium ${
+                    isNow
+                      ? 'bg-primary-600/20 border-primary-600/40 text-primary-400'
+                      : 'bg-[#1a2133] border-[#2d3748] text-muted-foreground'
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {calendarView === 'weekly' && (
+            <div className="grid grid-cols-5 gap-2">
+              {(weekDays.length > 0 ? weekDays : ['Seg','Ter','Qua','Qui','Sex'].map(l => ({ label: l, date: 0, isToday: false }))).map(({ label, date, isToday }) => (
+                <div key={label} className={`rounded-xl p-3 text-center border transition-all duration-150 ${
+                  isToday
+                    ? 'bg-primary-600/20 border-primary-600/40 shadow-glow-sm'
+                    : 'bg-[#1a2133] border-[#2d3748] hover:border-[#3d4f6a]'
+                }`}>
+                  <p className={`text-xs font-medium ${isToday ? 'text-primary-400' : 'text-muted-foreground'}`}>{label}</p>
+                  <p className={`text-xl font-bold mt-1 tabular-nums ${isToday ? 'text-primary-300' : 'text-foreground'}`}>
+                    {date || '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {calendarView === 'monthly' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-7 gap-1">
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'].map(day => (
+                  <div key={day} className="text-center text-xs font-bold text-muted-foreground py-2">
+                    {day}
+                  </div>
+                ))}
+                {computeMonthDays().map((day, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg p-2 text-center border text-xs font-medium transition-all ${
+                      day.isToday
+                        ? 'bg-primary-600/20 border-primary-600/40 text-primary-400'
+                        : day.isCurrentMonth
+                          ? 'bg-[#1a2133] border-[#2d3748] text-foreground'
+                          : 'bg-[#0d1117] border-[#1a2133] text-muted-foreground/50'
+                    }`}
+                  >
+                    {day.date}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {calendarView === 'annual' && (
+            <div className="grid grid-cols-3 gap-4">
+              {computeYearMonths().map(({ month, label, isCurrentMonth }) => (
+                <div
+                  key={month}
+                  className={`rounded-xl p-3 border text-center transition-all ${
+                    isCurrentMonth
+                      ? 'bg-primary-600/20 border-primary-600/40'
+                      : 'bg-[#1a2133] border-[#2d3748]'
+                  }`}
+                >
+                  <p className={`text-sm font-bold capitalize ${
+                    isCurrentMonth ? 'text-primary-400' : 'text-foreground'
+                  }`}>
+                    {label}
+                  </p>
+                  <p className={`text-xs mt-1 ${isCurrentMonth ? 'text-primary-300' : 'text-muted-foreground'}`}>
+                    Mês {month + 1}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

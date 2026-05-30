@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 
@@ -19,7 +19,50 @@ interface SellerRow {
   created_at: string
 }
 
+interface VendedorFile {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  created_at: string
+}
+
 interface Props { currentUser: { id: string; name: string; role: string } }
+
+function fmtSize(bytes: number): string {
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`
+  if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+function FileIcon({ type }: { type: string }) {
+  if (type.includes('pdf')) return (
+    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+  if (type.includes('sheet') || type.includes('spreadsheet')) return (
+    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+  if (type.includes('word') || type.includes('document')) return (
+    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+  if (type.includes('image')) return (
+    <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+  return (
+    <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+  )
+}
 
 export function VendedoresTab({ currentUser }: Props) {
   const [sellers, setSellers] = useState<SellerRow[]>([])
@@ -28,6 +71,9 @@ export function VendedoresTab({ currentUser }: Props) {
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', cargo: '', monthly_goal: '', default_commission: '' })
   const [saving, setSaving] = useState(false)
+  const [files, setFiles] = useState<VendedorFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Aceita 'admin' ou 'administrador' (case-insensitive)
   const role = (currentUser.role ?? '').toLowerCase()
@@ -52,6 +98,34 @@ export function VendedoresTab({ currentUser }: Props) {
         } else {
           setSellers((data ?? []) as SellerRow[])
           setFetchError(null)
+        }
+
+        // Carrega arquivos do Supabase Storage
+        try {
+          const { data: filesList } = await supabase
+            .storage
+            .from('vendedores')
+            .list('', { limit: 1000 })
+
+          if (filesList) {
+            const filesWithUrls: VendedorFile[] = filesList.map(f => {
+              const { data: urlData } = supabase
+                .storage
+                .from('vendedores')
+                .getPublicUrl(f.name)
+              return {
+                id: f.name,
+                name: f.name,
+                url: urlData?.publicUrl || '',
+                type: f.name.split('.').pop() || '',
+                size: f.metadata?.size || 0,
+                created_at: f.created_at || new Date().toISOString(),
+              }
+            })
+            setFiles(filesWithUrls)
+          }
+        } catch (storageErr) {
+          console.warn('[VendedoresTab] storage error:', storageErr)
         }
       } catch (err) {
         console.error('[VendedoresTab] unexpected error:', err)
@@ -113,6 +187,55 @@ export function VendedoresTab({ currentUser }: Props) {
     setSellers(prev => prev.map(s => s.id === id ? { ...s, status: next } : s))
   }
 
+  const handleFileUpload = async (fileList: FileList) => {
+    if (fileList.length === 0) return
+
+    setUploading(true)
+    const supabase = createClient()
+
+    try {
+      for (const file of Array.from(fileList)) {
+        const fileName = `${Date.now()}-${file.name}`
+        const { error } = await supabase.storage
+          .from('vendedores')
+          .upload(fileName, file, { upsert: false })
+
+        if (error) {
+          console.error('[VendedoresTab] upload error:', error)
+          continue
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('vendedores')
+          .getPublicUrl(fileName)
+
+        setFiles(prev => [...prev, {
+          id: fileName,
+          name: file.name,
+          url: urlData?.publicUrl || '',
+          type: file.type,
+          size: file.size,
+          created_at: new Date().toISOString(),
+        }])
+      }
+    } catch (err) {
+      console.error('[VendedoresTab] upload unexpected error:', err)
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  const handleRemoveFile = async (id: string) => {
+    const supabase = createClient()
+    try {
+      await supabase.storage.from('vendedores').remove([id])
+      setFiles(prev => prev.filter(f => f.id !== id))
+    } catch (err) {
+      console.error('[VendedoresTab] remove error:', err)
+    }
+  }
+
   const active   = sellers.filter(s => s.status === 'ativo').length
   const inactive = sellers.filter(s => s.status === 'inativo').length
   const inputCls = 'w-full bg-[#1e2533] border border-[#2d3748] rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary-600'
@@ -126,23 +249,103 @@ export function VendedoresTab({ currentUser }: Props) {
           <p className="text-xs text-muted-foreground mt-0.5">{active} ativos · {inactive} inativos</p>
         </div>
 
-        {isAdmin && (
+        <div className="flex gap-3">
           <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-500 transition-colors shadow-glow-sm"
+            onClick={() => inputRef.current?.click()}
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-glow-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            Adicionar Vendedor
+            Upload
           </button>
-        )}
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={e => e.target.files && handleFileUpload(e.target.files)}
+            disabled={uploading}
+          />
+
+          {isAdmin && (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-500 transition-colors shadow-glow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Adicionar Vendedor
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Error banner (only for missing table, silent otherwise) */}
       {fetchError && (
         <div className="bg-amber-900/20 border border-amber-800/40 rounded-xl px-4 py-3 text-xs text-amber-400">
           {fetchError}
+        </div>
+      )}
+
+      {/* Files Section */}
+      {files.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h4 className="font-semibold text-foreground text-sm">Arquivos Enviados</h4>
+            <p className="text-xs text-muted-foreground mt-0.5">{files.length} arquivo(s)</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {files.map(f => (
+              <div key={f.id} className="group relative bg-[#161b22] border border-[#2d3748] rounded-xl overflow-hidden hover:border-primary-700/50 transition-all duration-200 hover:shadow-glow-sm">
+                {/* Preview */}
+                <div className="h-32 bg-[#0d1117] flex items-center justify-center overflow-hidden">
+                  {f.type.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={f.url} alt={f.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <FileIcon type={f.type} />
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="p-2.5">
+                  <p className="text-xs font-medium text-foreground truncate">{f.name}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{fmtSize(f.size)}</p>
+                </div>
+
+                {/* Actions overlay */}
+                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <button
+                    onClick={() => handleRemoveFile(f.id)}
+                    className="bg-red-900/60 hover:bg-red-900 text-red-300 p-2 rounded-lg transition-colors"
+                    title="Remover arquivo"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Add more */}
+            <button
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="h-full min-h-[170px] border-2 border-dashed border-[#2d3748] rounded-xl flex items-center justify-center hover:border-primary-700 hover:bg-primary-900/10 transition-all text-muted-foreground hover:text-primary-400 disabled:opacity-50"
+            >
+              {uploading ? (
+                <span className="w-5 h-5 border-2 border-muted-foreground/20 border-t-primary-500 rounded-full animate-spin" />
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 4v16m8-8H4" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

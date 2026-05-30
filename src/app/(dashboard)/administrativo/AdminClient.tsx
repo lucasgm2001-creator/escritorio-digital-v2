@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { timeAgo, formatDate } from '@/lib/utils'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { DraggableTabs } from '@/components/DraggableTabs'
 
 interface Profile { id: string; name: string; role: string; email?: string; created_at: string }
 interface Activity { id: string; type: string; description: string; user_name?: string; created_at: string }
@@ -113,18 +114,7 @@ export function AdminClient({ profiles, stats, recentActivities, userRole }: Pro
             ))}
           </div>
         </div>
-        <div className="flex gap-0">
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                tab === t.key
-                  ? 'border-primary-500 text-primary-400'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <DraggableTabs tabs={TABS} activeTab={tab} onTabChange={(key) => setTab(key as Tab)} sectionKey="administrativo" />
       </div>
 
       {/* Content */}
