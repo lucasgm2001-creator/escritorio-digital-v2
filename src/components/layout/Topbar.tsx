@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from '@/lib/supabase/auth-actions'
 
+type Theme = 'light' | 'dark' | 'auto'
+
 interface TopbarProps {
   title: string
   onMenuToggle: () => void
@@ -42,7 +44,48 @@ function LiveClock({ timezone, flag }: { timezone: string; flag: string }) {
 export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial = 'U', userRole = '' }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>('auto')
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setMounted(true)
+    try {
+      const saved = localStorage.getItem('theme') as Theme | null
+      if (saved) setTheme(saved)
+    } catch (error) {
+      console.error('Failed to read theme from localStorage:', error)
+    }
+  }, [])
+
+  const handleThemeChange = (newTheme: Theme) => {
+    setTheme(newTheme)
+    setThemeDropdownOpen(false)
+    try {
+      localStorage.setItem('theme', newTheme)
+      // Aplicar tema
+      const html = document.documentElement
+      const isDarkByTime = () => {
+        const hour = new Date().getHours()
+        return hour >= 18 || hour < 6
+      }
+      const isDark = newTheme === 'dark' || (newTheme === 'auto' && isDarkByTime())
+      if (isDark) {
+        html.style.colorScheme = 'dark'
+        html.classList.add('dark')
+        document.body.style.backgroundColor = '#0d1117'
+        document.body.style.color = '#e6edf3'
+      } else {
+        html.style.colorScheme = 'light'
+        html.classList.remove('dark')
+        document.body.style.backgroundColor = '#ffffff'
+        document.body.style.color = '#24292f'
+      }
+    } catch (error) {
+      console.error('Failed to save theme:', error)
+    }
+  }
 
   const handleLogout = async () => {
     setDropdownOpen(false)
@@ -83,6 +126,63 @@ export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial
           <LiveClock timezone="America/Sao_Paulo" flag="🇧🇷" />
           <LiveClock timezone="America/New_York" flag="🇺🇸" />
         </div>
+
+        {/* Theme Selector */}
+        {mounted && (
+          <div className="relative">
+            <button
+              onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+              className="p-1.5 rounded-lg hover:bg-[#1e2533] transition-colors text-slate-500 hover:text-slate-300"
+              title="Mudar tema"
+              aria-label="Tema"
+            >
+              {theme === 'light' ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm5.657-9.193a1 1 0 00-1.414 0l-.707.707A1 1 0 005.05 6.464l.707-.707a1 1 0 001.414-1.414zM5 11a1 1 0 100-2H4a1 1 0 100 2h1z" clipRule="evenodd" />
+                </svg>
+              ) : theme === 'dark' ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2a1 1 0 11-2 0V3a1 1 0 011-1zm-1 13a1 1 0 100 2h2a1 1 0 100-2H3zm13-2a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM4 5a2 2 0 100 4 2 2 0 000-4zm2.165 4.168a1 1 0 11-1.414-1.414A2 2 0 103.414 9.414a1 1 0 011.414 1.414zM12 9a3 3 0 110-6 3 3 0 010 6z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+
+            {themeDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setThemeDropdownOpen(false)} />
+                <div className="absolute right-0 top-11 z-20 w-40 bg-[#1e2533] border border-[#2d3748] rounded-xl shadow-card-hover py-1 overflow-hidden animate-fade-in">
+                  {[
+                    { id: 'light' as Theme, label: '☀️ Claro', icon: '☀️' },
+                    { id: 'auto' as Theme, label: '🔄 Automático', icon: '🔄' },
+                    { id: 'dark' as Theme, label: '🌙 Escuro', icon: '🌙' },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleThemeChange(opt.id)}
+                      className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2 ${
+                        theme === opt.id
+                          ? 'bg-primary-600/30 text-primary-400'
+                          : 'text-foreground hover:bg-[#2d3748]'
+                      }`}
+                    >
+                      <span>{opt.icon}</span>
+                      <span>{opt.label}</span>
+                      {theme === opt.id && (
+                        <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Avatar + dropdown */}
         <div className="relative">
