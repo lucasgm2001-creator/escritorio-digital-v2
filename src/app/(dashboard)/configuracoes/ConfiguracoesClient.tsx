@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Sun, Moon, Monitor } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type Theme = 'light' | 'dark' | 'auto'
@@ -41,14 +42,14 @@ function ThemeSelectorInline() {
     if (isDark) {
       html.style.colorScheme = 'dark'
       html.classList.add('dark')
-      document.body.style.backgroundColor = '#0d1117'
-      document.body.style.color = '#e6edf3'
+      html.classList.remove('light')
     } else {
       html.style.colorScheme = 'light'
+      html.classList.add('light')
       html.classList.remove('dark')
-      document.body.style.backgroundColor = '#ffffff'
-      document.body.style.color = '#24292f'
     }
+    document.body.style.removeProperty('background-color')
+    document.body.style.removeProperty('color')
   }, [])
 
   useEffect(() => {
@@ -83,21 +84,21 @@ function ThemeSelectorInline() {
   return (
     <div className="flex gap-2">
       {[
-        { id: 'light' as Theme, label: '☀️ Claro', icon: '☀️' },
-        { id: 'dark', label: '🌙 Escuro', icon: '🌙' },
-        { id: 'auto', label: '💻 Automático', icon: '💻' },
-      ].map(opt => (
+        { id: 'light' as Theme, label: 'Claro', Icon: Sun },
+        { id: 'dark' as Theme, label: 'Escuro', Icon: Moon },
+        { id: 'auto' as Theme, label: 'Auto', Icon: Monitor },
+      ].map(({ id, label, Icon }) => (
         <button
-          key={opt.id}
-          onClick={() => handleThemeChange(opt.id as Theme)}
+          key={id}
+          onClick={() => handleThemeChange(id)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-all text-sm ${
-            theme === opt.id
+            theme === id
               ? 'bg-primary-600 border-primary-600 text-white shadow-md'
               : 'bg-[#1e2533] border-[#2d3748] text-muted-foreground hover:border-primary-600'
           }`}
         >
-          <span>{opt.icon}</span>
-          <span className="font-medium">{opt.label.split(' ')[1]}</span>
+          <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+          <span className="font-medium">{label}</span>
         </button>
       ))}
     </div>

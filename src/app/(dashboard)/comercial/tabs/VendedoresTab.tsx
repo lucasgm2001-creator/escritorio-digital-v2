@@ -126,17 +126,15 @@ export function VendedoresTab({ currentUser }: Props) {
           <p className="text-xs text-muted-foreground mt-0.5">{active} ativos · {inactive} inativos</p>
         </div>
 
-        {isAdmin && (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-500 transition-colors shadow-glow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            + Novo Vendedor
-          </button>
-        )}
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-500 transition-colors shadow-glow-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          + Novo Vendedor
+        </button>
       </div>
 
       {/* Error banner (only for missing table, silent otherwise) */}
@@ -159,11 +157,9 @@ export function VendedoresTab({ currentUser }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <p className="text-sm text-muted-foreground font-medium">Nenhum vendedor cadastrado</p>
-            {isAdmin && (
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                Clique em &quot;Adicionar Vendedor&quot; para começar
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              Clique em &quot;+ Novo Vendedor&quot; para começar
+            </p>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -228,8 +224,8 @@ export function VendedoresTab({ currentUser }: Props) {
         )}
       </div>
 
-      {/* Modal overlay — abre apenas para admin */}
-      {addOpen && isAdmin && (
+      {/* Modal overlay */}
+      {addOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#161b22] border border-[#2d3748] rounded-2xl shadow-card-hover w-full max-w-sm animate-slide-up">
             <div className="flex items-center justify-between p-5 border-b border-[#2d3748]">

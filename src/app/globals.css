@@ -172,3 +172,50 @@ html.light {
   .animate-slide-up { animation: slideUp 0.25s ease-out both; }
   .animate-glow     { animation: glowPulse 2s ease-in-out infinite; }
 }
+
+/* ─── Light theme — override hardcoded dark Tailwind classes ── */
+
+/* Layout shells */
+html.light body          { background-color: var(--background); color: var(--foreground); }
+html.light header        { background-color: var(--background) !important; border-color: var(--border-solid) !important; }
+html.light aside         { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%) !important; border-color: rgba(0,0,0,0.08) !important; }
+
+/* Sidebar nav links */
+html.light aside a                              { color: #475569; }
+html.light aside a:hover                        { background-color: rgba(0,0,0,0.04) !important; color: #1e293b; }
+html.light aside .text-slate-500                { color: #94a3b8 !important; }
+html.light aside .text-slate-600                { color: #64748b !important; }
+
+/* Dark backgrounds → CSS variables */
+html.light [class*="bg-[#0d1117]"]             { background-color: var(--background)  !important; }
+html.light [class*="bg-[#161b22]"]             { background-color: var(--card)        !important; }
+html.light [class*="bg-[#161b27]"]             { background-color: var(--card)        !important; }
+html.light [class*="bg-[#1e2533]"]             { background-color: var(--input)       !important; }
+html.light [class*="bg-[#252d3d]"]             { background-color: var(--muted)       !important; }
+html.light [class*="bg-[#1a2133]"]             { background-color: rgba(0,0,0,0.03)   !important; }
+html.light [class*="bg-[#1a2533]"]             { background-color: rgba(0,0,0,0.03)   !important; }
+html.light [class*="bg-gradient-card"]         { background: var(--card)              !important; }
+html.light [class*="bg-gradient-hero"]         { background: var(--background)        !important; }
+html.light [class*="bg-gradient-sidebar"]      { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%) !important; }
+
+/* Dark borders → CSS variables */
+html.light [class*="border-[#2d3748]"]         { border-color: var(--border-solid)    !important; }
+html.light [class*="border-[#3d4f6a]"]         { border-color: rgba(0,0,0,0.15)       !important; }
+html.light [class*="border-[rgba(255"]         { border-color: rgba(0,0,0,0.08)       !important; }
+html.light [class*="divide-[#2d3748]"]         > * + * { border-color: var(--border-solid) !important; }
+
+/* Hover states using dark arbitrary values */
+html.light [class*="hover:bg-[#1e2533]"]:hover { background-color: var(--input)       !important; }
+html.light [class*="hover:bg-[#2d3748]"]:hover { background-color: var(--muted)       !important; }
+html.light [class*="hover:bg-[#1a2133]"]:hover { background-color: rgba(0,0,0,0.04)   !important; }
+html.light [class*="hover:bg-[rgba(255"]:hover  { background-color: rgba(0,0,0,0.03)   !important; }
+
+/* Dark scroll */
+html.light ::-webkit-scrollbar-thumb       { background: #d1d5db; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* glass-card in light mode */
+html.light .glass-card {
+  background: rgba(246,248,250,0.95) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+}
