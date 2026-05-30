@@ -17,11 +17,12 @@ import { AgendaTab } from './tabs/AgendaTab'
 import { ComissoesTab } from './tabs/ComissoesTab'
 import { VendedoresTab } from './tabs/VendedoresTab'
 import { ApresentacaoTab } from './tabs/ApresentacaoTab'
+import { FixoTab } from './tabs/FixoTab'
 import { MAIN_FLOW, SECONDARY_FLOW, ALL_COLUMNS } from './types'
 import type { Lead, LeadStatus } from './types'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
-type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'comissoes' | 'vendedores' | 'apresentacao'
+type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'comissoes' | 'vendedores' | 'apresentacao' | 'fixo'
 type OperationFilter = 'todos' | 'brasil' | 'eua'
 
 interface CurrentUser { id: string; name: string; role: string }
@@ -51,6 +52,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
     { key: 'comissoes',    label: 'Comissões' },
     { key: 'apresentacao', label: 'Apresentação' },
     { key: 'vendedores',   label: 'Vendedores' },
+    { key: 'fixo',         label: 'Fixo' },
   ]
 
   const sensors = useSensors(
@@ -227,6 +229,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
         {tab === 'comissoes'    && <ComissoesTab currentUser={currentUser} />}
         {tab === 'apresentacao' && <ApresentacaoTab />}
         {tab === 'vendedores'   && <VendedoresTab currentUser={currentUser} />}
+        {tab === 'fixo'         && <FixoTab currentUser={currentUser} />}
       </div>
 
       {/* Modals */}

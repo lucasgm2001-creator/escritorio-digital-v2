@@ -10,6 +10,8 @@ interface SellerRow {
   name: string
   email?: string
   cargo?: string
+  monthly_goal?: number
+  default_commission?: number
   status: 'ativo' | 'inativo'
   leads_assigned: number
   conversion_rate: number
@@ -24,7 +26,7 @@ export function VendedoresTab({ currentUser }: Props) {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', cargo: '' })
+  const [form, setForm] = useState({ name: '', email: '', cargo: '', monthly_goal: '', default_commission: '' })
   const [saving, setSaving] = useState(false)
 
   // Aceita 'admin' ou 'administrador' (case-insensitive)
@@ -37,7 +39,7 @@ export function VendedoresTab({ currentUser }: Props) {
         const supabase = createClient()
         const { data, error } = await supabase
           .from('sellers')
-          .select('id, name, email, cargo, status, leads_assigned, conversion_rate, total_sales, created_at')
+          .select('id, name, email, cargo, monthly_goal, default_commission, status, leads_assigned, conversion_rate, total_sales, created_at')
           .order('name')
 
         if (error) {
@@ -64,6 +66,20 @@ export function VendedoresTab({ currentUser }: Props) {
 
   const handleAdd = async () => {
     if (!form.name.trim()) return
+
+    const monthlyGoalNum = form.monthly_goal ? parseFloat(form.monthly_goal) : 0
+    const commissionNum = form.default_commission ? parseFloat(form.default_commission) : 0
+
+    if (form.monthly_goal && (isNaN(monthlyGoalNum) || monthlyGoalNum < 0)) {
+      alert('Meta mensal deve ser um número válido e não negativo')
+      return
+    }
+
+    if (form.default_commission && (isNaN(commissionNum) || commissionNum < 0 || commissionNum > 100)) {
+      alert('Comissão padrão deve estar entre 0 e 100%')
+      return
+    }
+
     setSaving(true)
     try {
       const supabase = createClient()
@@ -71,18 +87,20 @@ export function VendedoresTab({ currentUser }: Props) {
         name: form.name.trim(),
         email: form.email.trim() || null,
         cargo: form.cargo.trim() || null,
+        monthly_goal: monthlyGoalNum,
+        default_commission: commissionNum,
         status: 'ativo',
         total_sales: 0,
         total_commissions: 0,
         leads_assigned: 0,
         conversion_rate: 0,
-      }).select('id, name, email, cargo, status, leads_assigned, conversion_rate, total_sales, created_at').single()
+      }).select('id, name, email, cargo, monthly_goal, default_commission, status, leads_assigned, conversion_rate, total_sales, created_at').single()
 
       if (!error && data) setSellers(prev => [...prev, data as SellerRow])
     } catch (err) {
       console.error('[VendedoresTab] insert error:', err)
     } finally {
-      setForm({ name: '', email: '', cargo: '' })
+      setForm({ name: '', email: '', cargo: '', monthly_goal: '', default_commission: '' })
       setAddOpen(false)
       setSaving(false)
     }
@@ -151,9 +169,9 @@ export function VendedoresTab({ currentUser }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#0d1117]/50 border-b border-[#2d3748]">
-                {['Vendedor', 'E-mail', 'Cargo', 'Leads', 'Conv.', 'Desde', 'Status', 'Ações'].map(h => (
+                {['Vendedor', 'E-mail', 'Cargo', 'Meta', 'Comissão %', 'Leads', 'Conv.', 'Desde', 'Status', 'Ações'].map(h => (
                   <th key={h} className={`text-xs text-muted-foreground font-semibold px-4 py-3 uppercase tracking-wide ${
-                    h === 'Leads' || h === 'Conv.' ? 'text-right' : 'text-left'
+                    ['Meta', 'Comissão %', 'Leads', 'Conv.'].includes(h) ? 'text-right' : 'text-left'
                   }`}>{h}</th>
                 ))}
               </tr>
@@ -171,6 +189,12 @@ export function VendedoresTab({ currentUser }: Props) {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{s.email ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{s.cargo ?? '—'}</td>
+                  <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">
+                    {s.monthly_goal ? `R$ ${(s.monthly_goal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
+                    {s.default_commission ?? 0}%
+                  </td>
                   <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">{s.leads_assigned}</td>
                   <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
                     {(s.conversion_rate * 100).toFixed(1)}%
@@ -211,7 +235,7 @@ export function VendedoresTab({ currentUser }: Props) {
             <div className="flex items-center justify-between p-5 border-b border-[#2d3748]">
               <h2 className="font-bold text-foreground text-base">Adicionar Vendedor</h2>
               <button
-                onClick={() => { setAddOpen(false); setForm({ name: '', email: '', cargo: '' }) }}
+                onClick={() => { setAddOpen(false); setForm({ name: '', email: '', cargo: '', monthly_goal: '', default_commission: '' }) }}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,9 +260,37 @@ export function VendedoresTab({ currentUser }: Props) {
                   />
                 </div>
               ))}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Meta Mensal (R$)</label>
+                  <input
+                    type="number"
+                    value={form.monthly_goal}
+                    onChange={e => setForm(p => ({ ...p, monthly_goal: e.target.value }))}
+                    className={inputCls}
+                    placeholder="0,00"
+                    min="0"
+                    step="100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Comissão % </label>
+                  <input
+                    type="number"
+                    value={form.default_commission}
+                    onChange={e => setForm(p => ({ ...p, default_commission: e.target.value }))}
+                    className={inputCls}
+                    placeholder="0,00"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                  />
+                </div>
+              </div>
               <div className="flex gap-3 pt-1">
                 <button
-                  onClick={() => { setAddOpen(false); setForm({ name: '', email: '', cargo: '' }) }}
+                  onClick={() => { setAddOpen(false); setForm({ name: '', email: '', cargo: '', monthly_goal: '', default_commission: '' }) }}
                   className="flex-1 border border-[#2d3748] text-muted-foreground py-2.5 rounded-lg text-sm hover:bg-[#1e2533] transition-colors"
                 >
                   Cancelar

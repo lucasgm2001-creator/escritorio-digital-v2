@@ -10,6 +10,7 @@ interface Commission {
   lead_id?: string
   lead_name?: string
   cargo?: string
+  description?: string
   amount: number
   percentage: number
   status: 'pendente' | 'aprovada' | 'paga'
@@ -39,6 +40,7 @@ export function ComissoesTab({ currentUser }: Props) {
     seller_id: '',
     lead_id: '',
     cargo: '',
+    description: '',
     percentage: '10',
     amount: '',
     due_date: '',
@@ -161,6 +163,7 @@ export function ComissoesTab({ currentUser }: Props) {
         lead_id: createForm.lead_id || null,
         lead_name: lead?.name || null,
         cargo: createForm.cargo || null,
+        description: createForm.description || null,
         amount: parseFloat(createForm.amount),
         percentage: parseFloat(createForm.percentage),
         status: 'pendente' as const,
@@ -176,6 +179,7 @@ export function ComissoesTab({ currentUser }: Props) {
         seller_id: '',
         lead_id: '',
         cargo: '',
+        description: '',
         percentage: '10',
         amount: '',
         due_date: '',
@@ -333,6 +337,7 @@ export function ComissoesTab({ currentUser }: Props) {
                     seller_id: '',
                     lead_id: '',
                     cargo: '',
+                    description: '',
                     percentage: '10',
                     amount: '',
                     due_date: '',
@@ -389,6 +394,17 @@ export function ComissoesTab({ currentUser }: Props) {
                   onChange={e => setCreateForm(p => ({ ...p, cargo: e.target.value }))}
                   placeholder="ex: ADS Manager"
                   className="w-full bg-[#1e2533] border border-[#2d3748] rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Descrição</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="ex: Comissão por lead qualificado"
+                  className="w-full bg-[#1e2533] border border-[#2d3748] rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary-600"
+                  rows={2}
                 />
               </div>
 
@@ -454,6 +470,7 @@ export function ComissoesTab({ currentUser }: Props) {
                       seller_id: '',
                       lead_id: '',
                       cargo: '',
+                      description: '',
                       percentage: '10',
                       amount: '',
                       due_date: '',
