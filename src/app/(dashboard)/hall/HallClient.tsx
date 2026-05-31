@@ -156,11 +156,17 @@ function EventModal({ date, hour, userId, onClose, onSaved }: EventModalProps) {
         color: form.color,
       }).select().single()
 
-      if (err) { setError('Erro ao salvar evento.'); setSaving(false); return }
+      if (err) {
+        console.error('[calendar_events.insert] Error:', err)
+        setError(`Erro ao salvar evento: ${err.message}`)
+        setSaving(false)
+        return
+      }
       onSaved(data as CalendarEvent)
       onClose()
-    } catch {
-      setError('Erro ao salvar evento.')
+    } catch (error) {
+      console.error('[calendar_events.insert] Unexpected error:', error)
+      setError(error instanceof Error ? `Erro ao salvar evento: ${error.message}` : 'Erro ao salvar evento.')
       setSaving(false)
     }
   }
