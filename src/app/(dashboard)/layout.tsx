@@ -20,9 +20,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  // Caminho crítico: só colunas garantidas (name, role). Mantemos esta query
+  // separada das colunas opcionais para que um problema de schema nunca colapse
+  // o role do usuário e derrube as permissões do shell inteiro.
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('name, role, avatar_url')
+    .select('name, role')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError) {
+    console.error('[dashboard layout] falha ao carregar name/role do perfil:', profileError.message)
+  }
+
+  // avatar_url é opcional (pode não existir antes da migration 010). Busca
+  // best-effort: qualquer erro aqui vira avatar nulo, sem afetar o role.
+  const { data: avatarRow } = await supabase
+    .from('profiles')
+    .select('avatar_url')
     .eq('id', user.id)
     .single()
 
@@ -31,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userName={capitalizeName(profile?.name ?? user.email?.split('@')[0] ?? 'Usuário')}
       userRole={profile?.role ?? ''}
       userId={user.id}
-      avatarUrl={profile?.avatar_url ?? null}
+      avatarUrl={avatarRow?.avatar_url ?? null}
       pageTitles={PAGE_TITLES}
     >
       {children}
