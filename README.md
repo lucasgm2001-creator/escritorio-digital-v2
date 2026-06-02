@@ -16,6 +16,26 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in the values. See `.env.example`
+for the full list (Supabase, Anthropic, etc.).
+
+### Cron / scheduler (`CRON_SECRET`)
+
+The route `POST /api/agent/scheduler` runs the SuperAgent automations (which
+call the AI and several queries) and is therefore **not** open to logged-in
+users — it is gated by a shared secret. Set `CRON_SECRET` in the environment
+and configure your external cron to send it on every call:
+
+```
+Authorization: Bearer <CRON_SECRET>
+# or
+x-cron-secret: <CRON_SECRET>
+```
+
+Any request without the matching secret receives `401`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

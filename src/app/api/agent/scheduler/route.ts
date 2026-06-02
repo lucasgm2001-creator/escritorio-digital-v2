@@ -1,21 +1,36 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/supabase/require-auth'
+import { createHash, timingSafeEqual } from 'crypto'
 import { getSuperAgent } from '@/lib/agents/SuperAgent'
 
 /**
- * Rota para executar automações do SuperAgent
- * Deve ser chamada periodicamente via cron job ou webhook externo
- * Protegida por autenticação
+ * Rota para executar automações do SuperAgent.
+ * Disparada por um cron externo. Protegida por CRON_SECRET — NÃO por sessão de
+ * usuário: um cron não tem cookies de auth, então o secret é a única porta.
+ * Dispara IA cara (Sonnet) e várias queries; não pode ficar aberta.
  */
-export async function POST() {
-  // Verificar autenticação (apenas usuários autenticados podem chamar)
-  const authResult = await requireAuth()
-  if ('error' in authResult) {
-    return authResult.error
-  }
 
-  // Em produção, você pode adicionar uma verificação de API key secreto aqui
-  // para permitir apenas requisições automáticas
+// Comparação em tempo constante. O hash sha256 garante buffers de mesmo
+// tamanho (timingSafeEqual lança quando diferem) e não vaza o comprimento.
+function secretsMatch(a: string, b: string): boolean {
+  return timingSafeEqual(
+    createHash('sha256').update(a).digest(),
+    createHash('sha256').update(b).digest()
+  )
+}
+
+export async function POST(req: Request) {
+  // Porta principal: secret do cron. 401 imediato — antes de qualquer trabalho —
+  // se CRON_SECRET não estiver configurado, se o header estiver ausente, ou se
+  // não bater (comparação em tempo constante). Secret vazio NÃO autentica.
+  const cronSecret = process.env.CRON_SECRET
+  const provided =
+    req.headers.get('x-cron-secret') ??
+    req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
+    null
+
+  if (!cronSecret || !provided || !secretsMatch(provided, cronSecret)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
 
   try {
     // Usar UTC para garantir consistência entre timezones
