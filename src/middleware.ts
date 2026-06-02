@@ -34,14 +34,23 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // Redirect que PRESERVA os cookies que o getUser() possa ter atualizado
+  // (rotação de token). Sem isso, o redirect descarta a sessão renovada e o
+  // usuário aparece deslogado na próxima request — re-login intermitente.
+  const redirectTo = (to: string) => {
+    const res = NextResponse.redirect(new URL(to, request.url))
+    response.cookies.getAll().forEach((cookie) => res.cookies.set(cookie))
+    return res
+  }
+
   const isPublic = PUBLIC_ROUTES.some(r => path.startsWith(r))
 
   if (!user && !isPublic) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirectTo('/login')
   }
 
   if (user && path === '/login') {
-    return NextResponse.redirect(new URL('/hall', request.url))
+    return redirectTo('/hall')
   }
 
   return response

@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix (HOTFIX) — loop de redirecionamento em produção (ERR_TOO_MANY_REDIRECTS):
+/login → /hall → /login infinitamente, ninguém logava. CAUSA RAIZ: recursão
+infinita de RLS (Postgres 42P17) na policy "Admin lê todos" de profiles, que
+fazia subquery em profiles dentro de uma policy de profiles — toda leitura
+autenticada de profiles falhava. Com o hard-fail do layout (Bloco 3), a falha
+virava redirect('/login'), e o middleware devolvia o usuário logado de /login
+para /hall → loop. (Também era a causa real do "só Hall" original.) Corrigido em
+2 frentes: (A) código — `layout.tsx` não redireciona mais em erro de leitura do
+profile (renderiza e a Sidebar mostra "Sessão inválida"); `src/middleware.ts`
+preserva os cookies de sessão nos redirects (rotação de token). (B) banco —
+migration 013 troca a policy recursiva por uma função SECURITY DEFINER
+`is_admin()` (sem recursão). A frente B é o que restaura 100% — rodar no Supabase.
+
 🐛 Fix — sidebar mostrava só o Hall para todos (inclusive admin). Causa:
 `avatar_url` no select do `layout.tsx` (coluna ainda inexistente, migration
 pendente) derrubava a query inteira no PostgREST + erro engolido (não

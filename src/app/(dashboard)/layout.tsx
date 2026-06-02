@@ -28,9 +28,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single()
 
+  // ATENÇÃO: NÃO redirecionar para /login em erro de leitura do profile.
+  // O usuário ESTÁ autenticado (getUser passou) — o que falha é a query da
+  // tabela profiles. Redirecionar daqui colide com o middleware (que manda
+  // usuário logado de /login de volta para /hall) e cria loop infinito
+  // (ERR_TOO_MANY_REDIRECTS). Em erro, renderizamos com role vazio e a Sidebar
+  // exibe o estado "Sessão inválida" explícito (Camada 2).
   if (profileError || !profile) {
     console.error('[dashboard/layout] profile fetch failed:', profileError)
-    redirect('/login')
   }
 
   // avatar_url é opcional (pode não existir antes da migration 010/011).
@@ -50,8 +55,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <DashboardShell
-      userName={capitalizeName(profile.name ?? user.email?.split('@')[0] ?? 'Usuário')}
-      userRole={profile.role}
+      userName={capitalizeName(profile?.name ?? user.email?.split('@')[0] ?? 'Usuário')}
+      userRole={profile?.role ?? ''}
       userId={user.id}
       avatarUrl={avatarUrl}
       pageTitles={PAGE_TITLES}
