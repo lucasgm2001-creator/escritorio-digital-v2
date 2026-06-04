@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types'
 
@@ -71,12 +71,16 @@ interface SidebarProps {
   open: boolean
   onToggle: () => void
   userRole?: string
+  logoUrl?: string | null
   mobileClose?: () => void
 }
 
-export function Sidebar({ open, onToggle, userRole = '', mobileClose }: SidebarProps) {
+export function Sidebar({ open, onToggle, userRole = '', logoUrl, mobileClose }: SidebarProps) {
   const pathname = usePathname()
   const isMobileDrawer = !!mobileClose
+  // Se a logo customizada não existir/falhar (404 no bucket), caímos no ícone padrão.
+  const [logoFailed, setLogoFailed] = useState(false)
+  const showCustomLogo = !!logoUrl && !logoFailed
   const roleIsValid = isValidRole(userRole)
 
   // Role ausente/inválido é ERRO DE SESSÃO, não "usuário sem permissões".
@@ -111,11 +115,21 @@ export function Sidebar({ open, onToggle, userRole = '', mobileClose }: SidebarP
     >
       {/* Logo */}
       <div className="flex items-center h-14 px-3.5 border-b border-sidebar-border/10 overflow-hidden">
-        <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shrink-0 shadow-glow-sm">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
-        </div>
+        {showCustomLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt="Logo"
+            onError={() => setLogoFailed(true)}
+            className="w-7 h-7 rounded-lg object-contain shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shrink-0 shadow-glow-sm">
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+        )}
         {(open || isMobileDrawer) && (
           <div className="ml-2.5 overflow-hidden flex-1">
             <span className="font-bold text-sidebar-foreground text-sm tracking-tight whitespace-nowrap">DR Growth</span>

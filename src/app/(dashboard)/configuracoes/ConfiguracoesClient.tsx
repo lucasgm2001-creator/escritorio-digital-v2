@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Sun, Moon, Monitor } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { SYSTEM_LOGO_BUCKET, SYSTEM_LOGO_PATH } from '@/lib/logo'
 
 type Theme = 'light' | 'dark' | 'auto'
 
@@ -117,18 +118,20 @@ function LogoUploadSection({ userId }: { userId: string }) {
     setUploading(true); setError(''); setSuccess('')
     try {
       const blob = await resizeLogo(file, 200)
-      const path = 'site-logo/logo.jpg'
       const supabase = createClient()
-      const { error: upErr } = await supabase.storage.from('assets').upload(path, blob, {
+      // A URL pública é fixa (mesmo path), então re-uploads ficariam em cache.
+      // cacheControl baixo faz o navegador revalidar e mostrar a nova logo rápido.
+      const { error: upErr } = await supabase.storage.from(SYSTEM_LOGO_BUCKET).upload(SYSTEM_LOGO_PATH, blob, {
         contentType: 'image/jpeg',
+        cacheControl: '60',
         upsert: true,
       })
       if (upErr) throw upErr
-      const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(path)
+      const { data: { publicUrl } } = supabase.storage.from(SYSTEM_LOGO_BUCKET).getPublicUrl(SYSTEM_LOGO_PATH)
       const urlWithBust = `${publicUrl}?t=${Date.now()}`
       await supabase.from('profiles').update({ logo_url: urlWithBust }).eq('id', userId)
       setLogoUrl(urlWithBust)
-      setSuccess('Logo atualizada com sucesso. Recarregue a página para ver.')
+      setSuccess('Logo atualizada. Recarregue a página para vê-la no menu lateral.')
     } catch (err) {
       console.error(err)
       setError('Erro ao enviar logo. Verifique o bucket "assets" no Supabase.')

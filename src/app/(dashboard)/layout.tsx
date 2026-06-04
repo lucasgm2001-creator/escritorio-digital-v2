@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { capitalizeName } from '@/lib/utils'
+import { getSystemLogoUrl } from '@/lib/logo'
 
 const PAGE_TITLES: Record<string, string> = {
   '/hall':           'Hall',
@@ -53,12 +54,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     avatarUrl = null
   }
 
+  // Logo do sistema: URL pública (com versão p/ cache-bust) do bucket `assets`,
+  // ou null se não houver logo enviada. Global para todos os usuários.
+  const logoUrl = await getSystemLogoUrl(supabase)
+
   return (
     <DashboardShell
       userName={capitalizeName(profile?.name ?? user.email?.split('@')[0] ?? 'Usuário')}
       userRole={profile?.role ?? ''}
       userId={user.id}
       avatarUrl={avatarUrl}
+      logoUrl={logoUrl}
       pageTitles={PAGE_TITLES}
     >
       {children}

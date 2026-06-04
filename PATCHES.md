@@ -6,6 +6,20 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — exibição da logo customizada do sistema. O upload em
+/configuracoes gravava o arquivo no bucket público `assets`
+(`site-logo/logo.jpg`) com sucesso, mas a logo nunca aparecia: o cabeçalho da
+Sidebar renderizava um ícone SVG fixo + texto "DR Growth" e NUNCA lia a logo
+enviada (não havia `<img>` nem requisição ao storage fora da própria tela de
+config). Implementada a exibição: a logo é GLOBAL e mora num caminho fixo do
+bucket público, então a URL é determinística (`getPublicUrl`) — `layout.tsx`
+(server) a computa via novo helper `src/lib/logo.ts` e a passa por
+`DashboardShell` → `Sidebar`, que renderiza `<img src={logoUrl}>` no lugar do
+ícone. Fallback: `onError` (404 = sem logo customizada) volta ao ícone/texto
+padrão. Upload passou a usar `cacheControl: '60'` (URL é fixa) para re-uploads
+aparecerem após refresh. Persistência = o arquivo no bucket é a fonte da verdade
+(não depende de tabela).
+
 🐛 Fix (HOTFIX) — loop de redirecionamento em produção (ERR_TOO_MANY_REDIRECTS):
 /login → /hall → /login infinitamente, ninguém logava. CAUSA RAIZ: recursão
 infinita de RLS (Postgres 42P17) na policy "Admin lê todos" de profiles, que
