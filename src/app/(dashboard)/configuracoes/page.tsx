@@ -7,16 +7,7 @@ export default async function ConfiguracoesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
   return (
-    <ConfiguracoesClient
-      userId={user.id}
-      userRole={profile?.role ?? ''}
-    />
+    <ConfiguracoesClient userId={user.id} />
   )
 }
