@@ -25,7 +25,7 @@ export type { LeadStatus, Lead, ColumnConfig } from './types'
 type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'comissoes' | 'vendedores' | 'apresentacao'
 type OperationFilter = 'todos' | 'brasil' | 'eua'
 
-interface CurrentUser { id: string; name: string; role: string }
+interface CurrentUser { id: string; name: string }
 
 export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[], currentUser: CurrentUser }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
@@ -217,7 +217,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
         {tab === 'agenda'       && <AgendaTab leads={filteredLeads} />}
         {tab === 'comissoes'    && <ComissoesTab currentUser={currentUser} />}
         {tab === 'apresentacao' && <ApresentacaoTab />}
-        {tab === 'vendedores'   && <VendedoresTab currentUser={currentUser} />}
+        {tab === 'vendedores'   && <VendedoresTab />}
       </div>
 
       {/* Modals */}

@@ -1,9 +1,6 @@
-export type UserRole = 'admin' | 'comercial' | 'trafego' | 'financeiro'
-
 export interface UserProfile {
   id: string
   name: string
-  role: UserRole
   avatar?: string
   email?: string
 }

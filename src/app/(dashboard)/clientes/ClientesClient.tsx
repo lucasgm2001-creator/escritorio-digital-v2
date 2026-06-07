@@ -29,7 +29,7 @@ interface Activity {
 
 interface Props {
   initialClients: Client[]
-  currentUser: { id: string; name: string; role: string }
+  currentUser: { id: string; name: string }
 }
 
 const PLANS = [140, 190, 250]

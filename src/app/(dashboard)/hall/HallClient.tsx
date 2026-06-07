@@ -14,7 +14,6 @@ interface Props {
   initialActivities: Activity[]
   initialNotices: Notice[]
   userName: string
-  userRole: string
   userId: string
 }
 
@@ -582,7 +581,7 @@ function Calendar({ userId, events, onEventsChange }: CalendarProps) {
 
 // ─── Main HallClient ──────────────────────────────────────────────────────────
 
-export function HallClient({ initialActivities, initialNotices, userName, userRole, userId }: Props) {
+export function HallClient({ initialActivities, initialNotices, userName, userId }: Props) {
   const [activeTab, setActiveTab]     = useState<Tab>('activities')
   const [activities, setActivities]   = useState<Activity[]>(initialActivities)
   const [notices, setNotices]         = useState<Notice[]>(initialNotices)
@@ -594,7 +593,8 @@ export function HallClient({ initialActivities, initialNotices, userName, userRo
   const [savingNotice, setSavingNotice] = useState(false)
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
 
-  const canPostNotice = userRole === 'admin' || userRole === 'financeiro'
+  // App pessoal de usuário único: acesso total.
+  const canPostNotice = true
 
   useEffect(() => {
     setGreeting(computeGreeting())

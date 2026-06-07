@@ -17,7 +17,7 @@ export default async function HallPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, role')
+    .select('name')
     .eq('id', user?.id ?? '')
     .single()
 
@@ -26,7 +26,6 @@ export default async function HallPage() {
       initialActivities={activities ?? []}
       initialNotices={notices ?? []}
       userName={capitalizeName(profile?.name ?? user?.email?.split('@')[0] ?? 'Usuário')}
-      userRole={profile?.role ?? ''}
       userId={user?.id ?? ''}
     />
   )

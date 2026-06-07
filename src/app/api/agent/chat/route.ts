@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/require-auth'
 import { getSuperAgent } from '@/lib/agents/SuperAgent'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   // Verificar autenticação
@@ -38,27 +37,9 @@ export async function POST(req: Request) {
       )
     }
 
-    // Buscar role do usuário
-    const supabase = createClient()
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', authResult.user.id)
-      .single()
-
-    if (profileError || !profile) {
-      console.error('Failed to fetch user profile:', profileError)
-      return NextResponse.json(
-        { error: 'Erro ao carregar perfil do usuário.' },
-        { status: 500 }
-      )
-    }
-
-    const validRoles = ['admin', 'comercial', 'financeiro', 'trafego']
-    const userRole = validRoles.includes(profile.role) ? profile.role : 'comercial'
-
-    // Chamar SuperAgent para responder
-    const resposta = await getSuperAgent().chat(question, authResult.user.id, userRole)
+    // App pessoal de usuário único: sem papéis. O SuperAgent responde com
+    // acesso total (assina internamente o default 'admin').
+    const resposta = await getSuperAgent().chat(question, authResult.user.id)
 
     return NextResponse.json({ resposta })
   } catch (error) {

@@ -20,7 +20,7 @@ interface Commission {
 }
 
 interface Props {
-  currentUser: { id: string; name: string; role: string }
+  currentUser: { id: string; name: string }
 }
 
 const STATUS_CONFIG = {
@@ -50,7 +50,8 @@ export function ComissoesTab({ currentUser }: Props) {
   const [createError, setCreateError] = useState('')
 
   const supabase = createClient()
-  const canManageAll = currentUser.role === 'admin' || currentUser.role === 'financeiro'
+  // App pessoal de usuário único: acesso total.
+  const canManageAll = true
 
   useEffect(() => {
     const load = async () => {
@@ -69,7 +70,7 @@ export function ComissoesTab({ currentUser }: Props) {
       if (!showCreateModal) return
       const client = createClient()
       const [{ data: sellersData }, { data: leadsData }] = await Promise.all([
-        client.from('profiles').select('id, name').eq('role', 'comercial'),
+        client.from('profiles').select('id, name'),
         client.from('leads').select('id, name').order('name'),
       ])
       setSellers(sellersData ?? [])

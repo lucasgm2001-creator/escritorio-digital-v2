@@ -36,8 +36,6 @@ interface Commission {
   created_at: string
 }
 
-interface Props { currentUser: { id: string; name: string; role: string } }
-
 const STATUS_CFG = {
   pendente: { label: 'Pendente', bg: 'bg-amber-900/30',   text: 'text-amber-400',   border: 'border-amber-800/50' },
   aprovada: { label: 'Aprovada', bg: 'bg-blue-900/30',    text: 'text-blue-400',    border: 'border-blue-800/50'  },
@@ -354,7 +352,7 @@ function SellerProfile({
 
 // ─── Main VendedoresTab ───────────────────────────────────────────────────────
 
-export function VendedoresTab({ currentUser }: Props) {
+export function VendedoresTab() {
   const [sellers, setSellers]     = useState<SellerRow[]>([])
   const [loading, setLoading]     = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -363,8 +361,8 @@ export function VendedoresTab({ currentUser }: Props) {
   const [form, setForm] = useState({ name: '', email: '', telefone: '', cargo: '', monthly_goal: '', default_commission: '' })
   const [saving, setSaving] = useState(false)
 
-  const role = (currentUser.role ?? '').toLowerCase()
-  const isAdmin = role === 'admin' || role === 'administrador'
+  // App pessoal de usuário único: acesso total.
+  const isAdmin = true
 
   const inputCls = 'w-full bg-[#1e2533] border border-[#2d3748] rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary-600'
 

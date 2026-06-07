@@ -2,15 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { UserRole } from '@/types'
 
 interface NavItem {
   href: string
   label: string
   icon: React.ReactNode
-  roles?: string[]
   group?: string
 }
 
@@ -39,53 +37,29 @@ const icons = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/hall',           label: 'Hall',           icon: icons.hall,       roles: [],                                    group: 'main' },
-  { href: '/comercial',      label: 'Comercial',      icon: icons.comercial,  roles: ['admin', 'comercial'],                group: 'main' },
-  { href: '/clientes',       label: 'Clientes',       icon: icons.clientes,   roles: ['admin', 'comercial', 'financeiro'],  group: 'main' },
-  { href: '/configuracoes',  label: 'Configurações',  icon: icons.config,     roles: ['admin'],                             group: 'system' },
+  { href: '/hall',           label: 'Hall',           icon: icons.hall,       group: 'main' },
+  { href: '/comercial',      label: 'Comercial',      icon: icons.comercial,  group: 'main' },
+  { href: '/clientes',       label: 'Clientes',       icon: icons.clientes,   group: 'main' },
+  { href: '/configuracoes',  label: 'Configurações',  icon: icons.config,     group: 'system' },
 ]
-
-const VALID_ROLES: readonly UserRole[] = ['admin', 'comercial', 'trafego', 'financeiro']
-const isValidRole = (role: string): role is UserRole =>
-  (VALID_ROLES as readonly string[]).includes(role)
 
 interface SidebarProps {
   open: boolean
   onToggle: () => void
-  userRole?: string
   logoUrl?: string | null
   mobileClose?: () => void
 }
 
-export function Sidebar({ open, onToggle, userRole = '', logoUrl, mobileClose }: SidebarProps) {
+export function Sidebar({ open, onToggle, logoUrl, mobileClose }: SidebarProps) {
   const pathname = usePathname()
   const isMobileDrawer = !!mobileClose
   // Se a logo customizada não existir/falhar (404 no bucket), caímos no ícone padrão.
   const [logoFailed, setLogoFailed] = useState(false)
   const showCustomLogo = !!logoUrl && !logoFailed
-  const roleIsValid = isValidRole(userRole)
 
-  // Role ausente/inválido é ERRO DE SESSÃO, não "usuário sem permissões".
-  // Não degradamos para um menu só-Hall (isso mascarava o bug): logamos e
-  // mostramos um estado explícito que leva ao re-login.
-  useEffect(() => {
-    if (!roleIsValid) {
-      console.error('[Sidebar] role inválido/ausente — erro de sessão:', JSON.stringify(userRole))
-    }
-  }, [roleIsValid, userRole])
-
-  if (!roleIsValid) {
-    return <SidebarSessionError isMobileDrawer={isMobileDrawer} mobileClose={mobileClose} />
-  }
-
-  // Itens sem restrição de role são sempre públicos; o resto exige o role.
-  const isPublic = (item: NavItem) => !item.roles || item.roles.length === 0
-  const visibleItems = NAV_ITEMS.filter(item =>
-    isPublic(item) || item.roles!.includes(userRole)
-  )
-
-  const mainItems   = visibleItems.filter(i => i.group === 'main')
-  const systemItems = visibleItems.filter(i => i.group === 'system')
+  // App pessoal de usuário único: sem papéis, todos os itens são visíveis.
+  const mainItems   = NAV_ITEMS.filter(i => i.group === 'main')
+  const systemItems = NAV_ITEMS.filter(i => i.group === 'system')
 
   return (
     <aside
@@ -201,48 +175,5 @@ function NavLink({ item, pathname, open }: { item: NavItem; pathname: string; op
         </div>
       )}
     </div>
-  )
-}
-
-function SidebarSessionError({ isMobileDrawer, mobileClose }: { isMobileDrawer: boolean; mobileClose?: () => void }) {
-  return (
-    <aside className={cn(
-      'flex flex-col h-screen shrink-0 relative z-30 w-56',
-      'bg-sidebar border-r border-sidebar-border/10'
-    )}>
-      <div className="flex items-center h-14 px-3.5 border-b border-sidebar-border/10 overflow-hidden">
-        <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shrink-0 shadow-glow-sm">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <span className="ml-2.5 font-bold text-sidebar-foreground text-sm tracking-tight whitespace-nowrap flex-1">DR Growth</span>
-        {isMobileDrawer && (
-          <button onClick={mobileClose}
-            className="ml-auto p-1.5 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-sidebar-muted hover:text-sidebar-foreground"
-            aria-label="Fechar menu">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-5 text-center">
-        <div className="w-11 h-11 rounded-full bg-red-500/15 flex items-center justify-center">
-          <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-        </div>
-        <p className="text-sm font-semibold text-sidebar-foreground">Sessão inválida</p>
-        <p className="text-xs text-sidebar-muted leading-relaxed">
-          Não foi possível identificar seu perfil de acesso. Entre novamente para recarregar suas permissões.
-        </p>
-        <Link href="/login"
-          className="mt-1 px-3.5 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium transition-colors">
-          Entrar novamente
-        </Link>
-      </div>
-    </aside>
   )
 }

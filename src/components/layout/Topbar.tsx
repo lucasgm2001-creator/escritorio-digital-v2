@@ -11,16 +11,8 @@ interface TopbarProps {
   sidebarOpen: boolean
   userName?: string
   userInitial?: string
-  userRole?: string
   userId?: string
   avatarUrl?: string | null
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  admin:      'Administrador',
-  comercial:  'Comercial',
-  trafego:    'Tráfego',
-  financeiro: 'Financeiro',
 }
 
 function LiveClock({ timezone, flag }: { timezone: string; flag: string }) {
@@ -57,7 +49,7 @@ function UserAvatar({ avatarUrl, userInitial }: { avatarUrl?: string | null; use
   )
 }
 
-export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial = 'U', userRole = '', avatarUrl }: TopbarProps) {
+export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial = 'U', avatarUrl }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const router = useRouter()
@@ -103,7 +95,6 @@ export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial
             <UserAvatar avatarUrl={avatarUrl} userInitial={userInitial} />
             <div className="hidden md:block text-left">
               <p className="text-sm font-medium text-foreground leading-none">{userName}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{ROLE_LABELS[userRole] ?? userRole}</p>
             </div>
             <svg className="w-3.5 h-3.5 text-muted-foreground hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -116,7 +107,6 @@ export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial
               <div className="absolute right-0 top-11 z-20 w-56 bg-[#1e2533] border border-[#2d3748] rounded-xl shadow-card-hover py-1 overflow-hidden animate-fade-in">
                 <div className="px-3 py-2.5 border-b border-[#2d3748]">
                   <p className="text-sm font-semibold text-foreground">{userName}</p>
-                  <p className="text-xs text-muted-foreground">{ROLE_LABELS[userRole] ?? userRole}</p>
                 </div>
 
                 <button

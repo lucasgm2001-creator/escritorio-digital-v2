@@ -18,27 +18,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Caminho crítico de auth: só colunas garantidas (name, role). Falha ALTO —
-  // nunca renderizamos o shell com role vazio (causa do menu só-Hall).
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('name, role')
-    .eq('id', user.id)
-    .single()
-
+  // Só o nome do usuário (app pessoal de usuário único — sem papéis).
   // ATENÇÃO: NÃO redirecionar para /login em erro de leitura do profile.
   // O usuário ESTÁ autenticado (getUser passou) — o que falha é a query da
   // tabela profiles. Redirecionar daqui colide com o middleware (que manda
   // usuário logado de /login de volta para /hall) e cria loop infinito
-  // (ERR_TOO_MANY_REDIRECTS). Em erro, renderizamos com role vazio e a Sidebar
-  // exibe o estado "Sessão inválida" explícito (Camada 2).
+  // (ERR_TOO_MANY_REDIRECTS). Em erro, caímos no nome derivado do e-mail.
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', user.id)
+    .single()
+
   if (profileError || !profile) {
     console.error('[dashboard/layout] profile fetch failed:', profileError)
   }
 
   // avatar_url é opcional (pode não existir antes da migration 010/011).
-  // Best-effort e isolada: qualquer erro de schema vira avatar nulo, sem
-  // nunca afetar o role acima.
+  // Best-effort e isolada: qualquer erro de schema vira avatar nulo.
   let avatarUrl: string | null = null
   try {
     const { data: extra } = await supabase
@@ -58,7 +55,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <DashboardShell
       userName={capitalizeName(profile?.name ?? user.email?.split('@')[0] ?? 'Usuário')}
-      userRole={profile?.role ?? ''}
       userId={user.id}
       avatarUrl={avatarUrl}
       logoUrl={logoUrl}

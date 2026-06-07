@@ -12,19 +12,12 @@ interface Seller {
   observations?: string
 }
 
-interface Props {
-  currentUser: { id: string; name: string; role: string }
-}
-
-export function FixoTab({ currentUser }: Props) {
+export function FixoTab() {
   const [sellers, setSellers] = useState<Seller[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ fixed_salary: '', start_date: '', observations: '' })
   const [saving, setSaving] = useState(false)
-
-  const role = (currentUser.role ?? '').toLowerCase()
-  const isAdmin = role === 'admin' || role === 'administrador'
 
   useEffect(() => {
     const load = async () => {
@@ -105,20 +98,6 @@ export function FixoTab({ currentUser }: Props) {
   const inputCls = 'w-full bg-[#1e2533] border border-[#2d3748] rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary-600'
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-
-  if (!isAdmin) {
-    return (
-      <div className="p-6 h-full flex items-center justify-center bg-background">
-        <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <p className="text-sm text-muted-foreground font-medium">Acesso Restrito</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Esta seção é visível apenas para administradores</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="p-4 sm:p-6 space-y-5 overflow-auto h-full bg-background animate-fade-in">

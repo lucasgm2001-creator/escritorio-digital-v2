@@ -10,12 +10,12 @@ export default async function ClientesPage() {
   ])
 
   const { data: profile } = await supabase
-    .from('profiles').select('id, name, role').eq('id', user?.id ?? '').single()
+    .from('profiles').select('id, name').eq('id', user?.id ?? '').single()
 
   return (
     <ClientesClient
       initialClients={clients ?? []}
-      currentUser={{ id: profile?.id ?? '', name: profile?.name ?? '', role: profile?.role ?? '' }}
+      currentUser={{ id: profile?.id ?? '', name: profile?.name ?? '' }}
     />
   )
 }

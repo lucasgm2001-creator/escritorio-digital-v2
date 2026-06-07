@@ -8,14 +8,13 @@ import { Topbar } from './Topbar'
 interface DashboardShellProps {
   children: React.ReactNode
   userName: string
-  userRole: string
   userId: string
   avatarUrl: string | null
   logoUrl: string | null
   pageTitles: Record<string, string>
 }
 
-export function DashboardShell({ children, userName, userRole, userId, avatarUrl, logoUrl, pageTitles }: DashboardShellProps) {
+export function DashboardShell({ children, userName, userId, avatarUrl, logoUrl, pageTitles }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen]   = useState(false)
   const [isMobile, setIsMobile]       = useState(false)
@@ -56,7 +55,6 @@ export function DashboardShell({ children, userName, userRole, userId, avatarUrl
         <Sidebar
           open={sidebarOpen}
           onToggle={() => setSidebarOpen(o => !o)}
-          userRole={userRole}
           logoUrl={logoUrl}
         />
       )}
@@ -72,7 +70,6 @@ export function DashboardShell({ children, userName, userRole, userId, avatarUrl
             <Sidebar
               open={true}
               onToggle={() => setMobileOpen(false)}
-              userRole={userRole}
               logoUrl={logoUrl}
               mobileClose={() => setMobileOpen(false)}
             />
@@ -87,7 +84,6 @@ export function DashboardShell({ children, userName, userRole, userId, avatarUrl
           sidebarOpen={isMobile ? mobileOpen : sidebarOpen}
           userName={userName}
           userInitial={userName[0]?.toUpperCase() ?? 'U'}
-          userRole={userRole}
           userId={userId}
           avatarUrl={avatarUrl}
         />
