@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Sun, Moon, Monitor } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Panel } from '@/components/bento/Panel'
 import { createClient } from '@/lib/supabase/client'
 import { SYSTEM_LOGO_BUCKET, SYSTEM_LOGO_PATH } from '@/lib/logo'
 
@@ -53,8 +53,8 @@ function ThemeSelectorInline() {
         { id: 'auto'  as Theme, label: 'Auto',   Icon: Monitor },
       ].map(({ id, label, Icon }) => (
         <button key={id} onClick={() => handleThemeChange(id)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-all text-sm min-h-[44px] ${
-            theme === id ? 'bg-primary-600 border-primary-600 text-white shadow-md' : 'bg-[#1e2533] border-[#2d3748] text-muted-foreground hover:border-primary-600'
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-btn border text-sm min-h-[44px] ${
+            theme === id ? 'bento-btn border-transparent' : 'bg-bento-bg border-bento-border text-bento-dim hover:border-lime transition-colors'
           }`}>
           <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
           <span className="font-medium">{label}</span>
@@ -143,16 +143,16 @@ function LogoUploadSection({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-bento-muted">
         Substitua a logo padrão do sistema. Máximo 200kb, qualquer formato de imagem.
       </p>
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-xl border border-[#2d3748] flex items-center justify-center bg-[#1a2133] overflow-hidden shrink-0">
+        <div className="w-16 h-16 rounded-xl border border-bento-border flex items-center justify-center bg-bento-bg overflow-hidden shrink-0">
           {logoUrl ? (
             <Image src={logoUrl} alt="Logo" width={64} height={64} className="w-full h-full object-contain" />
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 rounded-lg bg-lime flex items-center justify-center">
+              <svg className="w-4 h-4 text-lime-ink" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
             </div>
@@ -162,7 +162,7 @@ function LogoUploadSection({ userId }: { userId: string }) {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-2 bg-[#1e2533] border border-[#2d3748] text-foreground px-4 py-2 rounded-lg text-sm hover:border-primary-600 transition-colors disabled:opacity-50 min-h-[44px]"
+            className="flex items-center gap-2 bg-bento-bg border border-bento-border text-bento-text px-4 py-2 rounded-btn text-sm hover:border-lime transition-colors disabled:opacity-50 min-h-[44px]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -225,61 +225,48 @@ export function ConfiguracoesClient({ userId }: Props) {
   ]
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5 animate-fade-in font-body">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Preferências e configurações do sistema</p>
+        <h1 className="font-display text-2xl font-bold text-bento-text tracking-tight">Configurações</h1>
+        <p className="text-bento-muted text-sm mt-0.5">Preferências e configurações do sistema</p>
       </div>
 
       {/* Logo section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Logo do Sistema
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LogoUploadSection userId={userId} />
-        </CardContent>
-      </Card>
+      <Panel label="Logo do Sistema">
+        <LogoUploadSection userId={userId} />
+      </Panel>
 
       {sections.map(section => (
-        <Card key={section.title}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">{section.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-0 divide-y divide-[#2d3748]/60">
+        <Panel key={section.title} label={section.title}>
+          <div className="space-y-0 divide-y divide-bento-border/60">
             {section.items.map((item) => (
               <div key={item.label}>
                 {'isTheme' in item && item.isTheme ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-3">
                     <div className="text-left flex-1">
-                      <p className="text-sm font-medium text-foreground">{item.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                      <p className="text-sm font-medium text-bento-text">{item.label}</p>
+                      <p className="text-xs text-bento-muted mt-0.5">{item.desc}</p>
                     </div>
                     <div><ThemeSelectorInline /></div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
                     <div className="text-left">
-                      <p className="text-sm font-medium text-foreground">{item.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                      <p className="text-sm font-medium text-bento-text">{item.label}</p>
+                      <p className="text-xs text-bento-muted mt-0.5">{item.desc}</p>
                     </div>
-                    <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold capitalize ${statusColors[item.status] ?? 'border-[#2d3748] bg-[#1e2533] text-muted-foreground'}`}>
+                    <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold capitalize ${statusColors[item.status] ?? 'border-bento-border bg-bento-bg text-bento-muted'}`}>
                       {item.status}
                     </span>
                   </div>
                 )}
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       ))}
 
-      <p className="text-xs text-muted-foreground/50 text-center">
+      <p className="font-tech text-[11px] text-bento-muted/60 text-center">
         Escritório Digital v2 · DR Growth · {new Date().getFullYear()}
       </p>
     </div>
