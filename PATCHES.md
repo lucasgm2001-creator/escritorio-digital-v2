@@ -6,6 +6,23 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — funil (Kanban) do Comercial no estilo Pipedrive: cor vira
+informação, não decoração. As etapas do meio (Novo/Interagiu/Reunião/Proposta/
+Não Interagiu) ficam NEUTRAS (dot cinza, nome bento-dim); só Fechado (verde lima
+suave) e Perdido (vermelho suave) têm cor. Campo `tone` no ColumnConfig governa
+isso só no Kanban — PipelineTab/AgendaTab seguem coloridos.
+- Deal rotting (recurso-chave do Pipedrive): dias parado via last_contact_at
+  (fallback created_at) → 3–4d borda+tag âmbar, 5+d vermelho ("esfriando").
+- Lead quente: score≥650 OU prioridade alta/urgente → borda+tag limão "QUENTE".
+  Um sinal por card, prioridade quente > esfriando > atenção.
+- Card enxuto: nome · sub (nicho/empresa) · rodapé (valor + sinal OU próxima ação
+  vinda de next_contact). Header da coluna com contagem + soma (mono).
+- Lógica de sinais isolada em leadSignals.ts.
+Divergência consciente da referência: "Ganho" usa verde lima (não o emerald do
+mock) para bater com o design system VerdeLima.
+
+---
+
 ✨ Novidade — design system VerdeLima: remapeia toda a paleta de tokens (dark +
 light) para a identidade verde-lima e elimina o índigo/roxo residual.
 - Dark verde-preto premium (#080D0A canvas, #111A14 card, #17231B elevado,
