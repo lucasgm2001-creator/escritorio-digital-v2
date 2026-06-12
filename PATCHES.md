@@ -6,6 +6,17 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — DESIGN_SYSTEM_VERDELIMA_EDV2.md: especificação canônica do design
+system. Incorpora a revisão crítica: separa identidade ESTRUTURAL (verde contido:
+botão/item ativo/foco) de EVENTO (verde brilhante: venda/meta/toast); cores de
+STATUS (verde/âmbar/vermelho) não governam CATEGORIA (o funil usa wayfinding
+frio); estados neutros (lead frio ≠ erro); vocabulário de pipeline (não "saúde do
+sistema"). 19 seções: filosofia, semântica, tokens dark/light, tipografia,
+superfícies, botões, inputs, tabelas, badges, gráficos, sidebar, pipeline,
+toasts, estados, exemplos e regras do que evitar.
+
+---
+
 ✨ Novidade — funil (Kanban) do Comercial no estilo Pipedrive: cor vira
 informação, não decoração. As etapas do meio (Novo/Interagiu/Reunião/Proposta/
 Não Interagiu) ficam NEUTRAS (dot cinza, nome bento-dim); só Fechado (verde lima
