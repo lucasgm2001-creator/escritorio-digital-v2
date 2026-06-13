@@ -62,7 +62,10 @@ export async function POST(req: Request) {
       maxOutputTokens: 300,
     })
 
-    const jsonMatch = result.match(/^\s*\{[\s\S]*\}\s*$/)
+    // Extração tolerante (mesmo padrão do /api/tasks/parse): pega o primeiro {…}
+    // de qualquer lugar da resposta, mesmo se o modelo embrulhar em ```json … ```
+    // ou colar texto em volta. Regex ancorado exigia JSON puro e falhava.
+    const jsonMatch = result.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return NextResponse.json({ lead: null })
     }

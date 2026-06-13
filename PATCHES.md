@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — "Preencher com IA" respondia 200 mas não preenchia os campos.
+- Causa: o `parse-lead` extraía o JSON com regex ANCORADO (`^\s*\{…\}\s*$`), que
+  exige a resposta inteira ser JSON puro. Quando o modelo embrulhava em
+  ```` ```json ```` ou colava texto em volta, não casava → devolvia `{ lead: null }`
+  com 200 → campos vaziam.
+- Correção: extração tolerante igual ao `/api/tasks/parse` (`/\{[\s\S]*\}/` — pega
+  o `{…}` de qualquer lugar). Só mudou a forma de extrair; modelo e lógica intactos.
+
+---
+
 🐛 Fix — "Preencher com IA" (e demais rotas de IA) dava 503 + "Failed to fetch".
 - Causa: o 503 não vinha do nosso código (que só emite 400/429/500) — era a Vercel
   derrubando a função durante a chamada à Anthropic (sem `maxDuration`, valia o
