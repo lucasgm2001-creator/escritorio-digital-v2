@@ -6,6 +6,22 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — remoção de código morto (faxina pré-Fase 2). 13 arquivos órfãos
+saíram (~552 linhas), sem mudar nenhum comportamento:
+- Agentes antigos do multi-área: AgentManager + ComercialAgent/FinanceiroAgent/
+  GestorAgent/TrafegoAgent (cadeia fechada, ninguém importava). O SuperAgent
+  (usado pela rota /api/agent/chat) FICA.
+- Componentes não usados: ui/badge, ui/button; bento AgentPanel/Delta/Button
+  (só o barrel não-usado os citava → barrel `bento/index.ts` ajustado p/ manter
+  só Panel/Metric/LiveDot).
+- Legados do pivot: Clock.tsx (substituído pelo LiveClock dos fusos no Topbar) e
+  ThemeSelector.tsx (tema agora vive em layout + Configurações).
+- lib/middleware/with-rate-limit.ts (HOF sem uso; rotas usam lib/rate-limit).
+- Auditoria confirmou: sem import dinâmico, sem ref por string, build passa.
+  Middleware duplicado (raiz vs src) NÃO mexido — fica p/ investigação à parte.
+
+---
+
 🐛 Fix — respostas do agente do Hall agora renderizam markdown (antes os `##`,
 `**` e listas apareciam como texto cru).
 - AgentChat trocou o `<p whitespace-pre-wrap>` por um componente Markdown
