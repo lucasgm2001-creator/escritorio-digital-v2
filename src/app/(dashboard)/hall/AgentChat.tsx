@@ -59,11 +59,11 @@ export function AgentChat() {
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, agentMessage])
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         role: 'agent',
-        content: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        content: 'A IA demorou para responder ou está indisponível. Tente novamente em instantes.',
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, errorMessage])

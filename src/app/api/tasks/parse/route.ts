@@ -6,6 +6,9 @@ import { checkRateLimit } from '@/lib/rate-limit'
 
 const MAX_TEXT_LENGTH = 500
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const authResult = await requireAuth()
   if ('error' in authResult) return authResult.error

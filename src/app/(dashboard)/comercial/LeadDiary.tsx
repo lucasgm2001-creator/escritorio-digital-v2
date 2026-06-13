@@ -145,8 +145,11 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, currentUser }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lead: currentLead, interactions: interactions.slice(0, 10) }),
       })
+      if (!res.ok) throw new Error('falha')
       const data = await res.json()
       setAiSuggestion(data.suggestion ?? '')
+    } catch {
+      toast({ type: 'error', message: 'A IA demorou para responder. Tente a análise novamente.' })
     } finally {
       setAiLoading(false)
     }

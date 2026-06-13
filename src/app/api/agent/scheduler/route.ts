@@ -18,6 +18,9 @@ function secretsMatch(a: string, b: string): boolean {
   )
 }
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   // Porta principal: secret do cron. 401 imediato — antes de qualquer trabalho —
   // se CRON_SECRET não estiver configurado, se o header estiver ausente, ou se

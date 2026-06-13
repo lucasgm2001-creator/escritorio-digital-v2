@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskModal, type TaskPrefill } from './TaskModal'
 import type { Task, LinkOption, ParsedTask } from './types'
+import { useToast } from '@/components/ui/toast'
 
 // Título a partir do texto digitado (rede de segurança local — espelha o servidor).
 // Garante que o título NUNCA fique vazio mesmo se a IA falhar/não responder.
@@ -97,6 +98,7 @@ function sortPending(a: Task, b: Task): number {
 
 export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const { toast } = useToast()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [modalPrefill, setModalPrefill] = useState<TaskPrefill | null>(null)
@@ -200,6 +202,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
       openAI(prefill)
     } catch {
       // Offline/erro: ainda abre o modal com o título do texto digitado.
+      toast({ type: 'error', message: 'A IA demorou para responder. Abri a tarefa com o texto que você digitou.' })
       setAiText('')
       openAI({ title: localTitle, due_date: '', due_time: '', priority: 'normal', link: null })
     } finally {
@@ -225,6 +228,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
       setSummary(res.ok ? (data.summary ?? '') : 'Não consegui gerar o resumo agora.')
     } catch {
       setSummary('Falha ao gerar o resumo.')
+      toast({ type: 'error', message: 'A IA demorou para responder. Tente o resumo novamente.' })
     } finally {
       setSummaryLoading(false)
     }

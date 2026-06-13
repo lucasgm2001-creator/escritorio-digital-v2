@@ -6,6 +6,20 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — "Preencher com IA" (e demais rotas de IA) dava 503 + "Failed to fetch".
+- Causa: o 503 não vinha do nosso código (que só emite 400/429/500) — era a Vercel
+  derrubando a função durante a chamada à Anthropic (sem `maxDuration`, valia o
+  default ~10s; o SDK ainda re-tenta quando a IA está lenta). Cliente sem catch
+  mostrava o erro cru "Failed to fetch".
+- Servidor: `export const runtime = 'nodejs'` + `export const maxDuration = 60` nas
+  6 rotas de IA (parse-lead, tasks/parse, tasks/summary, agent/chat, lead-analysis,
+  agent/scheduler). Lógica e modelo inalterados.
+- Cliente: tratamento de erro com mensagem clara via toast — LeadModal
+  (handleAiParse, que não tinha catch), TarefasClient (criar tarefa + resumo do dia)
+  e LeadDiary (análise). AgentChat já tratava: só melhorou a mensagem (sem toast).
+
+---
+
 ✨ Novidade — tela de comissão, Bloco 2 (lançamentos) na aba "Comissão".
 - Lançar venda: form com cliente (livre ou vincula a cliente existente via
   datalist), valor total USD e nº de semanas EDITÁVEIS (pré 100/4), valor por

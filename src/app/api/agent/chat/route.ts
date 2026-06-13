@@ -3,6 +3,9 @@ import { requireAuth } from '@/lib/supabase/require-auth'
 import { getSuperAgent } from '@/lib/agents/SuperAgent'
 import { checkRateLimit } from '@/lib/rate-limit'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   // Verificar autenticação
   const authResult = await requireAuth()

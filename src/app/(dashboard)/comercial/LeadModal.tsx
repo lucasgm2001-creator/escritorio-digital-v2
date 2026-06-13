@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Lead } from './types'
+import { useToast } from '@/components/ui/toast'
 
 interface Seller { id: string; name: string }
 
@@ -53,6 +54,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function LeadModal({ onClose, onCreated, currentUser }: Props) {
+  const { toast } = useToast()
   const [form, setForm] = useState({ ...EMPTY_FORM, assigned_to: currentUser.id, assigned_name: currentUser.name })
   const [loading, setLoading] = useState(false)
   const [aiPaste, setAiPaste] = useState(false)
@@ -81,11 +83,16 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: rawText }),
       })
+      if (!res.ok) throw new Error('falha')
       const data = await res.json()
       if (data.lead) {
         setForm(prev => ({ ...prev, ...data.lead }))
         setAiPaste(false)
+      } else {
+        toast({ type: 'error', message: 'Não consegui extrair os dados. Preencha manualmente.' })
       }
+    } catch {
+      toast({ type: 'error', message: 'A IA demorou para responder. Tente novamente ou preencha manualmente.' })
     } finally {
       setAiLoading(false)
     }
