@@ -6,6 +6,26 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — módulo de comissão, Fase 1 (schema + cálculo + testes, SEM UI).
+- Migration 017 (rodada em prod): 5 tabelas no modelo "long" (uma linha por
+  evento), moeda real = USD, BRL só exibição. `fx_config` (cotação USD→BRL
+  global, com trava manual), `seller_salaries` (salário USD com vigência —
+  aumento só pra frente), `deals` (vendas: US$100, teto 4 semanas, status
+  em_andamento/interrompido/concluido), `weekly_payments` (semana recebida, mês
+  por `paid_on` + cotação congelada), `meetings` (reunião US$15, mês por `met_on`
+  + cotação congelada). FK `on delete restrict` (soft delete via sellers.status).
+  NÃO toca na tabela `commissions` antiga.
+- Cálculo (TS puro, sem banco): `src/lib/commission/{types,calc}.ts` — resumo
+  mensal (salário+reuniões+semanas, USD e BRL), total da venda por status
+  (em_andamento projeta o que falta; interrompido congela no pago), projeção do
+  próximo dia 1º, e resolução de cotação travada vs automática.
+- Testes: `scripts/commission-test.ts` (`npx tsx`). Os 5 casos obrigatórios
+  passaram: mai US$25 / jun US$75; resumo US$555 (R$2.975); interrompida congela
+  US$50; conversão auto R$2.997 vs travada R$2.775; salário 500→700 por vigência.
+- Sem tela ainda: nada do app usa essas tabelas; ligação com UI vem em fase futura.
+
+---
+
 🔄 Mudança — remoção de código morto (faxina pré-Fase 2). 13 arquivos órfãos
 saíram (~552 linhas), sem mudar nenhum comportamento:
 - Agentes antigos do multi-área: AgentManager + ComercialAgent/FinanceiroAgent/
