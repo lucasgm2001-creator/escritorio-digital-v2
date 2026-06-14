@@ -43,6 +43,8 @@ interface Commission {
 
 const SELLER_COLS = 'id, name, email, phone, photo_url, cargo, monthly_goal, default_commission, fixed_salary, start_date, observations, status, leads_assigned, conversion_rate, total_sales, created_at'
 
+const CARGOS = ['SDR', 'Closer', 'Gestor', 'Coordenador', 'Vendedor']
+
 const fmtK = (v: number) => v >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : `R$ ${v.toFixed(0)}`
 const monthKey = (iso?: string) => { const d = iso ? new Date(iso) : new Date(); return `${d.getFullYear()}-${d.getMonth()}` }
 
@@ -125,6 +127,11 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
   const [savingRem, setSavingRem] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Item 2 — editar dados do vendedor
+  const [editingDados, setEditingDados] = useState(false)
+  const [savingDados, setSavingDados] = useState(false)
+  const [cargoOutro, setCargoOutro] = useState(false)
+  const [dadosForm, setDadosForm] = useState({ name: seller.name, cargo: seller.cargo ?? '', email: seller.email ?? '', phone: seller.phone ?? '' })
 
   // Comissões antigas (modelo genérico) — usadas só nos KPIs do topo do painel.
   useEffect(() => {
@@ -209,6 +216,27 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
     onClose()
   }
 
+  const openEditDados = () => {
+    setDadosForm({ name: current.name, cargo: current.cargo ?? '', email: current.email ?? '', phone: current.phone ?? '' })
+    setCargoOutro(!!current.cargo && !CARGOS.includes(current.cargo))
+    setEditingDados(true)
+  }
+  const saveDados = async () => {
+    if (!dadosForm.name.trim()) { toast({ type: 'error', message: 'Nome é obrigatório.' }); return }
+    setSavingDados(true)
+    const patch = { name: dadosForm.name.trim(), cargo: dadosForm.cargo.trim() || null, email: dadosForm.email.trim() || null, phone: dadosForm.phone.trim() || null }
+    const prev = current
+    const u: SellerRow = { ...current, name: patch.name, cargo: patch.cargo ?? undefined, email: patch.email ?? undefined, phone: patch.phone ?? undefined }
+    await save({
+      optimistic: () => { setCurrent(u); onUpdated(u) },
+      run: () => supabase.from('sellers').update(patch).eq('id', seller.id),
+      rollback: () => { setCurrent(prev); onUpdated(prev) },
+      success: 'Dados atualizados.',
+      error: 'Não foi possível salvar os dados',
+    })
+    setSavingDados(false); setEditingDados(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
@@ -257,7 +285,37 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Dados */}
-          {section === 'dados' && (
+          {section === 'dados' && (editingDados ? (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">Nome *</label>
+                <input value={dadosForm.name} onChange={e => setDadosForm(p => ({ ...p, name: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">Cargo</label>
+                <select value={cargoOutro ? '__outro__' : dadosForm.cargo}
+                  onChange={e => { if (e.target.value === '__outro__') { setCargoOutro(true); setDadosForm(p => ({ ...p, cargo: '' })) } else { setCargoOutro(false); setDadosForm(p => ({ ...p, cargo: e.target.value })) } }}
+                  className={inputCls}>
+                  <option value="">Selecione...</option>
+                  {CARGOS.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__outro__">Outro</option>
+                </select>
+                {cargoOutro && <input value={dadosForm.cargo} onChange={e => setDadosForm(p => ({ ...p, cargo: e.target.value }))} className={`${inputCls} mt-2`} placeholder="Qual cargo?" autoFocus />}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">E-mail</label>
+                <input type="email" value={dadosForm.email} onChange={e => setDadosForm(p => ({ ...p, email: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">Telefone</label>
+                <input value={dadosForm.phone} onChange={e => setDadosForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} placeholder="(11) 99999-9999" />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingDados(false)} className="flex-1 border border-bento-border text-bento-dim py-2.5 rounded-btn text-sm hover:border-lime transition-colors min-h-[44px]">Cancelar</button>
+                <button onClick={saveDados} disabled={savingDados} className="flex-1 bento-btn py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]">{savingDados ? 'Salvando...' : 'Salvar dados'}</button>
+              </div>
+            </div>
+          ) : (
             <div className="space-y-3">
               {[
                 { label: 'E-mail', value: current.email ?? '—' },
@@ -271,15 +329,16 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
                   <span className="text-sm text-bento-text font-medium">{r.value}</span>
                 </div>
               ))}
+              <button onClick={openEditDados} className="w-full mt-2 bento-btn py-2.5 rounded-btn text-sm font-semibold min-h-[44px]">Editar dados</button>
               <button onClick={toggleStatus}
-                className={cn('w-full mt-2 py-2.5 rounded-btn text-sm font-semibold border transition-colors min-h-[44px]',
+                className={cn('w-full py-2.5 rounded-btn text-sm font-semibold border transition-colors min-h-[44px]',
                   current.status === 'ativo'
                     ? 'border-bento-border text-bento-dim hover:border-red-400/50 hover:text-red-400'
                     : 'bento-btn')}>
                 {current.status === 'ativo' ? 'Desativar vendedor' : 'Ativar vendedor'}
               </button>
               {confirmingDelete ? (
-                <div className="space-y-2 mt-2">
+                <div className="space-y-2">
                   <p className="text-xs text-red-400">Tem certeza? Esta ação não pode ser desfeita.</p>
                   <div className="flex gap-2">
                     <button onClick={() => setConfirmingDelete(false)} disabled={deleting}
@@ -290,12 +349,12 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
                 </div>
               ) : (
                 <button onClick={() => setConfirmingDelete(true)}
-                  className="w-full mt-2 py-2.5 rounded-btn text-sm font-semibold border border-bento-border text-bento-dim hover:border-red-400/50 hover:text-red-400 transition-colors min-h-[44px]">
+                  className="w-full py-2.5 rounded-btn text-sm font-semibold border border-bento-border text-bento-dim hover:border-red-400/50 hover:text-red-400 transition-colors min-h-[44px]">
                   Excluir vendedor
                 </button>
               )}
             </div>
-          )}
+          ))}
 
           {/* Metas & Remuneração */}
           {section === 'remuneracao' && (

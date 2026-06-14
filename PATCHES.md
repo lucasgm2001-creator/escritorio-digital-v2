@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — editar dados do vendedor (aba Dados).
+- Botão "Editar dados" no perfil → edita nome, cargo, e-mail, telefone. Cargo virou
+  lista (SDR, Closer, Gestor, Coordenador, Vendedor + "Outro"). Grava em `sellers`.
+  Antes a aba Dados era só leitura.
+
+---
+
 🔄 Mudança — cada venda e reunião viram itens recolhíveis (aba Comissão).
 - Na lista de Vendas, cada venda começa FECHADA com resumo no cabeçalho (cliente ·
   valor · status · X/Y pagas); abre pra ver detalhes (semanas, status) e os botões
