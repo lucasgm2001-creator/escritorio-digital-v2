@@ -49,6 +49,7 @@ const CARGOS = ['SDR', 'Closer', 'Gestor', 'Coordenador', 'Vendedor']
 
 const fmtK = (v: number) => v >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : `R$ ${v.toFixed(0)}`
 const usd = (v: number) => `US$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const monthKey = (iso?: string) => { const d = iso ? new Date(iso) : new Date(); return `${d.getFullYear()}-${d.getMonth()}` }
 
@@ -123,7 +124,6 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
 
   // Form Metas & Remuneração (salário fixo + metas juntos)
   const [rem, setRem] = useState({
-    fixed_salary: seller.fixed_salary?.toString() ?? '',
     monthly_goal: seller.monthly_goal?.toString() ?? '',
     start_date: seller.start_date?.split('T')[0] ?? '',
     observations: seller.observations ?? '',
@@ -199,7 +199,6 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
   const saveRemuneracao = async () => {
     setSavingRem(true)
     const patch = {
-      fixed_salary: parseFloat(rem.fixed_salary) || 0,
       monthly_goal: parseFloat(rem.monthly_goal) || 0,
       start_date: rem.start_date || null,
       observations: rem.observations || null,
@@ -207,7 +206,6 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
     const prev = current
     const u: SellerRow = {
       ...current,
-      fixed_salary: patch.fixed_salary,
       monthly_goal: patch.monthly_goal,
       start_date: rem.start_date || undefined,
       observations: rem.observations || undefined,
@@ -405,19 +403,46 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
             </div>
           ))}
 
-          {/* Metas & Remuneração */}
+          {/* Metas & Remuneração (USD; salário unificado = só leitura, vem da aba Comissão) */}
           {section === 'remuneracao' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-bento-dim mb-1.5">Meta mensal (R$)</label>
-                  <input type="number" value={rem.monthly_goal} onChange={e => setRem(p => ({ ...p, monthly_goal: e.target.value }))} className={inputCls} placeholder="0,00" min="0" step="100" />
+              {/* Salário fixo — fonte única: aba Comissão (seller_salaries) */}
+              <div className="bg-bento-bg border border-bento-border/60 rounded-btn p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-bento-muted">Salário fixo vigente</span>
+                  <span className="text-sm font-semibold text-bento-text tabular-nums">{usd(mc.salarioUsd)}</span>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-bento-dim mb-1.5">Salário fixo (R$)</label>
-                  <input type="number" value={rem.fixed_salary} onChange={e => setRem(p => ({ ...p, fixed_salary: e.target.value }))} className={inputCls} placeholder="0,00" min="0" step="100" />
-                </div>
+                <p className="text-[11px] text-bento-muted text-right tabular-nums">{brl(mc.salarioBrl)}</p>
+                <p className="text-[10px] text-bento-muted mt-1">Definido na aba Comissão (com data de vigência).</p>
               </div>
+
+              {/* Meta de comissão (USD) */}
+              <div>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">Meta de comissão do mês (USD)</label>
+                <input type="number" value={rem.monthly_goal} onChange={e => setRem(p => ({ ...p, monthly_goal: e.target.value }))} className={inputCls} placeholder="0.00" min="0" step="50" />
+                {parseFloat(rem.monthly_goal) > 0 && mc.rate > 0 && (
+                  <p className="text-[11px] text-bento-muted mt-1 tabular-nums">≈ {brl(parseFloat(rem.monthly_goal) * mc.rate)}</p>
+                )}
+              </div>
+
+              {/* Indicador: comissão atual vs meta */}
+              {parseFloat(rem.monthly_goal) > 0 && (() => {
+                const meta = parseFloat(rem.monthly_goal)
+                const atingiu = mc.comissaoAtual >= meta
+                const ratio = Math.min(100, (mc.comissaoAtual / meta) * 100)
+                return (
+                  <div className={cn('rounded-btn border p-3', atingiu ? 'bg-lime/10 border-lime/30' : 'bg-amber-900/20 border-amber-800/40')}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={cn('text-xs font-medium', atingiu ? 'text-lime-fg' : 'text-amber-400')}>{atingiu ? 'Meta atingida' : 'Abaixo da meta'}</span>
+                      <span className="text-xs font-semibold text-bento-text tabular-nums">{usd(mc.comissaoAtual)} / {usd(meta)}</span>
+                    </div>
+                    <div className="h-1.5 bg-bento-border/40 rounded-full overflow-hidden">
+                      <div className={cn('h-full rounded-full', atingiu ? 'bg-lime' : 'bg-amber-400')} style={{ width: `${ratio}%` }} />
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div>
                 <label className="block text-xs font-medium text-bento-dim mb-1.5">Data de início</label>
                 <input type="date" value={rem.start_date} onChange={e => setRem(p => ({ ...p, start_date: e.target.value }))} className={inputCls} />
@@ -427,7 +452,7 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
                 <textarea value={rem.observations} onChange={e => setRem(p => ({ ...p, observations: e.target.value }))} className={`${inputCls} resize-none`} rows={3} placeholder="Ex: revisão em junho, vale refeição incluso..." />
               </div>
               <button onClick={saveRemuneracao} disabled={savingRem} className="w-full bento-btn py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]">
-                {savingRem ? 'Salvando...' : 'Salvar metas & remuneração'}
+                {savingRem ? 'Salvando...' : 'Salvar metas'}
               </button>
             </div>
           )}

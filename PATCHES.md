@@ -6,6 +6,18 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Metas & Remuneração em USD, indicador de meta e salário unificado.
+- Salário unificado: fonte única passa a ser `seller_salaries` (USD, com vigência,
+  da aba Comissão). A aba Metas deixou de editar o campo fantasma
+  `sellers.fixed_salary` (que não afetava a comissão) e agora só MOSTRA o salário
+  vigente (USD + BRL), com nota "definido na aba Comissão". Coluna antiga fica sem
+  uso (sem SQL, sem perda de dado). Removido o `FixoTab` morto (também mexia nela).
+- Meta mensal vira meta de COMISSÃO em USD (com conversão BRL na exibição).
+  ⚠️ valores de meta antigos foram digitados em R$ → agora lidos como USD (redigitar).
+- Indicador: comissão do mês vs meta — VERDE se atingiu, LARANJA se abaixo (com barra).
+
+---
+
 🔄 Mudança — topo do perfil do vendedor com 4 métricas reais do mês (módulo de comissão).
 - Substitui os KPIs antigos/desligados (Vendas/Comissão/Conversão do modelo velho)
   por 4 indicadores do mês atual, calculados com a MESMA função do Resumo (batem):
