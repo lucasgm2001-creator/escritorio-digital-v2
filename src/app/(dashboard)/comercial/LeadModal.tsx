@@ -29,6 +29,12 @@ const ORIGENS = [
   { value: 'outro',     label: 'Outro' },
 ]
 
+const NICHOS = [
+  'Construction', 'House Cleaning', 'Home Remodeling', 'General Contracting',
+  'Painting', 'Flooring', 'Tile', 'Junk Removal', 'Roofing', 'Landscaping',
+  'HVAC', 'Plumbing', 'Electrical', 'Pool Service', 'Pressure Washing', 'Pest Control',
+]
+
 // Cores SEMÂNTICAS de prioridade (translúcidas dark; o tema claro é resolvido
 // pela camada de compatibilidade em globals.css). Não são o acento.
 const PRIORIDADES = [
@@ -59,6 +65,7 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
   const [loading, setLoading] = useState(false)
   const [aiPaste, setAiPaste] = useState(false)
   const [rawText, setRawText] = useState('')
+  const [nichoOutro, setNichoOutro] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [sellers, setSellers] = useState<Seller[]>([])
   const [submitError, setSubmitError] = useState('')
@@ -227,8 +234,21 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
           {/* Linha 3: Nicho + Valor */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nicho / Segmento">
-              <input value={form.nicho} onChange={e => set('nicho', e.target.value)}
-                className={inputCls} placeholder="Ex: E-commerce, Clínica, SaaS..." />
+              <select
+                value={nichoOutro ? '__outro__' : form.nicho}
+                onChange={e => {
+                  if (e.target.value === '__outro__') { setNichoOutro(true); set('nicho', '') }
+                  else { setNichoOutro(false); set('nicho', e.target.value) }
+                }}
+                className={inputCls}>
+                <option value="">Selecione...</option>
+                {NICHOS.map(n => <option key={n} value={n}>{n}</option>)}
+                <option value="__outro__">Outro</option>
+              </select>
+              {nichoOutro && (
+                <input value={form.nicho} onChange={e => set('nicho', e.target.value)}
+                  className={`${inputCls} mt-2`} placeholder="Qual nicho?" autoFocus />
+              )}
             </Field>
             <Field label="Valor estimado (R$)">
               <input type="number" value={form.value} onChange={e => set('value', e.target.value)}

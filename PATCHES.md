@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — nicho do lead como lista (+ "Outro").
+- No Novo Lead, "Nicho / Segmento" virou lista (Construction, House Cleaning … Pest
+  Control) + "Outro" (revela campo de texto). Leads antigos mantêm o valor (texto);
+  a lista só limita os novos cadastros.
+
+---
+
 🔄 Mudança — caixas da aba Comissão recolhíveis (começam fechadas, com espiada).
 - As 5 seções (Resumo, Vendas, Reuniões, Salário, Cotação) viram recolhíveis
   (cabeçalho clicável, padrão do Hall), começando FECHADAS, com espiada no
