@@ -7,7 +7,7 @@
 // Usa SÓ as tabelas/funções da migration 017. Moeda real = USD; BRL é exibição.
 // Cada lançamento congela a cotação vigente no momento.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Lock, Unlock, Wallet, DollarSign, RefreshCw,
   Receipt, Handshake, Trash2, Check, Pencil, CalendarDays, Download,
@@ -259,10 +259,43 @@ function MeetingRow({ meeting, onEdit, onDelete }: {
   )
 }
 
+// ── Seção recolhível (cabeçalho clicável + espiada quando fechada) ────────────
+function Collapsible({ icon, title, peek, open, onToggle, headerExtra, children }: {
+  icon: ReactNode
+  title: ReactNode
+  peek?: ReactNode
+  open: boolean
+  onToggle: () => void
+  headerExtra?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="bento-fx p-4">
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={onToggle} className="flex items-center gap-1.5 min-w-0 flex-1 text-left">
+          {icon}
+          <span className="text-sm font-semibold text-bento-text truncate">{title}</span>
+          {!open && peek != null && <span className="font-tech text-[11px] text-bento-muted truncate">· {peek}</span>}
+        </button>
+        <div className="flex items-center gap-1.5 flex-none">
+          {headerExtra}
+          <button type="button" onClick={onToggle} className="p-1 text-bento-muted hover:text-bento-text" aria-label="Abrir/fechar">
+            <svg className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+        </div>
+      </div>
+      {open && <div className="space-y-3 mt-3">{children}</div>}
+    </section>
+  )
+}
+
 export function CommissionSection({ sellerId, sellerName }: { sellerId: string; sellerName: string }) {
   const save = useSave()
   const { toast } = useToast()
   const supabase = createClient()
+
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const toggle = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }))
 
   const [loading, setLoading] = useState(true)
   const [salaries, setSalaries] = useState<SalaryPeriod[]>([])
@@ -635,15 +668,15 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
       <datalist id="commission-clients">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
 
       {/* ── RESUMO DO MÊS ─────────────────────────────────────────────── */}
-      <section className="bento-fx p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="flex items-center gap-1.5 text-sm font-semibold text-bento-text"><Wallet className="w-4 h-4 text-lime-fg" /> Resumo do mês</h4>
+      <Collapsible icon={<Wallet className="w-4 h-4 text-lime-fg" />} title="Resumo do mês"
+        peek={`${usd(summary.totalUsd)} no mês`} open={!!open.resumo} onToggle={() => toggle('resumo')}
+        headerExtra={
           <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="p-1 rounded-btn text-bento-muted hover:text-bento-text hover:bg-bento-bg" aria-label="Mês anterior"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-xs font-medium text-bento-text capitalize min-w-[7.5rem] text-center tabular-nums">{monthName(refDate.year, refDate.month)}</span>
+            <span className="text-xs font-medium text-bento-text capitalize min-w-[6rem] text-center tabular-nums">{monthName(refDate.year, refDate.month)}</span>
             <button onClick={nextMonth} className="p-1 rounded-btn text-bento-muted hover:text-bento-text hover:bg-bento-bg" aria-label="Próximo mês"><ChevronRight className="w-4 h-4" /></button>
           </div>
-        </div>
+        }>
 
         <div className="space-y-0.5">
           {[
@@ -677,16 +710,12 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
         <button onClick={gerarPdf} className="flex items-center justify-center gap-1.5 w-full border border-bento-border text-bento-dim hover:border-lime hover:text-bento-text py-2 rounded-btn text-sm font-medium transition-colors min-h-[44px]">
           <Download className="w-4 h-4" /> Gerar PDF do mês
         </button>
-      </section>
+      </Collapsible>
 
       {/* ── VENDAS ────────────────────────────────────────────────────── */}
-      <section className="bento-fx p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="flex items-center gap-1.5 text-sm font-semibold text-bento-text"><Receipt className="w-4 h-4 text-lime-fg" /> Vendas</h4>
-          {semanasPendentes > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-800/50">{semanasPendentes} semana(s) pendente(s)</span>
-          )}
-        </div>
+      <Collapsible icon={<Receipt className="w-4 h-4 text-lime-fg" />} title="Vendas"
+        peek={`${deals.length} venda(s)${semanasPendentes > 0 ? ` · ${semanasPendentes} pend.` : ''}`}
+        open={!!open.vendas} onToggle={() => toggle('vendas')}>
 
         {!showNewDeal && (
           <button onClick={() => setShowNewDeal(true)} className="flex items-center justify-center gap-1.5 w-full bento-btn py-2.5 rounded-btn text-sm font-semibold min-h-[44px]">
@@ -735,11 +764,11 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
                   onEditDeal={(patch) => editDeal(d, patch)} onDeleteDeal={() => deleteDeal(d)} />
               ))}
             </div>}
-      </section>
+      </Collapsible>
 
       {/* ── REUNIÕES (do mês em foco) ─────────────────────────────────── */}
-      <section className="bento-fx p-4 space-y-3">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-bento-text"><Handshake className="w-4 h-4 text-lime-fg" /> Reuniões de <span className="capitalize">{monthName(refDate.year, refDate.month)}</span></h4>
+      <Collapsible icon={<Handshake className="w-4 h-4 text-lime-fg" />} title={<>Reuniões de <span className="capitalize">{monthName(refDate.year, refDate.month)}</span></>}
+        peek={`${meetingsDoMes.length} no mês`} open={!!open.reunioes} onToggle={() => toggle('reunioes')}>
 
         {!showNewMeeting && (
           <button onClick={() => setShowNewMeeting(true)} className="flex items-center justify-center gap-1.5 w-full bento-btn py-2.5 rounded-btn text-sm font-semibold min-h-[44px]">
@@ -782,11 +811,11 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
                 <MeetingRow key={m.id} meeting={m} onEdit={(patch) => editMeeting(m, patch)} onDelete={() => deleteMeeting(m)} />
               ))}
             </div>}
-      </section>
+      </Collapsible>
 
       {/* ── CONFIGURAÇÃO: SALÁRIO ─────────────────────────────────────── */}
-      <section className="bento-fx p-4 space-y-3">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-bento-text"><DollarSign className="w-4 h-4 text-lime-fg" /> Salário fixo (USD)</h4>
+      <Collapsible icon={<DollarSign className="w-4 h-4 text-lime-fg" />} title="Salário fixo (USD)"
+        peek={summary.salaryUsd > 0 ? usd(summary.salaryUsd) : 'não definido'} open={!!open.salario} onToggle={() => toggle('salario')}>
         <p className="text-[11px] text-bento-muted -mt-1">Cada mudança vira um novo registro com data de vigência. Aumento vale só pra frente — meses passados não são reescritos.</p>
 
         {salaries.length > 0 ? (
@@ -819,14 +848,13 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
         <button onClick={addSalary} disabled={savingSal} className="flex items-center justify-center gap-1.5 w-full bento-btn py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]">
           <Plus className="w-4 h-4" /> {savingSal ? 'Salvando...' : 'Definir salário'}
         </button>
-      </section>
+      </Collapsible>
 
       {/* ── CONFIGURAÇÃO: COTAÇÃO ─────────────────────────────────────── */}
-      <section className="bento-fx p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="flex items-center gap-1.5 text-sm font-semibold text-bento-text"><RefreshCw className="w-4 h-4 text-lime-fg" /> Cotação USD → BRL</h4>
-          <span className="text-[10px] text-bento-muted">global · vale pra todos</span>
-        </div>
+      <Collapsible icon={<RefreshCw className="w-4 h-4 text-lime-fg" />} title="Cotação USD → BRL"
+        peek={`R$ ${currentRate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · ${fxTravada ? 'travada' : 'auto'}`}
+        open={!!open.cotacao} onToggle={() => toggle('cotacao')}
+        headerExtra={<span className="text-[10px] text-bento-muted">global</span>}>
 
         <div className="flex items-center justify-between bg-bento-bg border border-bento-border/60 rounded-btn px-3 py-2.5">
           <span className="text-xs text-bento-muted">Cotação em uso</span>
@@ -854,7 +882,7 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
         <button onClick={saveFx} disabled={savingFx} className="w-full bento-btn py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]">
           {savingFx ? 'Salvando...' : 'Salvar cotação'}
         </button>
-      </section>
+      </Collapsible>
     </div>
   )
 }

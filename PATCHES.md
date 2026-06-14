@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — caixas da aba Comissão recolhíveis (começam fechadas, com espiada).
+- As 5 seções (Resumo, Vendas, Reuniões, Salário, Cotação) viram recolhíveis
+  (cabeçalho clicável, padrão do Hall), começando FECHADAS, com espiada no
+  cabeçalho: Resumo→total do mês; Vendas→nº de vendas + pendentes; Reuniões→nº no
+  mês; Salário→salário vigente; Cotação→cotação em uso. O seletor de mês fica no
+  cabeçalho do Resumo (acessível mesmo fechado).
+
+---
+
 ✨ Novidade — botão "Gerar PDF do mês" da comissão (jsPDF, um clique).
 - No Resumo da aba Comissão, gera um PDF do mês selecionado do vendedor aberto:
   cabeçalho (DR Growth, vendedor, mês, data de geração), TOTAL A PAGAR em USD e
