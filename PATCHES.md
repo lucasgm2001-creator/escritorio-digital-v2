@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — topo do perfil do vendedor com 4 métricas reais do mês (módulo de comissão).
+- Substitui os KPIs antigos/desligados (Vendas/Comissão/Conversão do modelo velho)
+  por 4 indicadores do mês atual, calculados com a MESMA função do Resumo (batem):
+  Comissão do mês (USD) com % vs mês anterior (verde +/vermelho −; "novo" quando o
+  mês anterior foi zero, sem divisão por zero), Vendas (mês), Reuniões (mês) e
+  Salário fixo vigente. (O painel carrega seus próprios dados; atualiza ao reabrir.)
+
+---
+
 ✨ Novidade — editar dados do vendedor (aba Dados).
 - Botão "Editar dados" no perfil → edita nome, cargo, e-mail, telefone. Cargo virou
   lista (SDR, Closer, Gestor, Coordenador, Vendedor + "Outro"). Grava em `sellers`.

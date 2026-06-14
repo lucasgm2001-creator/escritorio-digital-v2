@@ -6,6 +6,8 @@ import { useToast } from '@/components/ui/toast'
 import { useSave } from '@/lib/useSave'
 import { cn, formatDate } from '@/lib/utils'
 import { CommissionSection } from './CommissionSection'
+import { monthlySummary } from '@/lib/commission/calc'
+import type { SalaryPeriod, Meeting, WeeklyPayment, FxConfig } from '@/lib/commission/types'
 
 interface SellerRow {
   id: string
@@ -46,6 +48,8 @@ const SELLER_COLS = 'id, name, email, phone, photo_url, cargo, monthly_goal, def
 const CARGOS = ['SDR', 'Closer', 'Gestor', 'Coordenador', 'Vendedor']
 
 const fmtK = (v: number) => v >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : `R$ ${v.toFixed(0)}`
+const usd = (v: number) => `US$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const pad2 = (n: number) => String(n).padStart(2, '0')
 const monthKey = (iso?: string) => { const d = iso ? new Date(iso) : new Date(); return `${d.getFullYear()}-${d.getMonth()}` }
 
 const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text placeholder:text-bento-muted focus:outline-none focus:border-lime'
@@ -114,7 +118,7 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
 
   const [section, setSection] = useState<Section>('dados')
   const [current, setCurrent] = useState<SellerRow>(seller)
-  const [commissions, setCommissions] = useState<Commission[]>([])
+  const [mc, setMc] = useState({ comissaoAtual: 0, comissaoAnterior: 0, comissaoAtualBrl: 0, vendasMes: 0, reunioesMes: 0, salarioUsd: 0, salarioBrl: 0, rate: 0 })
   const [uploading, setUploading] = useState(false)
 
   // Form Metas & Remuneração (salário fixo + metas juntos)
@@ -133,15 +137,44 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
   const [cargoOutro, setCargoOutro] = useState(false)
   const [dadosForm, setDadosForm] = useState({ name: seller.name, cargo: seller.cargo ?? '', email: seller.email ?? '', phone: seller.phone ?? '' })
 
-  // Comissões antigas (modelo genérico) — usadas só nos KPIs do topo do painel.
+  // Métricas do mês a partir do MÓDULO REAL (deals/meetings/weekly_payments/salário),
+  // mesma função (monthlySummary) do Resumo da aba Comissão → números batem.
   useEffect(() => {
-    supabase.from('commissions').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false })
-      .then(({ data }) => setCommissions(data ?? []))
+    const load = async () => {
+      const now = new Date()
+      const y = now.getFullYear(), m = now.getMonth() + 1
+      const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1
+      const [salRes, mtgRes, dealRes, fxRes] = await Promise.all([
+        supabase.from('seller_salaries').select('seller_id, valor_usd, effective_from').eq('seller_id', seller.id),
+        supabase.from('meetings').select('id, seller_id, met_on, valor_usd, cotacao_usd_brl').eq('seller_id', seller.id),
+        supabase.from('deals').select('id, data_fechamento').eq('seller_id', seller.id),
+        supabase.from('fx_config').select('cotacao_manual, cotacao_travada').eq('id', 1).maybeSingle(),
+      ])
+      const salaries: SalaryPeriod[] = (salRes.data ?? []).map(s => ({ sellerId: s.seller_id, valorUsd: Number(s.valor_usd), effectiveFrom: s.effective_from }))
+      const meetings: Meeting[] = (mtgRes.data ?? []).map(mm => ({ id: mm.id, sellerId: mm.seller_id, metOn: mm.met_on, valorUsd: Number(mm.valor_usd), cotacaoUsdBrl: Number(mm.cotacao_usd_brl) }))
+      const dealsData = dealRes.data ?? []
+      const dealIds = dealsData.map(d => d.id)
+      let weeks: WeeklyPayment[] = []
+      if (dealIds.length) {
+        const { data: wk } = await supabase.from('weekly_payments').select('id, deal_id, numero_semana, valor_usd, paid_on, cotacao_usd_brl').in('deal_id', dealIds)
+        weeks = (wk ?? []).map(w => ({ id: w.id, dealId: w.deal_id, numeroSemana: w.numero_semana, valorUsd: Number(w.valor_usd), paidOn: w.paid_on, cotacaoUsdBrl: Number(w.cotacao_usd_brl) }))
+      }
+      const manual = fxRes.data?.cotacao_manual != null ? Number(fxRes.data.cotacao_manual) : null
+      const fx: FxConfig = { cotacaoManual: manual, cotacaoTravada: !!fxRes.data?.cotacao_travada }
+      const cur = monthlySummary({ year: y, month: m, salaries, meetings, weeks, fx, automaticRate: manual ?? 0 })
+      const prev = monthlySummary({ year: py, month: pm, salaries, meetings, weeks, fx, automaticRate: manual ?? 0 })
+      const mp = `${y}-${pad2(m)}`
+      setMc({
+        comissaoAtual: cur.totalUsd, comissaoAnterior: prev.totalUsd, comissaoAtualBrl: cur.totalBrl,
+        vendasMes: dealsData.filter(d => (d.data_fechamento ?? '').slice(0, 7) === mp).length,
+        reunioesMes: cur.meetingsCount, salarioUsd: cur.salaryUsd, salarioBrl: cur.salaryBrl, rate: cur.rateUsed,
+      })
+    }
+    load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seller.id])
 
-  const totalPaid    = commissions.filter(c => c.status === 'paga').reduce((s, c) => s + c.amount, 0)
-  const totalPending = commissions.filter(c => c.status === 'pendente').reduce((s, c) => s + c.amount, 0)
+  const pct = mc.comissaoAnterior > 0 ? ((mc.comissaoAtual - mc.comissaoAnterior) / mc.comissaoAnterior) * 100 : null
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -265,11 +298,27 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
           </button>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-2 px-5 py-4 border-b border-bento-border shrink-0">
-          <div><p className="text-[10px] text-bento-muted">Vendas</p><p className="text-sm font-bold text-bento-text tabular-nums">{fmtK(current.total_sales)}</p></div>
-          <div><p className="text-[10px] text-bento-muted">Comissão</p><p className="text-sm font-bold text-lime-fg tabular-nums">{fmtK(totalPaid)}</p><p className="text-[9px] text-amber-400 tabular-nums">+{fmtK(totalPending)} pend.</p></div>
-          <div><p className="text-[10px] text-bento-muted">Conversão</p><p className="text-sm font-bold text-bento-text tabular-nums">{(current.conversion_rate * 100).toFixed(1)}%</p></div>
+        {/* KPIs do mês — do módulo real de comissão (batem com o Resumo) */}
+        <div className="grid grid-cols-2 gap-x-2 gap-y-3 px-5 py-4 border-b border-bento-border shrink-0">
+          <div>
+            <p className="text-[10px] text-bento-muted">Comissão do mês</p>
+            <p className="text-sm font-bold text-lime-fg tabular-nums">{usd(mc.comissaoAtual)}</p>
+            {pct == null
+              ? <p className={cn('text-[9px] tabular-nums', mc.comissaoAtual > 0 ? 'text-lime-fg' : 'text-bento-muted')}>{mc.comissaoAtual > 0 ? 'novo' : '—'}</p>
+              : <p className={cn('text-[9px] tabular-nums', pct >= 0 ? 'text-lime-fg' : 'text-red-400')}>{pct >= 0 ? '+' : ''}{pct.toFixed(0)}% vs mês ant.</p>}
+          </div>
+          <div>
+            <p className="text-[10px] text-bento-muted">Vendas (mês)</p>
+            <p className="text-sm font-bold text-bento-text tabular-nums">{mc.vendasMes}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-bento-muted">Reuniões (mês)</p>
+            <p className="text-sm font-bold text-bento-text tabular-nums">{mc.reunioesMes}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-bento-muted">Salário fixo</p>
+            <p className="text-sm font-bold text-bento-text tabular-nums">{usd(mc.salarioUsd)}</p>
+          </div>
         </div>
 
         {/* Section tabs */}
