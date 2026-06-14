@@ -62,6 +62,9 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, currentUser }
   const [aiLoading, setAiLoading] = useState(false)
   const [phaseOpen, setPhaseOpen] = useState(false)
   const [movingPhase, setMovingPhase] = useState(false)
+  const [sellers, setSellers] = useState<{ id: string; name: string }[]>([])
+  const [respOpen, setRespOpen] = useState(false)
+  const [savingResp, setSavingResp] = useState(false)
 
   const supabase = createClient()
   const { toast } = useToast()
@@ -81,6 +84,28 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, currentUser }
     setMovingPhase(false)
   }
 
+  // Troca o responsável de um lead já criado. MESMA lógica corrigida da criação
+  // (bug do Lucas): só o usuário logado tem linha em profiles → grava o id real;
+  // vendedor sem conta → assigned_to null + nome em assigned_name (evita a FK).
+  const changeResponsavel = async (id: string, name: string) => {
+    setRespOpen(false)
+    const assignedTo = id === currentUser.id ? currentUser.id : null
+    if (name === (currentLead.assigned_name ?? '') && (assignedTo ?? null) === (currentLead.assigned_to ?? null)) return
+    const prev = { to: currentLead.assigned_to, name: currentLead.assigned_name }
+    const updated = { ...currentLead, assigned_to: assignedTo ?? undefined, assigned_name: name }
+    setSavingResp(true)
+    setCurrentLead(updated)
+    const { error } = await supabase.from('leads').update({ assigned_to: assignedTo, assigned_name: name }).eq('id', lead.id)
+    if (error) {
+      setCurrentLead(c => ({ ...c, assigned_to: prev.to, assigned_name: prev.name }))
+      toast({ type: 'error', message: `Não foi possível trocar o responsável: ${error.message}` })
+    } else {
+      onUpdated(updated)
+      toast({ type: 'success', message: `Responsável: ${name}.` })
+    }
+    setSavingResp(false)
+  }
+
   useEffect(() => {
     supabase
       .from('lead_interactions')
@@ -88,6 +113,8 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, currentUser }
       .eq('lead_id', lead.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setInteractions(data ?? []))
+    supabase.from('sellers').select('id, name').eq('status', 'ativo').order('name')
+      .then(({ data }) => setSellers(data ?? []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id])
 
@@ -212,6 +239,46 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, currentUser }
                     <svg className="w-3.5 h-3.5 text-lime-fg flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Responsável — trocar em lead já criado (mesma lógica corrigida da criação) */}
+        <div className="px-5 py-3 border-b border-border relative">
+          <span className="text-xs text-muted-foreground">Responsável</span>
+          <button
+            type="button"
+            onClick={() => setRespOpen(o => !o)}
+            disabled={savingResp}
+            className="mt-1 w-full flex items-center justify-between gap-2 bg-bento-bg border border-bento-border rounded-btn px-3 py-2 hover:border-lime transition-colors disabled:opacity-60 min-h-[44px]"
+          >
+            <span className="text-sm font-medium text-bento-text truncate">{currentLead.assigned_name ?? 'Sem responsável'}</span>
+            {savingResp ? (
+              <span className="w-4 h-4 border-2 border-bento-muted/30 border-t-bento-muted rounded-full animate-spin flex-none" />
+            ) : (
+              <svg className={cn('w-4 h-4 text-bento-muted transition-transform flex-none', respOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          {respOpen && (
+            <div className="absolute left-5 right-5 z-20 mt-1 bg-bento-panel border border-bento-border rounded-btn shadow-card-hover overflow-hidden max-h-60 overflow-y-auto">
+              <button type="button" onClick={() => changeResponsavel(currentUser.id, currentUser.name)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-bento-bg transition-colors">
+                <span className="text-sm text-bento-text flex-1 truncate">{currentUser.name} (eu)</span>
+                {currentLead.assigned_to === currentUser.id && (
+                  <svg className="w-3.5 h-3.5 text-lime-fg flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                )}
+              </button>
+              {sellers.filter(s => s.id !== currentUser.id).map(s => (
+                <button key={s.id} type="button" onClick={() => changeResponsavel(s.id, s.name)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-bento-bg transition-colors">
+                  <span className="text-sm text-bento-text flex-1 truncate">{s.name}</span>
+                  {currentLead.assigned_to == null && currentLead.assigned_name === s.name && (
+                    <svg className="w-3.5 h-3.5 text-lime-fg flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   )}
                 </button>
               ))}

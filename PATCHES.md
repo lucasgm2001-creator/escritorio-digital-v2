@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — trocar o responsável de um lead já criado (painel do lead).
+- Seletor "Responsável" no LeadDiary (espelha o de Fase): escolher o usuário
+  logado grava o id real; escolher um vendedor grava só o nome (`assigned_name`) e
+  deixa `assigned_to` null — MESMA lógica corrigida da criação (não repete a FK do
+  bug do Lucas). UPDATE em `leads`, otimista + rollback + toast. Sem schema.
+
+---
+
 ✨ Novidade — editar a data de uma semana já paga (aba Comissão do vendedor).
 - No card da venda, clicar numa semana paga abre um campo de data + "Salvar" pra
   corrigir o `paid_on` (UPDATE em `weekly_payments`), além do "Desmarcar" que já
