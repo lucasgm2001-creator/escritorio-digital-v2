@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Lock, Unlock, Wallet, DollarSign, RefreshCw,
-  Receipt, Handshake, Trash2, Check, Pencil, CalendarDays,
+  Receipt, Handshake, Trash2, Check, Pencil, CalendarDays, Download,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useSave } from '@/lib/useSave'
@@ -259,7 +259,7 @@ function MeetingRow({ meeting, onEdit, onDelete }: {
   )
 }
 
-export function CommissionSection({ sellerId }: { sellerId: string }) {
+export function CommissionSection({ sellerId, sellerName }: { sellerId: string; sellerName: string }) {
   const save = useSave()
   const { toast } = useToast()
   const supabase = createClient()
@@ -567,6 +567,64 @@ export function CommissionSection({ sellerId }: { sellerId: string }) {
     return ok
   }
 
+  // ── PDF do mês (jsPDF) — só o recebido/realizado no mês, nada de previsão ──────
+  const gerarPdf = async () => {
+    const { jsPDF } = await import('jspdf')          // carrega sob demanda (fora do bundle)
+    const autoTable = (await import('jspdf-autotable')).default
+    const y = refDate.year, mo = refDate.month
+    const mp = `${y}-${pad2(mo)}`
+    const dealById = new Map(deals.map(d => [d.id, d]))
+    const rows: { sort: string; dia: string; acao: string; cliente: string; usd: number }[] = []
+    if (summary.salaryUsd > 0) rows.push({ sort: `${mp}-01`, dia: `01/${pad2(mo)}`, acao: 'Salário fixo', cliente: '—', usd: summary.salaryUsd })
+    meetings.filter(m => m.metOn.slice(0, 7) === mp).forEach(m =>
+      rows.push({ sort: m.metOn, dia: fmtDayMonth(m.metOn), acao: 'Reunião', cliente: m.clientName || '—', usd: m.valorUsd }))
+    weeks.filter(w => w.paidOn.slice(0, 7) === mp).forEach(w => {
+      const d = dealById.get(w.dealId)
+      rows.push({ sort: w.paidOn, dia: fmtDayMonth(w.paidOn), acao: `Semana ${w.numeroSemana} (venda)`, cliente: d?.clientName || '—', usd: w.valorUsd })
+    })
+    rows.sort((a, b) => (a.sort < b.sort ? -1 : 1))
+
+    const lime: [number, number, number] = [79, 133, 0]
+    const dark: [number, number, number] = [23, 35, 27]
+    const rateStr = summary.rateUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+    const doc = new jsPDF()
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...lime)
+    doc.text('DR Growth', 14, 18)
+    doc.setFontSize(13); doc.setTextColor(...dark); doc.text('Relatório de Comissão', 14, 26)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90, 90, 90)
+    doc.text(`Vendedor: ${sellerName}`, 14, 34)
+    doc.text(`Mês de referência: ${monthName(y, mo)}`, 14, 39)
+    doc.text(`Gerado em: ${fmtDayMonthYear(todayISO())}`, 14, 44)
+
+    doc.setDrawColor(...lime); doc.setLineWidth(0.5); doc.line(14, 49, 196, 49)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...dark); doc.text('TOTAL A PAGAR', 14, 58)
+    doc.setFontSize(17); doc.setTextColor(...lime); doc.text(usd(summary.totalUsd), 14, 67)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(90, 90, 90)
+    doc.text(`${brl(summary.totalBrl)}  (cotação R$ ${rateStr})`, 14, 74)
+    doc.setFontSize(10); doc.setTextColor(...dark)
+    doc.text(`Salário fixo: ${usd(summary.salaryUsd)}    Reuniões: ${usd(summary.meetingsUsd)}    Vendas: ${usd(summary.weeksUsd)}`, 14, 82)
+
+    autoTable(doc, {
+      startY: 88,
+      head: [['Dia', 'Ação', 'Cliente', 'Valor (USD)']],
+      body: rows.length ? rows.map(r => [r.dia, r.acao, r.cliente, usd(r.usd)]) : [['—', 'Sem lançamentos no mês', '—', usd(0)]],
+      foot: [['', '', 'Total', usd(summary.totalUsd)]],
+      theme: 'striped',
+      headStyles: { fillColor: lime, textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [240, 244, 238], textColor: dark, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      columnStyles: { 3: { halign: 'right' } },
+    })
+
+    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10
+    doc.setFontSize(9); doc.setTextColor(120, 120, 120)
+    doc.text(`Cotação USD->BRL usada: R$ ${rateStr} (${fxTravada ? 'travada' : 'automática'}).`, 14, finalY)
+    doc.text('Valores referentes apenas ao que foi recebido/realizado no mês.', 14, finalY + 5)
+
+    doc.save(`comissao-${sellerName.replace(/\s+/g, '-').toLowerCase()}-${mp}.pdf`)
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-10 text-bento-muted text-sm gap-2"><span className="w-4 h-4 border-2 border-bento-muted/20 border-t-lime rounded-full animate-spin" />Carregando comissão...</div>
   }
@@ -615,6 +673,10 @@ export function CommissionSection({ sellerId }: { sellerId: string }) {
             ? 'Sem lançamentos neste mês ainda — lance vendas, semanas e reuniões abaixo.'
             : `Convertido a R$ ${summary.rateUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${fxTravada ? 'travada' : 'automática'}). Reuniões e vendas usam a cotação congelada de cada lançamento.`}
         </p>
+
+        <button onClick={gerarPdf} className="flex items-center justify-center gap-1.5 w-full border border-bento-border text-bento-dim hover:border-lime hover:text-bento-text py-2 rounded-btn text-sm font-medium transition-colors min-h-[44px]">
+          <Download className="w-4 h-4" /> Gerar PDF do mês
+        </button>
       </section>
 
       {/* ── VENDAS ────────────────────────────────────────────────────── */}

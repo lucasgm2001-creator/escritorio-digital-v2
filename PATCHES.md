@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — botão "Gerar PDF do mês" da comissão (jsPDF, um clique).
+- No Resumo da aba Comissão, gera um PDF do mês selecionado do vendedor aberto:
+  cabeçalho (DR Growth, vendedor, mês, data de geração), TOTAL A PAGAR em USD e
+  BRL (com a cotação), decomposição (salário/reuniões/vendas) e tabela linha a
+  linha (Dia · Ação · Cliente · Valor). Conta SÓ o recebido/realizado no mês — sem
+  previsões. Layout claro/profissional com acento verde-limão. jsPDF carregado sob
+  demanda (não entra no bundle da página). Deps: jspdf, jspdf-autotable.
+
+---
+
 ✨ Novidade — semanas pré-programadas pela data de fechamento (aba Comissão).
 - Cada semana da venda mostra a data PREVISTA (S1 = fechamento, depois +7/+14/+21),
   calculada na hora (sem guardar nada; ajusta sozinha se mudar o fechamento). Os

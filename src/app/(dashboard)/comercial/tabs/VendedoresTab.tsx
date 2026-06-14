@@ -325,7 +325,7 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
           )}
 
           {/* Comissão (módulo novo — bloco 1: config + resumo do mês) */}
-          {section === 'comissao' && <CommissionSection sellerId={seller.id} />}
+          {section === 'comissao' && <CommissionSection sellerId={seller.id} sellerName={current.name} />}
         </div>
       </div>
     </div>
