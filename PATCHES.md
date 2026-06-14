@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — Gaveta de materiais com armazenamento real (Bloco 1 do Studio de Apresentação).
+- A aba Apresentação (Comercial) agora SALVA de verdade: cada arquivo sobe pro bucket
+  "materiais" (Storage) e vira uma linha em `presentation_materials` — antes ficava só
+  na memória do navegador e sumia ao recarregar a página.
+- Ao abrir, LISTA os materiais salvos (mais recentes primeiro), com estado "Carregando...".
+- Upload de PDF/PPT/imagens com limite real de 25 MB por arquivo (aviso amigável se passar);
+  vários de uma vez. Antes dizia "sem limite de tamanho".
+- Excluir em 2 toques (Cancelar/Excluir, padrão do sistema): apaga do bucket E da tabela.
+- "Apresentar" em tela cheia continua igual, agora usando a URL real do arquivo salvo.
+- Pastas/favoritos/nicho ficam para blocos futuros.
+
+---
+
 🔄 Mudança — Metas & Remuneração em USD, indicador de meta e salário unificado.
 - Salário unificado: fonte única passa a ser `seller_salaries` (USD, com vigência,
   da aba Comissão). A aba Metas deixou de editar o campo fantasma
