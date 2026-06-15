@@ -323,6 +323,7 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
   const [weeks, setWeeks] = useState<WeeklyPayment[]>([])
   const [deals, setDeals] = useState<DealUI[]>([])
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+  const [leads, setLeads] = useState<{ id: string; name: string }[]>([])
 
   // Cotação (global)
   const [fxManual, setFxManual] = useState<number | null>(null)
@@ -359,12 +360,13 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [salRes, mtgRes, dealRes, fxRes, cliRes] = await Promise.all([
+    const [salRes, mtgRes, dealRes, fxRes, cliRes, leadRes] = await Promise.all([
       supabase.from('seller_salaries').select('seller_id, valor_usd, effective_from').eq('seller_id', sellerId).order('effective_from', { ascending: false }),
       supabase.from('meetings').select('id, seller_id, met_on, valor_usd, cotacao_usd_brl, client_name').eq('seller_id', sellerId).order('met_on', { ascending: false }),
       supabase.from('deals').select('id, seller_id, client_name, valor_total_usd, teto_semanas, valor_por_semana_usd, status, data_fechamento').eq('seller_id', sellerId).order('data_fechamento', { ascending: false }),
       supabase.from('fx_config').select('cotacao_manual, cotacao_travada').eq('id', 1).maybeSingle(),
       supabase.from('clients').select('id, name').order('name'),
+      supabase.from('leads').select('id, name').order('name'),
     ])
 
     setSalaries((salRes.data ?? []).map(s => ({ sellerId: s.seller_id, valorUsd: Number(s.valor_usd), effectiveFrom: s.effective_from })))
@@ -372,6 +374,7 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     const ds = (dealRes.data ?? []).map(toDealUI)
     setDeals(ds)
     setClients((cliRes.data ?? []) as { id: string; name: string }[])
+    setLeads((leadRes.data ?? []) as { id: string; name: string }[])
 
     const dealIds = ds.map(d => d.id)
     if (dealIds.length) {
@@ -405,6 +408,20 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     ? acc + Math.max(0, d.tetoSemanas - weeks.filter(w => w.dealId === d.id).length) : acc, 0)
   const monthPrefix = `${refDate.year}-${pad2(refDate.month)}`
   const meetingsDoMes = meetings.filter(m => m.metOn.slice(0, 7) === monthPrefix)
+
+  // Sugestões do campo de cliente (reunião e venda): clientes formais + leads, sem repetir nome.
+  // Só pro datalist — o client_id continua vindo SÓ de `clients`, pra não quebrar a FK.
+  const clientOptions = (() => {
+    const seen = new Set<string>()
+    const names: string[] = []
+    for (const c of [...clients, ...leads]) {
+      const key = c.name?.trim().toLowerCase()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      names.push(c.name)
+    }
+    return names
+  })()
   const dealVps = (() => { const t = parseFloat(dealForm.valorTotal); const s = parseInt(dealForm.semanas); return t > 0 && s > 0 ? Math.round((t / s) * 100) / 100 : 0 })()
 
   // ── Salvar cotação ──────────────────────────────────────────────────────────
@@ -685,7 +702,7 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
   return (
     <div className="space-y-5">
       {/* lista compartilhada de clientes p/ os campos de cliente */}
-      <datalist id="commission-clients">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
+      <datalist id="commission-clients">{clientOptions.map(name => <option key={name} value={name} />)}</datalist>
 
       {/* ── RESUMO DO MÊS ─────────────────────────────────────────────── */}
       <Collapsible icon={<Wallet className="w-4 h-4 text-lime-fg" />} title="Resumo do mês"

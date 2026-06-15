@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — campo de cliente da reunião e da venda mostra leads além de clientes (corrige Livia não aparecendo).
+- Na aba Comissão, o campo de cliente (reunião e venda) sugeria só os clientes formais
+  (tabela clients), então leads como a Livia não apareciam. Agora o datalist junta
+  clientes + leads, sem repetir nome. Continua aceitando digitar um nome na mão.
+- É só sugestão: o vínculo client_id continua vindo só de clients (não quebra a FK); um
+  lead entra como nome livre (client_id vazio), o que já era permitido.
+
+---
+
 🐛 Fix — card "Atividades hoje" zera à meia-noite de Brasília (corrige contagem por fuso).
 - A contagem usava a data em UTC, então atividades do fim da noite de ontem (após ~21h
   BRT) entravam no "hoje". Agora o dia é calculado no fuso America/Sao_Paulo (zera 00:00
