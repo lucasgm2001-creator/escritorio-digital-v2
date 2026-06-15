@@ -16,11 +16,21 @@ function fmtUSD(val: number): string {
   return 'US$ 0'
 }
 
-// Acento do tema quando a fase está ABERTA. Exceções: ganho=verde, perda=vermelho.
-const ACCENT: Record<ColumnTone, { bl: string; ring: string; glow: string; grad: string; name: string }> = {
-  neutral: { bl: 'border-l-lime',      ring: 'border-lime/25',      glow: 'shadow-[0_0_18px_rgba(194,247,58,0.10)]', grad: 'from-lime/[0.04]',      name: 'text-lime-fg' },
-  win:     { bl: 'border-l-green-500', ring: 'border-green-500/30', glow: 'shadow-[0_0_18px_rgba(34,197,94,0.12)]',  grad: 'from-green-500/[0.05]', name: 'text-green-500' },
-  loss:    { bl: 'border-l-red-500',   ring: 'border-red-500/30',   glow: 'shadow-[0_0_18px_rgba(239,68,68,0.12)]',  grad: 'from-red-500/[0.05]',   name: 'text-red-400' },
+// Acento quando a fase está ABERTA. Lime fixo (#C2F73A) p/ aparecer no light também;
+// gradiente mais forte no light via [html.light_&]. Exceções: ganho=verde, perda=vermelho.
+const ACCENT: Record<ColumnTone, { box: string; name: string }> = {
+  neutral: {
+    box: 'border-[rgba(194,247,58,0.30)] border-l-[3px] border-l-[#C2F73A] shadow-[0_0_12px_rgba(194,247,58,0.12)] bg-gradient-to-br from-[rgba(194,247,58,0.04)] [html.light_&]:from-[rgba(194,247,58,0.09)] to-transparent',
+    name: 'text-lime-fg',
+  },
+  win: {
+    box: 'border-[rgba(34,197,94,0.30)] border-l-[3px] border-l-[#22C55E] shadow-[0_0_12px_rgba(34,197,94,0.14)] bg-gradient-to-br from-[rgba(34,197,94,0.05)] [html.light_&]:from-[rgba(34,197,94,0.10)] to-transparent',
+    name: 'text-[#22C55E]',
+  },
+  loss: {
+    box: 'border-[rgba(239,68,68,0.30)] border-l-[3px] border-l-[#EF4444] shadow-[0_0_12px_rgba(239,68,68,0.14)] bg-gradient-to-br from-[rgba(239,68,68,0.05)] [html.light_&]:from-[rgba(239,68,68,0.10)] to-transparent',
+    name: 'text-[#EF4444]',
+  },
 }
 
 export function KanbanColumn({ column, leads, onMove, onOpenDiary }: {
@@ -44,9 +54,7 @@ export function KanbanColumn({ column, leads, onMove, onOpenDiary }: {
       ref={setNodeRef}
       className={cn(
         'w-60 flex-none rounded-[10px] border bg-bento-panel overflow-hidden transition-colors',
-        collapsed
-          ? 'border-bento-border'
-          : cn('border-l-[3px] bg-gradient-to-br to-transparent', accent.bl, accent.ring, accent.glow, accent.grad),
+        collapsed ? 'border-bento-border' : accent.box,
         isOver && 'border-dashed border-lime/60 bg-lime/5',
       )}
     >
@@ -79,7 +87,7 @@ export function KanbanColumn({ column, leads, onMove, onOpenDiary }: {
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+          <div className="p-2 space-y-2 overflow-y-auto max-h-[340px]">
             <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
               {leads.length === 0 ? (
                 <div className={cn('flex items-center justify-center h-14 text-xs rounded-lg border border-dashed font-tech',

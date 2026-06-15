@@ -32,7 +32,6 @@ export function FunnelLeadCard({ lead, onMove, onOpenDiary }: {
     : lead.status === 'lixeira' ? 'bg-bento-muted'
     : HEAT[heat].dot
   const days = daysInStage(lead)
-  const showBadge = !terminal && days >= 2
   const next = nextActionLabel(lead)
   const phone = onlyDigits(lead.phone)
   const stop = (e: React.MouseEvent) => e.stopPropagation()
@@ -55,9 +54,11 @@ export function FunnelLeadCard({ lead, onMove, onOpenDiary }: {
             <p className="font-tech text-[10px] text-bento-muted truncate">{lead.company || lead.nicho}</p>
           )}
         </div>
-        {showBadge && (
+        {!terminal && (
           <span className={cn('font-tech text-[10px] font-bold tabular-nums px-1 py-px rounded flex-none',
-            days >= 5 ? 'text-red-400 bg-red-400/[0.12]' : 'text-amber-400 bg-amber-400/[0.12]')}>
+            heat === 'hot' ? 'text-lime-fg bg-lime/15'
+              : heat === 'warm' ? 'text-amber-400 bg-amber-400/[0.12]'
+              : 'text-red-400 bg-red-400/[0.12]')}>
             {days}D
           </span>
         )}

@@ -41,7 +41,9 @@ function FunnelSummary({ leads }: { leads: Lead[] }) {
   const fechados = leads.filter(l => l.status === 'fechado').length
   const perdidos = leads.filter(l => l.status === 'perdido').length
   const pipeline = ativos.reduce((s, l) => s + (l.value || 0), 0)
-  const conv = (fechados + perdidos) > 0 ? Math.round((fechados / (fechados + perdidos)) * 100) : 0
+  // Conversão = fechados / (fechados + perdidos + ativos) — sobre tudo, não só os terminais.
+  const denom = fechados + perdidos + ativos.length
+  const conv = denom > 0 ? ((fechados / denom) * 100).toFixed(1) : '0'
   return (
     <div className="flex-none border-t border-bento-border bg-bento-panel px-4 sm:px-6 py-2.5 flex items-center gap-x-6 gap-y-1 flex-wrap">
       <SummaryStat label="Pipeline" value={fmtUSDc(pipeline)} />
@@ -100,7 +102,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
     { key: 'pipeline',     label: 'Pipeline' },
     { key: 'metricas',     label: 'Métricas' },
     { key: 'agenda',       label: 'Agenda' },
-    { key: 'apresentacao', label: 'Apresentação' },
+    { key: 'apresentacao', label: 'Studio de Apresentação' },
     { key: 'vendedores',   label: 'Vendedores' },
   ]
 

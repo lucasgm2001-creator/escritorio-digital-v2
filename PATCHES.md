@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — ajustes finos do funil: conversão %, tema verde, badge de dias, scroll e rename.
+- Conversão na barra de resumo estava 100% (só fechados/perdidos). Agora é
+  fechados / (fechados + perdidos + ativos) — ex.: 2 / 11 = 18.2%.
+- Tema verde da fase aberta reforçado (lime fixo #C2F73A na borda esquerda 3px, glow e
+  gradiente; gradiente mais forte no light mode via html.light). Exceções: Venda Fechada
+  verde (#22C55E), Venda Perdida vermelho (#EF4444).
+- Badge "XD" (dias na fase) agora aparece sempre no card, com cor por temperatura
+  (verde 0–1, amarelo 2–4, vermelho 5+). Com o backfill, começam "0D" verde.
+- Caixa aberta com max-height (340px) e scroll interno — não cresce infinito.
+- Aba do Comercial renomeada de "Apresentação" para "Studio de Apresentação".
+
+---
+
 🔄 Mudança — funil horizontal em níveis com fases colapsáveis e deal rotting.
 - Funil do Comercial reconstruído: layout horizontal em 6 tiers (Novo Lead →
   Interagiu/Não Interagiu → Reunião Agendada → No-Show/Reagendamento/Proposta em Análise
