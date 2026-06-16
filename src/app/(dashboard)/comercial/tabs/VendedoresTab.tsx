@@ -47,7 +47,7 @@ const SELLER_COLS = 'id, name, email, phone, photo_url, cargo, monthly_goal, def
 
 const CARGOS = ['SDR', 'Closer', 'Gestor', 'Coordenador', 'Vendedor']
 
-const fmtK = (v: number) => v >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : `R$ ${v.toFixed(0)}`
+const fmtK = (v: number) => v >= 1000 ? `US$ ${(v / 1000).toFixed(1)}k` : `US$ ${v.toFixed(0)}`
 const usd = (v: number) => `US$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -655,7 +655,7 @@ export function VendedoresTab() {
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1.5">Meta mensal (R$)</label>
+                <label className="block text-xs font-medium text-bento-dim mb-1.5">Meta mensal (US$)</label>
                 <input type="number" value={form.monthly_goal} onChange={e => setForm(p => ({ ...p, monthly_goal: e.target.value }))} className={inputCls} placeholder="0,00" min="0" step="100" />
               </div>
               <div className="flex gap-3 pt-1">

@@ -6,6 +6,22 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — limpeza geral: tabs unificadas, moeda US$, telefone US, campo Operação removido, labels corrigidos.
+- Comercial: removidas as abas Agenda e Pipeline; o conteúdo da Pipeline foi unificado
+  dentro de Métricas (KPIs + Funil por Etapa + Valor por Estágio + Valor por Vendedor +
+  Resumo + Temperatura). Aba Vendedores renomeada para "Equipe e Comissões". Ordem final:
+  Funil · Métricas · Studio de Apresentação · Equipe e Comissões.
+- Moeda padronizada em US$ (form de lead, cards de vendedores, métricas). O módulo de
+  Comissão segue mostrando US$/BRL de propósito.
+- Form de lead: telefone com placeholder US (+1 (555) 123-4567); novos leads entram como
+  operação "eua" por padrão (não havia campo "Operação" visível; sem mexer no banco).
+- Topbar de /tarefas mostra "Tarefas" (antes "Dashboard").
+- Hall: atividades de leads agora são clicáveis (abrem o lead no funil via
+  /comercial?lead=id); as barras por tipo ganharam o rótulo "Atividades por tipo" pra não
+  confundir contagem de atividades com a contagem real de leads.
+
+---
+
 🔄 Mudança — redesign visual do Studio de Apresentação com 3 abas e layout profissional.
 - Reorganizado em 3 sub-abas (ícone + contador): Materiais (era Gaveta), Montar (o
   montador, antes um modal) e Apresentar (era Apresentações).

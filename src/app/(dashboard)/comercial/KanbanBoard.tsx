@@ -14,16 +14,14 @@ import { LeadCard } from './LeadCard'
 import { LeadModal } from './LeadModal'
 import { LeadDiary } from './LeadDiary'
 import { CommissionModal } from './CommissionModal'
-import { PipelineTab } from './tabs/PipelineTab'
 import { MetricasTab } from './tabs/MetricasTab'
-import { AgendaTab } from './tabs/AgendaTab'
 import { VendedoresTab } from './tabs/VendedoresTab'
 import { ApresentacaoTab } from './tabs/ApresentacaoTab'
 import { TIERS, ALL_COLUMNS } from './types'
 import type { Lead, LeadStatus } from './types'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
-type Tab = 'funil' | 'pipeline' | 'metricas' | 'agenda' | 'vendedores' | 'apresentacao'
+type Tab = 'funil' | 'metricas' | 'vendedores' | 'apresentacao'
 
 interface CurrentUser { id: string; name: string }
 
@@ -97,13 +95,20 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
     setTimeout(() => setToast(null), 4000)
   }
 
+  // Deep-link vindo do Hall: /comercial?lead=<id> abre o lead no funil.
+  useEffect(() => {
+    const leadId = new URLSearchParams(window.location.search).get('lead')
+    if (!leadId) return
+    const lead = leads.find(l => l.id === leadId)
+    if (lead) { setTab('funil'); setSelectedLead(lead) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const TABS: { key: Tab; label: string }[] = [
     { key: 'funil',        label: 'Funil' },
-    { key: 'pipeline',     label: 'Pipeline' },
     { key: 'metricas',     label: 'Métricas' },
-    { key: 'agenda',       label: 'Agenda' },
     { key: 'apresentacao', label: 'Studio de Apresentação' },
-    { key: 'vendedores',   label: 'Vendedores' },
+    { key: 'vendedores',   label: 'Equipe e Comissões' },
   ]
 
   const sensors = useSensors(
@@ -254,9 +259,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
           </div>
         )}
 
-        {tab === 'pipeline'     && <PipelineTab leads={filteredLeads} />}
         {tab === 'metricas'     && <MetricasTab leads={filteredLeads} />}
-        {tab === 'agenda'       && <AgendaTab leads={filteredLeads} />}
         {tab === 'apresentacao' && <ApresentacaoTab />}
         {tab === 'vendedores'   && <VendedoresTab />}
       </div>

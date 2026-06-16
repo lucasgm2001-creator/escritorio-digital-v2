@@ -6,10 +6,10 @@ import { ALL_COLUMNS } from '../types'
 interface Props { leads: Lead[] }
 
 function fmt(v: number): string {
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000)     return `R$ ${(v / 1_000).toFixed(0)}k`
-  if (v > 0)          return `R$ ${v.toLocaleString('pt-BR')}`
-  return 'R$ 0'
+  if (v >= 1_000_000) return `US$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `US$${(v / 1_000).toFixed(0)}k`
+  if (v > 0)          return `US$${v.toLocaleString('pt-BR')}`
+  return 'US$0'
 }
 
 const ALL_STAGES = ALL_COLUMNS

@@ -1,141 +1,173 @@
 'use client'
 
 import type { Lead } from '../types'
+import { ALL_COLUMNS } from '../types'
 
 interface Props { leads: Lead[] }
 
 function fmt(v: number): string {
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000)     return `R$ ${(v / 1_000).toFixed(0)}k`
-  if (v > 0)          return `R$ ${v.toLocaleString('pt-BR')}`
-  return 'R$ 0'
+  if (v >= 1_000_000) return `US$ ${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `US$ ${(v / 1_000).toFixed(0)}k`
+  if (v > 0)          return `US$ ${v.toLocaleString('pt-BR')}`
+  return 'US$ 0'
 }
 
-const FUNNEL_STAGES = [
-  { key: 'novo',      label: 'Novo Lead',   dotClass: 'bg-blue-500' },
-  { key: 'interagiu', label: 'Interagiu',   dotClass: 'bg-indigo-500' },
-  { key: 'reuniao',   label: 'Reunião',     dotClass: 'bg-purple-500' },
-  { key: 'proposta',  label: 'Proposta',    dotClass: 'bg-amber-500' },
-  { key: 'fechado',   label: 'Venda Feita', dotClass: 'bg-lime' },
-]
-
+const isTerminal = (s: string) => s === 'fechado' || s === 'perdido' || s === 'lixeira'
 const card = 'bento-fx p-5'
 
 export function MetricasTab({ leads }: Props) {
   const total    = leads.length
   const fechados = leads.filter(l => l.status === 'fechado').length
   const perdidos = leads.filter(l => l.status === 'perdido').length
-  const ativos   = leads.filter(l => l.status !== 'fechado' && l.status !== 'perdido').length
+  const ativos   = leads.filter(l => !isTerminal(l.status))
 
   const closedValue = leads.filter(l => l.status === 'fechado').reduce((s, l) => s + (l.value || 0), 0)
+  const pipeline    = ativos.reduce((s, l) => s + (l.value || 0), 0)
   const avgTicket   = fechados > 0 ? closedValue / fechados : 0
-  const convRate    = total > 0 ? (fechados / total) * 100 : 0
-  const lossRate    = total > 0 ? (perdidos / total) * 100 : 0
+  const denom       = fechados + perdidos + ativos.length
+  const convRate    = denom > 0 ? (fechados / denom) * 100 : 0
 
   const hot  = leads.filter(l => l.score > 650).length
   const warm = leads.filter(l => l.score > 400 && l.score <= 650).length
   const cold = leads.filter(l => l.score <= 400).length
 
-  const maxCount = Math.max(...FUNNEL_STAGES.map(s => leads.filter(l => l.status === s.key).length), 1)
+  // Por estágio (contagem + valor) — usa as fases reais do funil.
+  const byStage = ALL_COLUMNS.map(col => {
+    const ls = leads.filter(l => l.status === col.key)
+    return { ...col, count: ls.length, value: ls.reduce((s, l) => s + (l.value || 0), 0) }
+  })
+  const maxCount = Math.max(...byStage.map(s => s.count), 1)
+  const stageWithValue = byStage.filter(s => s.count > 0)
+  const maxStageValue = Math.max(...stageWithValue.map(s => s.value), 1)
+
+  // Por vendedor.
+  const sellers: Record<string, { name: string; value: number; count: number }> = {}
+  leads.forEach(l => {
+    const key = l.assigned_name ?? 'Sem responsável'
+    if (!sellers[key]) sellers[key] = { name: key, value: 0, count: 0 }
+    sellers[key].value += l.value || 0
+    sellers[key].count++
+  })
+  const bySeller = Object.values(sellers).sort((a, b) => b.value - a.value)
+  const maxSellerValue = Math.max(...bySeller.map(s => s.value), 1)
 
   return (
     <div className="p-4 sm:p-6 space-y-5 overflow-auto h-full bg-background">
-      {/* KPI cards */}
+      {/* Topo: KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Taxa de Conversão', value: `${convRate.toFixed(1)}%`,  sub: `${fechados} de ${total} leads`, valueClass: 'text-emerald-400', accent: 'before:bg-emerald-500' },
-          { label: 'Taxa de Perda',     value: `${lossRate.toFixed(1)}%`,  sub: `${perdidos} perdidos`,          valueClass: 'text-rose-400',    accent: 'before:bg-rose-500' },
-          { label: 'Ticket Médio',      value: fmt(avgTicket),             sub: 'vendas fechadas',               valueClass: 'text-blue-400',    accent: 'before:bg-blue-500' },
-          { label: 'Receita Fechada',   value: fmt(closedValue),           sub: `${fechados} contratos`,         valueClass: 'text-lime-fg', accent: 'before:bg-lime' },
+          { label: 'Pipeline Total',    value: fmt(pipeline),            sub: `${ativos.length} ativos`,        cls: 'text-foreground' },
+          { label: 'Taxa de Conversão', value: `${convRate.toFixed(1)}%`, sub: `${fechados} de ${denom}`,       cls: 'text-emerald-400' },
+          { label: 'Ticket Médio',      value: fmt(avgTicket),           sub: 'vendas fechadas',                cls: 'text-blue-400' },
+          { label: 'Receita Fechada',   value: fmt(closedValue),         sub: `${fechados} contratos`,          cls: 'text-lime-fg' },
         ].map(kpi => (
-          <div key={kpi.label} className={`stat-card ${kpi.accent}`}>
+          <div key={kpi.label} className={card}>
             <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
-            <p className={`text-2xl font-bold mt-1 tabular-nums ${kpi.valueClass}`}>{kpi.value}</p>
+            <p className={`text-2xl font-bold mt-1 tabular-nums ${kpi.cls}`}>{kpi.value}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</p>
           </div>
         ))}
       </div>
 
+      {/* Meio: Funil por Etapa | Valor por Estágio | Valor por Vendedor */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Funil */}
         <div className={card}>
           <h3 className="font-semibold text-foreground mb-4 text-sm">Funil por Etapa</h3>
           <div className="space-y-2.5">
-            {FUNNEL_STAGES.map(stage => {
-              const count = leads.filter(l => l.status === stage.key).length
-              const pct   = maxCount > 0 ? (count / maxCount) * 100 : 0
-              return (
-                <div key={stage.key}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${stage.dotClass}`} />
-                      <span className="text-xs text-muted-foreground">{stage.label}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-foreground tabular-nums">{count}</span>
+            {byStage.map(stage => (
+              <div key={stage.key}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={`w-1.5 h-1.5 rounded-full flex-none ${stage.dotColor}`} />
+                    <span className="text-xs text-muted-foreground truncate">{stage.label}</span>
                   </div>
-                  <div className="h-1.5 bg-[#2d3748] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${stage.dotClass}`} style={{ width: `${pct}%` }} />
-                  </div>
+                  <span className="text-xs font-semibold text-foreground tabular-nums">{stage.count}</span>
                 </div>
-              )
-            })}
+                <div className="h-1.5 bg-bento-bg rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${stage.dotColor}`} style={{ width: `${(stage.count / maxCount) * 100}%` }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Resumo (substitui a antiga divisão Brasil/EUA) */}
+        <div className={card}>
+          <h3 className="font-semibold text-foreground mb-4 text-sm">Valor por Estágio</h3>
+          <div className="space-y-3">
+            {stageWithValue.map(stage => (
+              <div key={stage.key}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={`w-2 h-2 rounded-full flex-none ${stage.dotColor}`} />
+                    <span className={`text-xs font-medium truncate ${stage.textColor}`}>{stage.label}</span>
+                    <span className="text-[10px] text-muted-foreground flex-none">({stage.count})</span>
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums">{fmt(stage.value)}</span>
+                </div>
+                <div className="h-2 bg-bento-bg rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${stage.dotColor}`} style={{ width: `${(stage.value / maxStageValue) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+            {stageWithValue.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado disponível</p>}
+          </div>
+        </div>
+
+        <div className={card}>
+          <h3 className="font-semibold text-foreground mb-4 text-sm">Valor por Vendedor</h3>
+          <div className="space-y-3">
+            {bySeller.map(seller => (
+              <div key={seller.name}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-lime/15 flex items-center justify-center flex-none">
+                      <span className="text-[9px] font-bold text-lime-fg">{seller.name.split(' ')[0]?.[0] ?? '?'}</span>
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground truncate">{seller.name}</span>
+                    <span className="text-[10px] text-muted-foreground flex-none">({seller.count})</span>
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums">{fmt(seller.value)}</span>
+                </div>
+                <div className="h-2 bg-bento-bg rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-lime" style={{ width: `${(seller.value / maxSellerValue) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+            {bySeller.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado disponível</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Embaixo: Resumo | Temperatura */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className={card}>
           <h3 className="font-semibold text-foreground mb-4 text-sm">Resumo</h3>
           <div className="flex justify-around">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-lg font-bold text-foreground tabular-nums">{total}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Ativos</p>
-              <p className="text-lg font-bold text-foreground tabular-nums">{ativos}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Fechados</p>
-              <p className="text-lg font-bold text-lime-fg tabular-nums">{fechados}</p>
-            </div>
+            <div className="text-center"><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold text-foreground tabular-nums">{total}</p></div>
+            <div className="text-center"><p className="text-xs text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground tabular-nums">{ativos.length}</p></div>
+            <div className="text-center"><p className="text-xs text-muted-foreground">Fechados</p><p className="text-lg font-bold text-lime-fg tabular-nums">{fechados}</p></div>
           </div>
         </div>
 
-        {/* Temperatura */}
         <div className={card}>
           <h3 className="font-semibold text-foreground mb-4 text-sm">Temperatura dos Leads</h3>
           <div className="space-y-3">
             {[
-              { label: 'Quente / Fechando', count: hot,  barClass: 'bg-orange-500', textClass: 'text-orange-400' },
-              { label: 'Morno / Frio',      count: warm, barClass: 'bg-yellow-500', textClass: 'text-yellow-400' },
-              { label: 'Muito Frio',        count: cold, barClass: 'bg-slate-500',  textClass: 'text-slate-400' },
+              { label: 'Quente', count: hot,  barClass: 'bg-orange-500', textClass: 'text-orange-400' },
+              { label: 'Morno',  count: warm, barClass: 'bg-yellow-500', textClass: 'text-yellow-400' },
+              { label: 'Frio',   count: cold, barClass: 'bg-slate-500',  textClass: 'text-slate-400' },
             ].map(item => (
               <div key={item.label}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`text-xs font-medium ${item.textClass}`}>{item.label}</span>
                   <span className="text-xs font-semibold text-foreground tabular-nums">{item.count}</span>
                 </div>
-                <div className="h-1.5 bg-[#2d3748] rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${item.barClass}`}
-                    style={{ width: total > 0 ? `${(item.count / total) * 100}%` : '0%' }} />
+                <div className="h-1.5 bg-bento-bg rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${item.barClass}`} style={{ width: total > 0 ? `${(item.count / total) * 100}%` : '0%' }} />
                 </div>
               </div>
             ))}
           </div>
-          {total > 0 && (
-            <div className="mt-4 pt-3 border-t border-[#2d3748] grid grid-cols-3 gap-1 text-center">
-              {[
-                { v: hot,  label: 'Quentes', cls: 'text-orange-400' },
-                { v: warm, label: 'Mornos',  cls: 'text-yellow-400' },
-                { v: cold, label: 'Frios',   cls: 'text-slate-400' },
-              ].map(item => (
-                <div key={item.label}>
-                  <p className={`text-base font-bold ${item.cls}`}>{item.v}</p>
-                  <p className="text-[10px] text-muted-foreground">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>

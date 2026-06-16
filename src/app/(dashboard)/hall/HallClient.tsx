@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 import { cn, timeAgo } from '@/lib/utils'
@@ -619,6 +620,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
   const [agendaOpen, setAgendaOpen]   = useState(false)
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
+  const router = useRouter()
 
   // App pessoal de usuário único: acesso total.
   const canPostNotice = true
@@ -794,6 +796,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                 {/* Resumo por tipo — barras de proporção */}
                 {typeCounts.length > 0 && (
                   <div className="space-y-2 mb-4 pb-4 border-b border-bento-border/60">
+                    <p className="font-tech text-[10px] uppercase tracking-wide text-bento-muted">Atividades por tipo</p>
                     {typeCounts.slice(0, 4).map(([type, count], i) => (
                       <div key={type}>
                         <div className="flex items-center justify-between mb-1">
@@ -811,8 +814,16 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                 <div className="space-y-0 divide-y divide-bento-border/60">
                   {activities.length === 0 ? (
                     <p className="text-sm text-bento-muted py-6 text-center">Nenhuma atividade ainda.</p>
-                  ) : activities.slice(0, activitiesExpanded ? activities.length : 3).map(a => (
-                    <div key={a.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  ) : activities.slice(0, activitiesExpanded ? activities.length : 3).map(a => {
+                    const entityId = (a as { entity_id?: string | null }).entity_id
+                    const clickable = a.type === 'lead' && !!entityId
+                    return (
+                    <div key={a.id}
+                      onClick={clickable ? () => router.push(`/comercial?lead=${entityId}`) : undefined}
+                      role={clickable ? 'button' : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      className={cn('flex items-start gap-3 py-3 first:pt-0 last:pb-0',
+                        clickable && 'cursor-pointer hover:bg-bento-bg/50 rounded-md -mx-1.5 px-1.5 transition-colors')}>
                       <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${ACTIVITY_COLORS[a.type] ?? 'bg-slate-800/60 text-slate-400'}`}>
                         {ACTIVITY_ICONS[a.type]}
                       </div>
@@ -824,7 +835,8 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                         </div>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 {activities.length > 3 && (
                   <button type="button" onClick={() => setActivitiesExpanded(v => !v)}

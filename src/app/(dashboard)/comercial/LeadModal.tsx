@@ -15,7 +15,7 @@ interface Props {
 
 const EMPTY_FORM = {
   name: '', company: '', email: '', phone: '',
-  value: '', operation: 'brasil', notes: '',
+  value: '', operation: 'eua', notes: '',
   nicho: '', origem: '', prioridade: 'media',
   next_contact: '', assigned_to: '', assigned_name: '',
 }
@@ -120,7 +120,7 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       value: parseFloat(form.value) || 0,
-      operation: form.operation || 'brasil',
+      operation: form.operation || 'eua',
       notes: form.notes.trim() || null,
       nicho: form.nicho.trim() || null,
       origem: form.origem || null,
@@ -223,7 +223,7 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Telefone">
               <input value={form.phone} onChange={e => set('phone', e.target.value)}
-                className={inputCls} placeholder="+55 (11) 99999-9999" />
+                className={inputCls} placeholder="+1 (555) 123-4567" />
             </Field>
             <Field label="E-mail">
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
@@ -250,7 +250,7 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
                   className={`${inputCls} mt-2`} placeholder="Qual nicho?" autoFocus />
               )}
             </Field>
-            <Field label="Valor estimado (R$)">
+            <Field label="Valor estimado (US$)">
               <input type="number" value={form.value} onChange={e => set('value', e.target.value)}
                 className={inputCls} placeholder="0" min="0" />
             </Field>
