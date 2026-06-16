@@ -165,6 +165,22 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
     return true
   }, [supabase, runWonFlow])
 
+  // Registra um contato com o lead em lead_interactions (fundação do relatório de
+  // engajamento). atendeu/mensagem = engajou; nao_atendeu NÃO conta como engajado.
+  const logInteraction = useCallback(async (lead: Lead, type: string) => {
+    const delta = ({ atendeu: 80, mensagem: 20, nao_atendeu: -30 } as Record<string, number>)[type] ?? 0
+    const nowIso = new Date().toISOString()
+    const { error } = await supabase.from('lead_interactions').insert({
+      lead_id: lead.id, type, score_delta: delta,
+      created_by: currentUser.id, created_by_name: currentUser.name,
+    })
+    if (error) { showToast(`Não foi possível registrar o contato: ${error.message}`, 'error'); return }
+    const newScore = Math.max(0, Math.min(1000, (lead.score ?? 0) + delta))
+    await supabase.from('leads').update({ score: newScore, last_contact_at: nowIso }).eq('id', lead.id)
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, score: newScore, last_contact_at: nowIso } : l))
+    showToast(`Contato registrado: ${type === 'atendeu' ? 'Atendeu' : type === 'mensagem' ? 'Mensagem' : 'Não atendeu'}.`)
+  }, [supabase, currentUser])
+
   const handleDragEnd = useCallback(async (e: DragEndEvent) => {
     setActiveId(null)
     const { active, over } = e
@@ -230,6 +246,7 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
                             leads={filteredLeads.filter(l => l.status === col.key)}
                             onMove={moveLeadToStatus}
                             onOpenDiary={setSelectedLead}
+                            onLog={logInteraction}
                           />
                         ))}
                       </div>

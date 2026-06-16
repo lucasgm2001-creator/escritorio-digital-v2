@@ -16,10 +16,11 @@ const HEAT: Record<Heat, { dot: string; text: string; label: string }> = {
 
 const onlyDigits = (s?: string) => (s ?? '').replace(/\D/g, '')
 
-export function FunnelLeadCard({ lead, onMove, onOpenDiary }: {
+export function FunnelLeadCard({ lead, onMove, onOpenDiary, onLog }: {
   lead: Lead
   onMove: (status: LeadStatus) => void
   onOpenDiary: () => void
+  onLog: (type: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id })
@@ -105,6 +106,19 @@ export function FunnelLeadCard({ lead, onMove, onOpenDiary }: {
             </div>
           </div>
 
+          {/* Registrar contato (alimenta o relatório de engajamento) */}
+          <div>
+            <p className="font-tech text-[10px] text-bento-muted mb-1">Registrar contato</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button onClick={(e) => { stop(e); onLog('atendeu') }}
+                className="py-1.5 rounded-md border font-tech text-[10px] transition-colors text-lime-fg bg-lime/10 border-lime/30 hover:bg-lime/20">Atendeu</button>
+              <button onClick={(e) => { stop(e); onLog('mensagem') }}
+                className="py-1.5 rounded-md border font-tech text-[10px] transition-colors text-blue-400 bg-blue-400/10 border-blue-400/30 hover:bg-blue-400/20">Mensagem</button>
+              <button onClick={(e) => { stop(e); onLog('nao_atendeu') }}
+                className="py-1.5 rounded-md border font-tech text-[10px] transition-colors text-red-400 bg-red-400/10 border-red-400/30 hover:bg-red-400/20">Não atend.</button>
+            </div>
+          </div>
+
           {/* Ações rápidas */}
           <div className="grid grid-cols-3 gap-1.5">
             <a
@@ -123,7 +137,7 @@ export function FunnelLeadCard({ lead, onMove, onOpenDiary }: {
               className={cn('flex items-center justify-center gap-1 py-1.5 rounded-md border font-tech text-[10px] transition-colors',
                 phone ? 'border-bento-border text-bento-dim hover:border-lime hover:text-lime-fg' : 'border-bento-border/50 text-bento-muted/40 pointer-events-none')}
             >
-              <MessageCircle className="w-3 h-3" /> Msg
+              <MessageCircle className="w-3 h-3" /> WhatsApp
             </a>
             <button
               onClick={(e) => { stop(e); onOpenDiary() }}

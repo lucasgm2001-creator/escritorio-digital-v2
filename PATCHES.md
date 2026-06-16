@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — persistir interações de lead em lead_interactions (relatório de engajados estava zerado).
+- O card do funil não gravava nada (Ligar/WhatsApp eram só links). Adicionei "Registrar
+  contato" no card (Atendeu / Mensagem / Não atend.) que INSERE em lead_interactions
+  (lead_id, type, created_at, created_by, score_delta) e atualiza o score/last_contact do
+  lead. O painel do lead (LeadDiary) já persistia.
+- Relatório: "engajados" = leads ÚNICOS com interação atendeu OU mensagem OU reunião no
+  período (nao_atendeu/nota/sistema não contam). Reuniões agendadas passam a contar por
+  met_on (data da reunião). Leads recebidos = leads.created_at (mantido).
+- Retroativo: como lead_interactions estava vazia, semanas passadas vêm zeradas — passa a
+  contar daqui pra frente conforme os contatos forem registrados. Sem SQL (tabela já existia).
+
+---
+
 ✨ Novidade — relatório de atividades comerciais com histórico filtrável e exportação PDF.
 - Na aba Tarefas, novo seletor "Tarefas | Relatório". O Relatório mostra 3 números do
   período em destaque: Leads recebidos, Leads engajados (responderam) e Reuniões agendadas,

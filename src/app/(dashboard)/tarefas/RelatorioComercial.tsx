@@ -12,6 +12,7 @@ interface Item { kind: 'recebido' | 'engajou' | 'reuniao'; date: string; label: 
 
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x }
 // Semana começa na SEGUNDA.
@@ -74,13 +75,18 @@ export function RelatorioComercial() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      const startYMD = ymd(range.start)
+      const endYMD = ymd(range.end)
       const [leadRes, engRes, mtgRes] = await Promise.all([
+        // Leads recebidos: criados no período.
         supabase.from('leads').select('id, name, created_at')
           .gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
+        // Engajados: interações em que o lead RESPONDEU (atendeu/mensagem/reuniao). "nao_atendeu"/"nota" não contam.
         supabase.from('lead_interactions').select('id, type, created_at, lead_id, leads(name)')
-          .in('type', ['atendeu', 'mensagem']).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
-        supabase.from('meetings').select('id, created_at, client_name')
-          .gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
+          .in('type', ['atendeu', 'mensagem', 'reuniao']).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
+        // Reuniões agendadas: pela DATA da reunião (met_on) no período.
+        supabase.from('meetings').select('id, met_on, client_name')
+          .gte('met_on', startYMD).lte('met_on', endYMD).order('met_on', { ascending: false }),
       ])
       const err = leadRes.error || engRes.error || mtgRes.error
       setError(err ? `Erro ao carregar o relatório: ${err.message}` : null)
@@ -96,7 +102,7 @@ export function RelatorioComercial() {
       const merged: Item[] = [
         ...leads.map(l => ({ kind: 'recebido' as const, date: l.created_at as string, label: (l.name as string) || 'Lead' })),
         ...eng.map(e => ({ kind: 'engajou' as const, date: e.created_at as string, label: leadNameOf(e.leads), sub: e.type === 'atendeu' ? 'Atendeu' : 'Mensagem' })),
-        ...mtg.map(m => ({ kind: 'reuniao' as const, date: m.created_at as string, label: (m.client_name as string) || 'Reunião' })),
+        ...mtg.map(m => ({ kind: 'reuniao' as const, date: `${m.met_on as string}T12:00:00`, label: (m.client_name as string) || 'Reunião' })),
       ].sort((a, b) => (a.date < b.date ? 1 : -1))
       setItems(merged)
       setLoading(false)

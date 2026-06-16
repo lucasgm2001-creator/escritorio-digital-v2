@@ -41,11 +41,12 @@ const NAME_COLOR: Record<ColumnTone, string> = {
   loss:    'text-[#EF4444]',
 }
 
-export function KanbanColumn({ column, leads, onMove, onOpenDiary }: {
+export function KanbanColumn({ column, leads, onMove, onOpenDiary, onLog }: {
   column: ColumnConfig
   leads: Lead[]
   onMove: (lead: Lead, status: LeadStatus) => void
   onOpenDiary: (lead: Lead) => void
+  onLog: (lead: Lead, type: string) => void
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: column.key })
   const [collapsed, setCollapsed] = useState(true)
@@ -104,7 +105,7 @@ export function KanbanColumn({ column, leads, onMove, onOpenDiary }: {
                 </div>
               ) : (
                 leads.map(l => (
-                  <FunnelLeadCard key={l.id} lead={l} onMove={(s) => onMove(l, s)} onOpenDiary={() => onOpenDiary(l)} />
+                  <FunnelLeadCard key={l.id} lead={l} onMove={(s) => onMove(l, s)} onOpenDiary={() => onOpenDiary(l)} onLog={(t) => onLog(l, t)} />
                 ))
               )}
             </SortableContext>
