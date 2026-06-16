@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — card do vendedor usa o mesmo cálculo de comissão do perfil (era US$ 0).
+- O card de cada vendedor (Equipe e Comissões) mostrava "Vendas US$ 0" e "Comissão do mês
+  US$ 0" porque lia fonte legada (campo total_sales e a tabela antiga commissions). Agora
+  carrega os dados do módulo de comissão e chama a MESMA função monthlySummary do perfil,
+  por vendedor → "Comissão do mês" bate com o perfil (ex.: US$ 335).
+- O card passou a mostrar "Vendas (mês)" como CONTAGEM (igual ao topo do perfil), no lugar
+  do valor legado zerado. Removidos a interface Commission e o helper monthKey órfãos.
+
+---
+
 🐛 Fix — limpeza geral: tabs unificadas, moeda US$, telefone US, campo Operação removido, labels corrigidos.
 - Comercial: removidas as abas Agenda e Pipeline; o conteúdo da Pipeline foi unificado
   dentro de Métricas (KPIs + Funil por Etapa + Valor por Estágio + Valor por Vendedor +

@@ -28,22 +28,7 @@ interface SellerRow {
   created_at: string
 }
 
-interface Commission {
-  id: string
-  seller_id: string
-  seller_name?: string
-  lead_id?: string
-  lead_name?: string
-  description?: string
-  amount: number
-  percentage: number
-  status: 'pendente' | 'aprovada' | 'paga'
-  due_date?: string
-  paid_at?: string
-  created_at: string
-}
-
-const SELLER_COLS = 'id, name, email, phone, photo_url, cargo, monthly_goal, default_commission, fixed_salary, start_date, observations, status, leads_assigned, conversion_rate, total_sales, created_at'
+const SELLER_COLS ='id, name, email, phone, photo_url, cargo, monthly_goal, default_commission, fixed_salary, start_date, observations, status, leads_assigned, conversion_rate, total_sales, created_at'
 
 const CARGOS = ['SDR', 'Closer', 'Gestor', 'Coordenador', 'Vendedor']
 
@@ -51,7 +36,6 @@ const fmtK = (v: number) => v >= 1000 ? `US$ ${(v / 1000).toFixed(1)}k` : `US$ $
 const usd = (v: number) => `US$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const pad2 = (n: number) => String(n).padStart(2, '0')
-const monthKey = (iso?: string) => { const d = iso ? new Date(iso) : new Date(); return `${d.getFullYear()}-${d.getMonth()}` }
 
 const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text placeholder:text-bento-muted focus:outline-none focus:border-lime'
 
@@ -473,7 +457,8 @@ export function VendedoresTab() {
   const supabase = createClient()
 
   const [sellers, setSellers] = useState<SellerRow[]>([])
-  const [comByMonth, setComByMonth] = useState<Map<string, number>>(new Map())   // seller_id → comissão do mês
+  const [comByMonth, setComByMonth] = useState<Map<string, number>>(new Map())       // seller_id → comissão do mês (US$)
+  const [vendasByMonth, setVendasByMonth] = useState<Map<string, number>>(new Map())  // seller_id → nº de vendas do mês
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -488,25 +473,57 @@ export function VendedoresTab() {
 
   useEffect(() => {
     const load = async () => {
-      const [sRes, cRes] = await Promise.all([
+      const now = new Date()
+      const y = now.getFullYear(), m = now.getMonth() + 1
+      const mp = `${y}-${pad2(m)}`
+      // MESMA fonte do perfil: dados do módulo de comissão p/ todos os vendedores.
+      const [sRes, salRes, mtgRes, dealRes, fxRes] = await Promise.all([
         supabase.from('sellers').select(SELLER_COLS).order('name'),
-        supabase.from('commissions').select('seller_id, amount, created_at'),
+        supabase.from('seller_salaries').select('seller_id, valor_usd, effective_from'),
+        supabase.from('meetings').select('id, seller_id, met_on, valor_usd, cotacao_usd_brl'),
+        supabase.from('deals').select('id, seller_id, data_fechamento'),
+        supabase.from('fx_config').select('cotacao_manual, cotacao_travada').eq('id', 1).maybeSingle(),
       ])
       if (sRes.error) {
         setFetchError(sRes.error.code === '42P01'
           ? 'Tabela sellers não encontrada. Rode a migration 005 no Supabase.'
           : `Erro ao carregar vendedores: ${sRes.error.message}`)
         setSellers([])
-      } else {
-        setSellers((sRes.data ?? []) as SellerRow[])
-        setFetchError(null)
-        const mk = monthKey()
-        const map = new Map<string, number>()
-        for (const c of (cRes.data ?? []) as Commission[]) {
-          if (monthKey(c.created_at) === mk) map.set(c.seller_id, (map.get(c.seller_id) ?? 0) + (c.amount || 0))
-        }
-        setComByMonth(map)
+        setLoading(false)
+        return
       }
+      const rows = (sRes.data ?? []) as SellerRow[]
+      setSellers(rows)
+      setFetchError(null)
+
+      const allDeals = (dealRes.data ?? []) as { id: string; seller_id: string; data_fechamento: string | null }[]
+      const dealIds = allDeals.map(d => d.id)
+      let allWeeks: { id: string; deal_id: string; numero_semana: number; valor_usd: number; paid_on: string; cotacao_usd_brl: number }[] = []
+      if (dealIds.length) {
+        const { data: wk } = await supabase.from('weekly_payments')
+          .select('id, deal_id, numero_semana, valor_usd, paid_on, cotacao_usd_brl').in('deal_id', dealIds)
+        allWeeks = wk ?? []
+      }
+      const manual = fxRes.data?.cotacao_manual != null ? Number(fxRes.data.cotacao_manual) : null
+      const fx: FxConfig = { cotacaoManual: manual, cotacaoTravada: !!fxRes.data?.cotacao_travada }
+
+      const com = new Map<string, number>()
+      const vendas = new Map<string, number>()
+      for (const s of rows) {
+        const salaries: SalaryPeriod[] = (salRes.data ?? []).filter(x => x.seller_id === s.id)
+          .map(x => ({ sellerId: x.seller_id, valorUsd: Number(x.valor_usd), effectiveFrom: x.effective_from }))
+        const meetings: Meeting[] = (mtgRes.data ?? []).filter(x => x.seller_id === s.id)
+          .map(mm => ({ id: mm.id, sellerId: mm.seller_id, metOn: mm.met_on, valorUsd: Number(mm.valor_usd), cotacaoUsdBrl: Number(mm.cotacao_usd_brl) }))
+        const sellerDeals = allDeals.filter(d => d.seller_id === s.id)
+        const sellerDealIds = new Set(sellerDeals.map(d => d.id))
+        const weeks: WeeklyPayment[] = allWeeks.filter(w => sellerDealIds.has(w.deal_id))
+          .map(w => ({ id: w.id, dealId: w.deal_id, numeroSemana: w.numero_semana, valorUsd: Number(w.valor_usd), paidOn: w.paid_on, cotacaoUsdBrl: Number(w.cotacao_usd_brl) }))
+        const cur = monthlySummary({ year: y, month: m, salaries, meetings, weeks, fx, automaticRate: manual ?? 0 })
+        com.set(s.id, cur.totalUsd)
+        vendas.set(s.id, sellerDeals.filter(d => (d.data_fechamento ?? '').slice(0, 7) === mp).length)
+      }
+      setComByMonth(com)
+      setVendasByMonth(vendas)
       setLoading(false)
     }
     load()
@@ -604,8 +621,8 @@ export function VendedoresTab() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="bg-bento-bg rounded-btn p-2 border border-bento-border/60">
-                  <p className="text-[10px] text-bento-muted">Vendas</p>
-                  <p className="text-sm font-bold text-bento-text mt-0.5 tabular-nums">{fmtK(s.total_sales)}</p>
+                  <p className="text-[10px] text-bento-muted">Vendas (mês)</p>
+                  <p className="text-sm font-bold text-bento-text mt-0.5 tabular-nums">{vendasByMonth.get(s.id) ?? 0}</p>
                 </div>
                 <div className="bg-bento-bg rounded-btn p-2 border border-bento-border/60">
                   <p className="text-[10px] text-bento-muted">Comissão do mês</p>
