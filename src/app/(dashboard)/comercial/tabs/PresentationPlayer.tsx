@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 export interface PlayerMaterial {
   id: string
@@ -25,6 +26,80 @@ function fullscreenElement(): Element | null {
   return document.fullscreenElement || (document as unknown as { webkitFullscreenElement?: Element | null }).webkitFullscreenElement || null
 }
 
+// ─── PDF nítido em telas Retina: renderiza via pdf.js num canvas HiDPI ──────────
+// O <iframe> nativo borrava em dpr 2/3 porque o Chrome rasteriza o conteúdo do
+// iframe a 1x. Aqui o backing store do canvas é viewport × devicePixelRatio (dpr
+// limitado a 2 p/ não estourar memória) e o tamanho de exibição (CSS) fica em 1x.
+// Páginas renderizam sob demanda (IntersectionObserver) — seguro p/ PDFs grandes.
+function PdfView({ url }: { url: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let doc: PDFDocumentProxy | null = null
+    const observers: IntersectionObserver[] = []
+    const container = containerRef.current
+    if (!container) return
+
+    ;(async () => {
+      try {
+        const pdfjs = await import('pdfjs-dist')
+        // Worker casado com a versão instalada (evita config de worker no bundler).
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+        doc = await pdfjs.getDocument(url).promise
+        if (cancelled || !container) { doc?.destroy(); return }
+        container.replaceChildren()
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2)
+        const cw = Math.max(container.clientWidth - 16, 100)
+
+        for (let n = 1; n <= doc.numPages; n++) {
+          const page = await doc.getPage(n)
+          if (cancelled) return
+          const base = page.getViewport({ scale: 1 })
+          const cssScale = cw / base.width
+          const canvas = document.createElement('canvas')
+          // Exibição em tamanho de tela; backing store em dpr → HiDPI/nítido.
+          canvas.style.width = '100%'
+          canvas.style.aspectRatio = `${base.width} / ${base.height}`
+          canvas.className = 'block w-full mb-3 bg-white rounded-sm shadow-lg'
+          container.appendChild(canvas)
+
+          let done = false
+          const io = new IntersectionObserver(entries => {
+            if (done || cancelled || !entries.some(e => e.isIntersecting)) return
+            done = true
+            io.disconnect()
+            const viewport = page.getViewport({ scale: cssScale * dpr })
+            canvas.width = Math.floor(viewport.width)
+            canvas.height = Math.floor(viewport.height)
+            const ctx = canvas.getContext('2d')
+            if (ctx) page.render({ canvasContext: ctx, viewport })
+          }, { root: container, rootMargin: '400px 0px' })
+          io.observe(canvas)
+          observers.push(io)
+        }
+      } catch {
+        if (!cancelled && container) {
+          container.replaceChildren()
+          const p = document.createElement('p')
+          p.className = 'text-white/70 text-sm text-center py-10'
+          p.textContent = 'Não foi possível renderizar o PDF.'
+          container.appendChild(p)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      observers.forEach(o => o.disconnect())
+      try { doc?.destroy() } catch { /* noop */ }
+    }
+  }, [url])
+
+  return <div ref={containerRef} className="w-full h-full overflow-y-auto px-2 py-2" />
+}
+
 // ─── Renderiza UMA peça (imagem / PDF limpo / fallback) — reusado na Gaveta ──────
 export function MaterialFrame({ material }: { material: PlayerMaterial }) {
   const t = material.mime_type ?? ''
@@ -33,14 +108,8 @@ export function MaterialFrame({ material }: { material: PlayerMaterial }) {
     return <img src={material.url} alt={material.name} className="max-w-full max-h-full object-contain" />
   }
   if (t === 'application/pdf') {
-    // Esconde a "tralha" do visualizador nativo: barra, painel de páginas e scrollbar.
-    return (
-      <iframe
-        src={`${material.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-        title={material.name}
-        className="w-full h-full bg-white rounded-sm"
-      />
-    )
+    // Render próprio em canvas HiDPI (nítido em Retina); o iframe nativo borrava.
+    return <PdfView url={material.url} />
   }
   // Tipos sem preview no navegador (ex: PPT/PPTX) → oferece download.
   return (

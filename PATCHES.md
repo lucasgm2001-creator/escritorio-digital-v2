@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — preview de PDF nítido no Studio (renderização HiDPI / devicePixelRatio).
+- O PDF no "Visualizar" (e no modo apresentação) era um <iframe> nativo que, em telas Retina
+  (dpr 2/3), o Chrome rasterizava a 1x → borrado. Agora o PDF é renderizado por nós via pdf.js
+  num <canvas> HiDPI: backing store = viewport × devicePixelRatio (dpr limitado a 2), exibição
+  em 1x → nítido. Páginas renderizam sob demanda (IntersectionObserver) — seguro p/ PDFs grandes.
+- Nova dependência pdfjs-dist (chunk dinâmico, só carrega ao abrir um PDF); worker casado com a
+  versão via unpkg. Imagens e outros tipos de material ficam inalterados.
+
+---
+
 🐛 Fix — apresentar só na aba Apresentar + controles do modo apresentação visíveis.
 - Removido o botão "Apresentar" do rodapé da aba Montar (ao lado do Salvar). Apresentar agora
   existe só na aba Apresentar, pelo play ▶ de cada apresentação salva. Montar tem só "Salvar".
