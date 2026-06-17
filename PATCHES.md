@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — cliente fica ativo ao fechar venda (reativa se estava inativo).
+- Na automação Venda Fechada → deal, quando o cliente vinculado já existia como 'inativo',
+  o status era mantido 'inativo'. Agora, ao fechar a venda, o cliente vinculado SEMPRE
+  termina 'ativo': cliente novo já nasce ativo; cliente reusado é reativado se preciso.
+- Mexe só no cliente daquela venda — nenhum outro cliente é alterado.
+
+---
+
 ✨ Novidade — tarefas vinculadas aparecem no detalhe do lead no funil.
 - Abrir um lead (card expandido no funil OU painel de detalhe) agora mostra uma seção
   "Tarefas (N)" com as tarefas ligadas àquele lead (tasks.linked_type='lead'): título +

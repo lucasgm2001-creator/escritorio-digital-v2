@@ -133,9 +133,13 @@ export function KanbanBoard({ initialLeads, currentUser }: { initialLeads: Lead[
 
     // 1) Cliente idempotente: reusa se já existe (por nome); senão cria.
     let clientId: string | null = null
-    const { data: existing } = await supabase.from('clients').select('id').eq('name', lead.name).limit(1)
+    const { data: existing } = await supabase.from('clients').select('id, status').eq('name', lead.name).limit(1)
     if (existing && existing.length) {
       clientId = existing[0].id
+      // Reativa: quem acabou de fechar venda não pode ficar 'inativo'. Mexe só neste cliente.
+      if (existing[0].status !== 'ativo') {
+        await supabase.from('clients').update({ status: 'ativo' }).eq('id', existing[0].id)
+      }
     } else {
       const { data: newClient, error: clientErr } = await supabase.from('clients').insert({
         name: lead.name, email: lead.email ?? null, phone: lead.phone ?? null, company: lead.company ?? null,
