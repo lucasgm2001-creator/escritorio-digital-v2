@@ -57,7 +57,7 @@ export function KanbanColumn({ column, leads, onMove, onOpenDiary, onLog, userId
     <div
       ref={setNodeRef}
       className={cn(
-        'w-60 flex-none rounded-[10px] border bg-bento-panel overflow-hidden transition-colors',
+        'w-52 flex-none rounded-[10px] border bg-bento-panel overflow-hidden transition-colors',
         collapsed ? 'border-bento-border' : accent.box,
         isOver && 'border-dashed border-lime/60 bg-lime/5',
       )}
@@ -70,7 +70,7 @@ export function KanbanColumn({ column, leads, onMove, onOpenDiary, onLog, userId
             <ChevronRight className="w-4 h-4 text-bento-muted flex-none" />
           </div>
           <div className="mt-2 flex items-end justify-between">
-            <span className="font-display text-3xl font-bold text-bento-text tabular-nums leading-none">{leads.length}</span>
+            <span className="font-display text-2xl font-bold text-bento-text tabular-nums leading-none">{leads.length}</span>
             <span className="font-tech text-[11px] font-semibold text-bento-dim tabular-nums">{fmtUSD(total)}</span>
           </div>
           {!terminal && leads.length > 0 && (

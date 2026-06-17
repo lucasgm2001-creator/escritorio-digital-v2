@@ -6,6 +6,27 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Comercial: segmentação Brasil/EUA removida + relógios melhorados.
+- O filtro Todos/Brasil/EUA e o campo "Operação" do lead já não existiam na UI; agora todo lead
+  nasce EUA por padrão. Migration 022 (PARA REVISÃO) converte leads existentes brasil→eua e muda
+  o default da coluna (sem derrubar a coluna).
+- Os 4 relógios de fuso (Brasília principal em lime + EUA Leste/Mont./Oeste) ficaram no padrão
+  Bento: hora em JetBrains Mono, Brasília destacada, EUA visíveis a partir de telas médias.
+
+🔄 Mudança — Funil: caixas de fase um pouco menores.
+- Largura das caixas reduzida (240→208px) e número menor. Tocar numa fase para abrir a lista de
+  leads já funcionava (continua); mover de fase por toque (card "Mover para" + seletor no detalhe
+  do lead) e por arrastar no mobile seguem disponíveis. Cores e confirmação de Venda Fechada mantidas.
+
+✨ Novidade — Hall: histórico em modal + popover de quem está online.
+- "Atividade Recente" e "Mural de Avisos" ganharam um botão de ampliar (ícone) que abre uma view
+  maior em modal, com botão "Ver histórico" que carrega o histórico PERSISTIDO completo (tabelas
+  activities/notices — já persistiam; só passamos a consumir tudo).
+- O indicador "X online" do topo agora é clicável e abre um popover com quem está online (presença
+  via Supabase Realtime; reflete quem está com o Hall aberto). Não havia card "Online Agora" separado.
+
+---
+
 🐛 Fix — PDF grande renderiza sem mancha preta nem falha (limita canvas/dpr por página, erro gracioso).
 - A correção HiDPI anterior estourava o limite de canvas do navegador (lado ~16384px / área ~16M px
   no Safari) em páginas grandes → mancha preta (overflow parcial) ou falha total. Pior: o try/catch
