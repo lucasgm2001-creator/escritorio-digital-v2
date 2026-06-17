@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — seletor de fase do lead em caixinha compacta (era pills espalhados).
+- No card de lead expandido do funil, a seção "Mover para" agora é uma caixinha única,
+  contida (borda sutil + fundo recuado), com as 10 fases em grid de 2 colunas — em vez
+  dos pills soltos que se espalhavam e estouravam a altura da caixa estreita (240px).
+- A fase ATUAL do lead aparece marcada (accent verde-limão + check) e não é clicável.
+  As demais movem o lead ao clicar (mesma função de sempre). Só mudou a apresentação.
+
+---
+
 ✨ Novidade — Venda Fechada cria deal de comissão automaticamente (idempotente).
 - Mover um lead pra "Venda Fechada" agora LANÇA o deal no módulo de comissão sozinho:
   deal (seller ativo, client_id, client_name, lead_id, US$ 100 / 4 semanas / US$ 25,

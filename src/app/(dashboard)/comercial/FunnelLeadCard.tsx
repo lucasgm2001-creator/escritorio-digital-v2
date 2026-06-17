@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Phone, MessageCircle, FileText, ArrowRight, ChevronDown } from 'lucide-react'
+import { Phone, MessageCircle, FileText, ArrowRight, ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { daysInStage, heatLevel, nextActionLabel, type Heat } from './leadSignals'
 import { ALL_COLUMNS, type Lead, type LeadStatus } from './types'
@@ -86,23 +86,30 @@ export function FunnelLeadCard({ lead, onMove, onOpenDiary, onLog }: {
             </div>
           </div>
 
-          {/* Mover de fase (pills) */}
-          <div>
-            <p className="font-tech text-[10px] text-bento-muted mb-1">Mover para</p>
-            <div className="flex flex-wrap gap-1">
-              {ALL_COLUMNS.map(c => (
-                <button
-                  key={c.key}
-                  onClick={() => onMove(c.key)}
-                  disabled={c.key === lead.status}
-                  className={cn('font-tech text-[10px] px-1.5 py-0.5 rounded border transition-colors',
-                    c.key === lead.status
-                      ? 'border-lime/40 bg-lime/15 text-lime-fg cursor-default'
-                      : 'border-bento-border text-bento-dim hover:border-lime hover:text-lime-fg')}
-                >
-                  {c.label}
-                </button>
-              ))}
+          {/* Mover de fase — caixinha compacta agrupada (era pills espalhados).
+              Grid de 2 colunas contido na largura de 240px; fase atual marcada. */}
+          <div className="rounded-lg border border-bento-border bg-bento-bg p-2">
+            <p className="font-tech text-[10px] text-bento-muted mb-1.5">Mover para</p>
+            <div className="grid grid-cols-2 gap-1">
+              {ALL_COLUMNS.map(c => {
+                const current = c.key === lead.status
+                return (
+                  <button
+                    key={c.key}
+                    onClick={() => onMove(c.key)}
+                    disabled={current}
+                    aria-current={current}
+                    title={c.label}
+                    className={cn('flex items-center gap-1 min-w-0 rounded-md border px-1.5 py-1 font-tech text-[10px] leading-tight transition-colors',
+                      current
+                        ? 'border-lime/50 bg-lime/15 text-lime-fg font-semibold cursor-default'
+                        : 'border-bento-border/70 text-bento-dim hover:border-lime hover:text-lime-fg')}
+                  >
+                    {current && <Check className="w-3 h-3 flex-none" />}
+                    <span className="flex-1 min-w-0 truncate text-left">{c.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
