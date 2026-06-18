@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — Mural de Avisos mostra a agenda (calendar_events) junto dos avisos.
+- O Mural lista a agenda de HOJE (Brasília) no topo, ordenada por horário (`start_time`), + os avisos manuais (`notices`) abaixo.
+- Item de agenda: ícone de relógio + pill "Agenda", READ-ONLY; tocar abre o detalhe do evento no `<Calendar>` (via prop `focusEvent`).
+- Evento NÃO vira notice duplicado (só leitura mesclada na exibição, zero sync). `calendar_events` não tem campo de
+  "concluído" → mostra só hoje (atrasados ficam de fora). A lixeira continua só para os avisos (`notices`).
+- Relatório: KPI "Fecharam" → "Convertido em cliente" (PDF: "Convertidos") — só o rótulo; métrica do marco `fechou` inalterada.
+- Housekeeping: arquivo da migration 026 alinhado ao banco (policies "...milestones", idempotente) e marcado JÁ APLICADA.
+
+---
+
 🔄 Mudança — Lote de ajustes de UI (Comercial, tema, Mural).
 - Comercial/Métricas: novo card "Conversão Reunião → Venda" (% + "X de Y reuniões viraram venda").
   Base = marcos do ciclo (`lead_milestones`); enquanto a 026/backfill não estiverem aplicadas, cai automático

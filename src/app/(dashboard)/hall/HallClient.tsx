@@ -9,7 +9,7 @@ import { Panel } from '@/components/bento/Panel'
 import { Metric } from '@/components/bento/Metric'
 import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
-import { Maximize2, X, Trash2, Check } from 'lucide-react'
+import { Maximize2, X, Trash2, Check, Clock } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
 
 type Tab = 'activities' | 'agent'
@@ -348,9 +348,11 @@ interface CalendarProps {
   userId: string
   events: CalendarEvent[]
   onEventsChange: (events: CalendarEvent[]) => void
+  focusEvent?: CalendarEvent | null
+  onFocusHandled?: () => void
 }
 
-function Calendar({ userId, events, onEventsChange }: CalendarProps) {
+function Calendar({ userId, events, onEventsChange, focusEvent, onFocusHandled }: CalendarProps) {
   const now = new Date()
   const todayStr = toDateStr(now)
 
@@ -362,6 +364,12 @@ function Calendar({ userId, events, onEventsChange }: CalendarProps) {
 
   const [eventModal, setEventModal]   = useState<{ date: Date; hour?: number } | null>(null)
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null)
+
+  // Abre o detalhe (read-only) quando o Mural pede foco num evento; limpa o pedido no pai.
+  useEffect(() => {
+    if (focusEvent) { setDetailEvent(focusEvent); onFocusHandled?.() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEvent])
 
   const eventsMap = events.reduce<Record<string, CalendarEvent[]>>((acc, ev) => {
     (acc[ev.date] = acc[ev.date] ?? []).push(ev)
@@ -701,6 +709,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
   const [deletingNotice, setDeletingNotice] = useState<string | null>(null) // aviso sendo excluído
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
   const [agendaOpen, setAgendaOpen]   = useState(false)
+  const [focusEvent, setFocusEvent]   = useState<CalendarEvent | null>(null)
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
   const router = useRouter()
 
@@ -773,6 +782,13 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
     setConfirmDelete(null)
     setDeletingNotice(null)
   }
+
+  // Agenda de HOJE (Brasília) p/ mesclar no Mural — read-only, ordenada por horário.
+  // calendar_events não tem campo de "concluído" → não dá pra filtrar atrasados; mostramos só hoje.
+  const hojeStr = saoPauloDay(new Date())
+  const agendaHoje = calEvents
+    .filter(e => e.date === hojeStr)
+    .sort((a, b) => (a.start_time || '99:99').localeCompare(b.start_time || '99:99'))
 
   // ── Métricas reais (estáticas) para os painéis ──────────────────────────────
   const todayStr = toDateStr(new Date())
@@ -1017,9 +1033,25 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                       </div>
                     </div>
                   )}
-                  {notices.length === 0
-                    ? <p className="text-sm text-bento-muted py-6 text-center">Nenhum aviso.</p>
-                    : notices.map(n => (
+                  {agendaHoje.length === 0 && notices.length === 0
+                    ? <p className="text-sm text-bento-muted py-6 text-center">Nada na agenda nem avisos.</p>
+                    : <>
+                    {/* Agenda de HOJE (read-only) — toca pra abrir no Calendar. Não vira notice. */}
+                    {agendaHoje.map(ev => (
+                      <button key={`ev-${ev.id}`} type="button" onClick={() => setFocusEvent(ev)}
+                        className="w-full text-left rounded-bento border border-bento-border p-3 hover:border-lime/60 transition-colors">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                          <p className="text-sm font-semibold text-bento-text truncate">{ev.title}</p>
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-lime/40 text-lime-fg font-semibold">
+                            <Clock className="w-3 h-3" /> Agenda
+                          </span>
+                        </div>
+                        <p className="font-tech text-xs text-bento-dim">
+                          {ev.start_time ? ev.start_time.slice(0, 5) : 'Hoje'}{ev.description ? ` · ${ev.description}` : ''}
+                        </p>
+                      </button>
+                    ))}
+                    {notices.map(n => (
                       <div key={n.id} className={`rounded-bento border p-3 ${NOTICE_BORDER[n.priority] ?? 'border-bento-border'}`}>
                         <div className="flex items-center justify-between mb-1 gap-2">
                           <p className="text-sm font-semibold text-bento-text truncate">{n.title}</p>
@@ -1049,7 +1081,8 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                         <p className="text-xs text-bento-dim">{n.content}</p>
                         {n.author_name && <p className="font-tech text-xs text-bento-muted/70 mt-1">— {n.author_name} · {timeAgo(n.created_at)}</p>}
                       </div>
-                    ))
+                    ))}
+                    </>
                   }
                 </div>
               </Panel>
@@ -1063,7 +1096,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
           </div>
         )}
 
-        <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} />
+        <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
       </div>
 
       {history && (
