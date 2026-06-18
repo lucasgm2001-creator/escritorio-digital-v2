@@ -31,8 +31,8 @@ function LiveClock({ timezone, label, primary }: { timezone: string; label: stri
   // Mono (font-mono). Atualização a cada 15s = funcional, não enfeite.
   return (
     <div className="flex flex-col items-center leading-none gap-0.5">
-      <span className={`text-[9px] uppercase tracking-wide whitespace-nowrap ${primary ? 'text-lime font-semibold' : 'text-slate-500'}`}>{label}</span>
-      <span className={`font-mono text-xs font-semibold tabular-nums ${primary ? 'text-white' : 'text-slate-300'}`}>{time || '--:--'}</span>
+      <span className={`text-[9px] uppercase tracking-wide whitespace-nowrap ${primary ? 'text-lime-fg font-semibold' : 'text-bento-muted'}`}>{label}</span>
+      <span className={`font-mono text-xs font-semibold tabular-nums ${primary ? 'text-bento-text' : 'text-bento-dim'}`}>{time || '--:--'}</span>
     </div>
   )
 }
