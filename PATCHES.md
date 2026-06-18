@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — Mural também mostra TAREFAS (com hora) junto de agenda e avisos.
+- Tarefas pendentes (`done=false`) de HOJE + ATRASADAS entram no Mural (só exibição, zero sync, NÃO viram notice).
+- Item: ícone de relógio + pill "Tarefa"; atrasadas em **vermelho** (padrão de atraso do app). Read-only: toca → aba Tarefas.
+- Ordem: atrasadas no topo (destaque) → itens de hoje (agenda + tarefas) por horário → avisos abaixo.
+- Lixeira continua só nos avisos (`notices`). Estado vazio: "Nada na agenda, tarefas ou avisos." Sem schema (tarefas já têm data/hora/`done`).
+
+---
+
 ✨ Novidade — Mural de Avisos mostra a agenda (calendar_events) junto dos avisos.
 - O Mural lista a agenda de HOJE (Brasília) no topo, ordenada por horário (`start_time`), + os avisos manuais (`notices`) abaixo.
 - Item de agenda: ícone de relógio + pill "Agenda", READ-ONLY; tocar abre o detalhe do evento no `<Calendar>` (via prop `focusEvent`).

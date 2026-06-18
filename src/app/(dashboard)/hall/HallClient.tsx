@@ -11,6 +11,7 @@ import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
 import { Maximize2, X, Trash2, Check, Clock } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
+import type { Task } from '../tarefas/types'
 
 type Tab = 'activities' | 'agent'
 
@@ -94,6 +95,46 @@ function toDateStr(d: Date): string {
 // Dia (YYYY-MM-DD) no fuso de Brasília — pra contar "hoje" certo, zerando 00:00 BRT.
 function saoPauloDay(d: Date): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
+// Linha de evento de agenda no Mural (read-only; toca pra abrir o detalhe no Calendar).
+function MuralAgendaRow({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full text-left rounded-bento border border-bento-border p-3 hover:border-lime/60 transition-colors">
+      <div className="flex items-center justify-between mb-1 gap-2">
+        <p className="text-sm font-semibold text-bento-text truncate">{ev.title}</p>
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-lime/40 text-lime-fg font-semibold">
+          <Clock className="w-3 h-3" /> Agenda
+        </span>
+      </div>
+      <p className="font-tech text-xs text-bento-dim">
+        {ev.start_time ? ev.start_time.slice(0, 5) : 'Hoje'}{ev.description ? ` · ${ev.description}` : ''}
+      </p>
+    </button>
+  )
+}
+
+// Linha de tarefa no Mural (read-only; toca pra ir pra aba Tarefas). Atrasada = destaque vermelho.
+function MuralTaskRow({ task, overdue, onClick }: { task: Task; overdue?: boolean; onClick: () => void }) {
+  const hora = task.due_time ? task.due_time.slice(0, 5) : ''
+  const dia = task.due_date ? `${task.due_date.slice(8, 10)}/${task.due_date.slice(5, 7)}` : ''
+  return (
+    <button type="button" onClick={onClick}
+      className={cn('w-full text-left rounded-bento border p-3 transition-colors',
+        overdue ? 'border-red-800/50 bg-red-900/10 hover:border-red-700/70' : 'border-bento-border hover:border-lime/60')}>
+      <div className="flex items-center justify-between mb-1 gap-2">
+        <p className="text-sm font-semibold text-bento-text truncate">{task.title}</p>
+        <span className={cn('shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-semibold',
+          overdue ? 'border-red-700/50 text-red-400' : 'border-bento-border text-bento-muted')}>
+          <Clock className="w-3 h-3" /> Tarefa
+        </span>
+      </div>
+      <p className={cn('font-tech text-xs', overdue ? 'text-red-400' : 'text-bento-dim')}>
+        {overdue ? `Atrasada · ${hora ? `${hora} · ` : ''}${dia}` : (hora || 'Hoje')}
+      </p>
+    </button>
+  )
 }
 
 function getWeekDays(referenceDate: Date): { label: string; date: Date; dateStr: string }[] {
@@ -710,6 +751,7 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
   const [agendaOpen, setAgendaOpen]   = useState(false)
   const [focusEvent, setFocusEvent]   = useState<CalendarEvent | null>(null)
+  const [tasks, setTasks]             = useState<Task[]>([])
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
   const router = useRouter()
 
@@ -727,6 +769,11 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
     supabase.from('calendar_events').select('*').eq('user_id', userId).order('date').then(({ data }) => {
       if (data) setCalEvents(data as CalendarEvent[])
     })
+
+    // Tarefas p/ o Mural: pendentes (done=false) com data até hoje (hoje + atrasadas). Só leitura.
+    supabase.from('tasks').select('*')
+      .eq('user_id', userId).eq('done', false).lte('due_date', saoPauloDay(new Date()))
+      .then(({ data }) => { if (data) setTasks(data as Task[]) })
 
     const dataChannel = supabase.channel('hall-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activities' },
@@ -783,12 +830,18 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
     setDeletingNotice(null)
   }
 
-  // Agenda de HOJE (Brasília) p/ mesclar no Mural — read-only, ordenada por horário.
-  // calendar_events não tem campo de "concluído" → não dá pra filtrar atrasados; mostramos só hoje.
+  // Mural mesclado (só exibição; zero sync): tarefas ATRASADAS no topo (destaque vermelho),
+  // depois os itens de HOJE (agenda + tarefas) por horário, e os avisos abaixo.
+  // Agenda não tem "concluído" → só hoje. Tarefas: pendentes de hoje + atrasadas (done=false).
   const hojeStr = saoPauloDay(new Date())
-  const agendaHoje = calEvents
-    .filter(e => e.date === hojeStr)
-    .sort((a, b) => (a.start_time || '99:99').localeCompare(b.start_time || '99:99'))
+  const tarefasAtrasadas = tasks
+    .filter(t => t.due_date && t.due_date < hojeStr)
+    .sort((a, b) => ((a.due_date || '') + (a.due_time || '')).localeCompare((b.due_date || '') + (b.due_time || '')))
+  const hojeMesclado = [
+    ...calEvents.filter(e => e.date === hojeStr).map(e => ({ tipo: 'event' as const, key: `ev-${e.id}`, hora: e.start_time || '', ev: e })),
+    ...tasks.filter(t => t.due_date === hojeStr).map(t => ({ tipo: 'task' as const, key: `tk-${t.id}`, hora: t.due_time || '', tk: t })),
+  ].sort((a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99'))
+  const muralVazio = tarefasAtrasadas.length + hojeMesclado.length + notices.length === 0
 
   // ── Métricas reais (estáticas) para os painéis ──────────────────────────────
   const todayStr = toDateStr(new Date())
@@ -1033,24 +1086,17 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
                       </div>
                     </div>
                   )}
-                  {agendaHoje.length === 0 && notices.length === 0
-                    ? <p className="text-sm text-bento-muted py-6 text-center">Nada na agenda nem avisos.</p>
+                  {muralVazio
+                    ? <p className="text-sm text-bento-muted py-6 text-center">Nada na agenda, tarefas ou avisos.</p>
                     : <>
-                    {/* Agenda de HOJE (read-only) — toca pra abrir no Calendar. Não vira notice. */}
-                    {agendaHoje.map(ev => (
-                      <button key={`ev-${ev.id}`} type="button" onClick={() => setFocusEvent(ev)}
-                        className="w-full text-left rounded-bento border border-bento-border p-3 hover:border-lime/60 transition-colors">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <p className="text-sm font-semibold text-bento-text truncate">{ev.title}</p>
-                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-lime/40 text-lime-fg font-semibold">
-                            <Clock className="w-3 h-3" /> Agenda
-                          </span>
-                        </div>
-                        <p className="font-tech text-xs text-bento-dim">
-                          {ev.start_time ? ev.start_time.slice(0, 5) : 'Hoje'}{ev.description ? ` · ${ev.description}` : ''}
-                        </p>
-                      </button>
+                    {/* 1) Tarefas atrasadas (destaque) · 2) hoje (agenda + tarefas) por horário · 3) avisos. Só exibição, zero sync. */}
+                    {tarefasAtrasadas.map(t => (
+                      <MuralTaskRow key={`tk-${t.id}`} task={t} overdue onClick={() => router.push('/tarefas')} />
                     ))}
+                    {hojeMesclado.map(item => item.tipo === 'event'
+                      ? <MuralAgendaRow key={item.key} ev={item.ev} onClick={() => setFocusEvent(item.ev)} />
+                      : <MuralTaskRow key={item.key} task={item.tk} onClick={() => router.push('/tarefas')} />
+                    )}
                     {notices.map(n => (
                       <div key={n.id} className={`rounded-bento border p-3 ${NOTICE_BORDER[n.priority] ?? 'border-bento-border'}`}>
                         <div className="flex items-center justify-between mb-1 gap-2">
