@@ -1,0 +1,23 @@
+name: news-refresh
+
+# Atualiza a área "Notícias do setor" do Hall 2x/dia, chamando POST /api/news/refresh.
+# Lucas configura em Settings → Secrets and variables → Actions:
+#   - Secret  CRON_SECRET   (mesmo valor da env CRON_SECRET na Vercel)
+#   - Variable APP_BASE_URL (ex.: https://seu-projeto.vercel.app — sem barra no fim)
+# Grátis (GitHub Actions). NÃO usa Vercel Cron (evita plano pago).
+
+on:
+  schedule:
+    - cron: '0 11 * * *'   # ~08:00 BRT
+    - cron: '0 21 * * *'   # ~18:00 BRT
+  workflow_dispatch: {}      # permite rodar manualmente pela aba Actions
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/news/refresh
+        run: |
+          curl -fsS -X POST "${{ vars.APP_BASE_URL }}/api/news/refresh" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"
