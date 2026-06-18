@@ -1,22 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
 import { KanbanBoard } from './KanbanBoard'
+import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getProfile } from '@/lib/supabase/session'
 
 export default async function ComercialPage() {
   const supabase = createClient()
 
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('*')
-    .order('score', { ascending: false })
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Busca o perfil do usuário autenticado (app pessoal — sem papéis)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .eq('id', user?.id ?? '')
-    .single()
+  // getUser (cacheado — reusa o do layout) em paralelo com os leads; profile depois (cacheado).
+  const [user, { data: leads }] = await Promise.all([
+    getSessionUser(),
+    supabase.from('leads').select('*').order('score', { ascending: false }),
+  ])
+  const profile = await getProfile(user?.id ?? '')
 
   return (
     <KanbanBoard

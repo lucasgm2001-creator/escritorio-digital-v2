@@ -4,6 +4,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell'
 import { ToastProvider } from '@/components/ui/toast'
 import { capitalizeName } from '@/lib/utils'
 import { getSystemLogoUrl } from '@/lib/logo'
+import { getSessionUser, getProfile } from '@/lib/supabase/session'
 
 const PAGE_TITLES: Record<string, string> = {
   '/hall':           'Hall',
@@ -16,44 +17,18 @@ const PAGE_TITLES: Record<string, string> = {
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
+  // Auth primeiro (necessária para o resto); NÃO redirecionar em erro de profile —
+  // o usuário ESTÁ autenticado (getUser passou); redirecionar daqui colidiria com o
+  // middleware e criaria loop (ERR_TOO_MANY_REDIRECTS). Em erro, nome cai pro e-mail.
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  // Só o nome do usuário (app pessoal de usuário único — sem papéis).
-  // ATENÇÃO: NÃO redirecionar para /login em erro de leitura do profile.
-  // O usuário ESTÁ autenticado (getUser passou) — o que falha é a query da
-  // tabela profiles. Redirecionar daqui colide com o middleware (que manda
-  // usuário logado de /login de volta para /hall) e cria loop infinito
-  // (ERR_TOO_MANY_REDIRECTS). Em erro, caímos no nome derivado do e-mail.
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    console.error('[dashboard/layout] profile fetch failed:', profileError)
-  }
-
-  // avatar_url é opcional (pode não existir antes da migration 010/011).
-  // Best-effort e isolada: qualquer erro de schema vira avatar nulo.
-  let avatarUrl: string | null = null
-  try {
-    const { data: extra } = await supabase
-      .from('profiles')
-      .select('avatar_url')
-      .eq('id', user.id)
-      .single()
-    avatarUrl = extra?.avatar_url ?? null
-  } catch {
-    avatarUrl = null
-  }
-
-  // Logo do sistema: URL pública (com versão p/ cache-bust) do bucket `assets`,
-  // ou null se não houver logo enviada. Global para todos os usuários.
-  const logoUrl = await getSystemLogoUrl(supabase)
+  // profile (name + avatar numa query só, cacheada por request) + logo em PARALELO.
+  const [profile, logoUrl] = await Promise.all([
+    getProfile(user.id),
+    getSystemLogoUrl(createClient()),
+  ])
+  const avatarUrl = profile?.avatar_url ?? null
 
   return (
     <DashboardShell

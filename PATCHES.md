@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — 1ª carga das telas mais rápida (paralelização + cache + skeletons).
+- Layout: as 4 queries em SÉRIE (getUser → profile → avatar → logo) viraram getUser + Promise.all
+  (profile com name+avatar numa query só, em paralelo com a logo). getUser/profile passaram a ser
+  cacheados por request (React cache) e reusados pelas páginas — somem as leituras duplicadas layout↔página.
+- Páginas (Hall/Comercial/Clientes/Tarefas): queries independentes em Promise.all e reuso do user/profile
+  cacheados (ex.: Comercial era leads→getUser→profile em série; agora leads ‖ getUser, profile cacheado).
+- Skeletons Bento por seção (loading.tsx em hall/comercial/clientes/tarefas): a estrutura aparece na hora
+  na 1ª visita, em vez de tela parada. Navegação entre telas segue instantânea (Router Cache); realtime,
+  refresh-ao-voltar e tema intactos. Prefetch dos <Link> já era o default.
+- Sem mudança de schema. (Medição foi estrutural — cadeias de await; ms reais ficam nos logs da Vercel.)
+
+---
+
 ✨ Novidade — Agente do Hall: editar cliente, registrar pagamento de semana e reunião (com confirmação).
 - 3 ações novas, TODAS pedindo confirmação antes de gravar:
   • editar_cliente — acha por nome (pergunta se ambíguo/não achar), mostra "campo: de X → Y", grava. NUNCA exclui.

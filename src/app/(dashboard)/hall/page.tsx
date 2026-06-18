@@ -1,25 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
 import { HallClient } from './HallClient'
 import { capitalizeName } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getProfile } from '@/lib/supabase/session'
 
 export default async function HallPage() {
   const supabase = createClient()
 
-  const [
-    { data: { user } },
-    { data: activities },
-    { data: notices },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
+  // user (cacheado, reusa o do layout) + atividades + avisos em paralelo; profile depois (cacheado).
+  const [user, { data: activities }, { data: notices }] = await Promise.all([
+    getSessionUser(),
     supabase.from('activities').select('*').order('created_at', { ascending: false }).limit(20),
     supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(10),
   ])
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', user?.id ?? '')
-    .single()
+  const profile = await getProfile(user?.id ?? '')
 
   return (
     <HallClient

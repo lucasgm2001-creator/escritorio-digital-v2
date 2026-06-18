@@ -1,21 +1,20 @@
-import { createClient } from '@/lib/supabase/server'
 import { ClientesClient } from './ClientesClient'
+import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getProfile } from '@/lib/supabase/session'
 
 export default async function ClientesPage() {
   const supabase = createClient()
 
-  const [{ data: clients }, { data: { user } }] = await Promise.all([
+  const [user, { data: clients }] = await Promise.all([
+    getSessionUser(),
     supabase.from('clients').select('*').order('created_at', { ascending: false }),
-    supabase.auth.getUser(),
   ])
-
-  const { data: profile } = await supabase
-    .from('profiles').select('id, name').eq('id', user?.id ?? '').single()
+  const profile = await getProfile(user?.id ?? '')
 
   return (
     <ClientesClient
       initialClients={clients ?? []}
-      currentUser={{ id: profile?.id ?? '', name: profile?.name ?? '' }}
+      currentUser={{ id: profile?.id ?? user?.id ?? '', name: profile?.name ?? '' }}
     />
   )
 }

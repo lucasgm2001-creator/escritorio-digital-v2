@@ -1,21 +1,21 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getProfile } from '@/lib/supabase/session'
 import { TarefasClient } from './TarefasClient'
 import type { Task, LinkOption } from './types'
 
 export default async function TarefasPage() {
   const supabase = createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  // Tarefas do dono. Se a tabela ainda não existir (migration não rodada),
-  // `data` vem null → tratamos como lista vazia (a tela renderiza normalmente).
-  const [tasksRes, leadsRes, clientsRes, profileRes] = await Promise.all([
+  // Tarefas do dono + leads/clients (p/ vincular) + profile (cacheado) — tudo em paralelo.
+  const [tasksRes, leadsRes, clientsRes, profile] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user.id).order('due_date', { ascending: true }),
     supabase.from('leads').select('id, name, phone, company, nicho').order('name'),
     supabase.from('clients').select('id, name, phone, company').order('name'),
-    supabase.from('profiles').select('id, name').eq('id', user.id).single(),
+    getProfile(user.id),
   ])
 
   const linkOptions: LinkOption[] = [
@@ -27,7 +27,7 @@ export default async function TarefasPage() {
     <TarefasClient
       initialTasks={(tasksRes.data ?? []) as Task[]}
       linkOptions={linkOptions}
-      currentUser={{ id: profileRes.data?.id ?? user.id, name: profileRes.data?.name ?? '' }}
+      currentUser={{ id: profile?.id ?? user.id, name: profile?.name ?? '' }}
     />
   )
 }
