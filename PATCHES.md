@@ -6,6 +6,16 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Funil configurável: INCREMENTO 1 (fundação). Código lê as fases de `funnel_stages`; comportamento IDÊNTICO.
+- Migration **028 (funnel_stages)** JÁ APLICADA por Lucas — arquivo só filado (10 fases seedadas, mapa de marcos idêntico, is_won=Venda Fechada, is_lost=Venda Perdida).
+- Fonte única: `src/lib/funnelStages.ts` (tipos + helpers + loader client memoizado) e `funnelStages.server.ts` (`getStages` com React cache).
+- Won-flow (DINHEIRO) dispara pela **flag `is_won`** (não pelo slug 'fechado'); marcos do relatório leem `conta_interagiu/reuniao/fechou` da fase. Fallback estático garante comportamento idêntico se as fases não carregarem.
+- Funil desktop (KanbanColumn/tiers) e mobile (PhaseAccordion) renderizam as fases do banco (por `posicao`); estilo/cores reusam o mapa por slug. Mantido número grande / sem US$.
+- Agente: enum de destino **dinâmico** (slugs de funnel_stages); confirmação de "venda" pela flag `is_won`.
+- NÃO dropei a CHECK de leads.status nem criei slug novo (incremento 2). Sem aba de gestão ainda.
+
+---
+
 ✨ Novidade — Área de Notícias automática no Hall (web_search).
 - Painel "Notícias do setor" full-width (abaixo do conteúdo, antes do Calendar): cards com título, pills
   [categoria · estado(s) · severidade] (crítico=vermelho, alta=âmbar, média=neutro), resumo, impacto, fonte + tempo.

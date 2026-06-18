@@ -3,6 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import type { createClient } from '@/lib/supabase/server'
 import { nextUnpaidWeek } from '@/lib/commission/actions'
 import { ymd } from '@/lib/format'
+import { wonSlug, type FunnelStage } from '@/lib/funnelStages'
 
 // Client supabase do REQUEST atual (server, ligado à sessão/cookies correntes).
 type SupaClient = ReturnType<typeof createClient>
@@ -53,23 +54,26 @@ const createTaskTool = tool({
   }),
 })
 
-const moverLeadTool = tool({
-  description:
-    'Move um lead para outro estágio do funil comercial. Use quando o usuário pedir para mover, avançar ou mudar um lead de fase (ex: "move o Sandro pra reunião", "o João fechou").',
-  inputSchema: jsonSchema<{ lead_name: string; destino: string }>({
-    type: 'object',
-    properties: {
-      lead_name: { type: 'string', description: 'Nome do lead a mover.' },
-      destino: {
-        type: 'string',
-        enum: ['novo', 'interagiu', 'nao_interagiu', 'reuniao', 'no_show', 'reagendamento', 'proposta', 'fechado', 'perdido', 'lixeira'],
-        description: 'Estágio de destino (código). Mapeie a linguagem natural: "reunião"/"reunião agendada"→reuniao; "no show"/"não compareceu"→no_show; "reagendar"→reagendamento; "proposta"/"proposta em análise"→proposta; "venda fechada"/"fechou"/"ganhou"→fechado; "perdido"/"perdeu"→perdido; "lixo"/"descartar"→lixeira; "interagiu"→interagiu; "não interagiu"/"sem interação"→nao_interagiu; "novo"/"novo lead"→novo.',
+// Enum de destino DINÂMICO: os slugs vêm de funnel_stages (não-arquivadas).
+function buildMoverLeadTool(slugs: string[]) {
+  return tool({
+    description:
+      'Move um lead para outro estágio do funil comercial. Use quando o usuário pedir para mover, avançar ou mudar um lead de fase (ex: "move o Sandro pra reunião", "o João fechou").',
+    inputSchema: jsonSchema<{ lead_name: string; destino: string }>({
+      type: 'object',
+      properties: {
+        lead_name: { type: 'string', description: 'Nome do lead a mover.' },
+        destino: {
+          type: 'string',
+          enum: slugs,
+          description: 'Estágio de destino (slug). Mapeie a linguagem natural para o slug: "reunião agendada"→reuniao; "no show"→no_show; "reagendar"→reagendamento; "proposta"→proposta; "venda fechada"/"fechou"/"ganhou"→fechado; "perdido"→perdido; "lixo"/"descartar"→lixeira; "não interagiu"→nao_interagiu; "novo"→novo.',
+        },
       },
-    },
-    required: ['lead_name', 'destino'],
-    additionalProperties: false,
-  }),
-})
+      required: ['lead_name', 'destino'],
+      additionalProperties: false,
+    }),
+  })
+}
 
 const editarClienteTool = tool({
   description:
@@ -145,8 +149,8 @@ function buildActionPreview(toolName: string, p: Record<string, unknown>): strin
 
 // Quais ações exigem confirmação antes de executar. Mover é direto, EXCETO pra
 // "fechado" (Venda Fechada), que dispara a comissão. Criar lead/tarefa sempre confirmam.
-function needsConfirm(toolName: string, p: Record<string, unknown>): boolean {
-  if (toolName === 'mover_lead') return p.destino === 'fechado'
+function needsConfirm(toolName: string, p: Record<string, unknown>, wonSlugStr: string): boolean {
+  if (toolName === 'mover_lead') return p.destino === wonSlugStr
   return true
 }
 
@@ -158,6 +162,16 @@ export class SuperAgent {
   // Recebe o supabase do request atual (não cria o seu próprio): garante que
   // leituras/escritas usem a sessão/cookies do request corrente, não de um antigo.
   constructor(private supabase: SupaClient) {}
+
+  // Fases do funil (cache por instância/request) — slugs/flags p/ o tool e a confirmação.
+  private stagesCache?: FunnelStage[]
+  private async loadStages(): Promise<FunnelStage[]> {
+    if (!this.stagesCache) {
+      const { data } = await this.supabase.from('funnel_stages').select('*').order('posicao')
+      this.stagesCache = (data ?? []) as FunnelStage[]
+    }
+    return this.stagesCache
+  }
 
   private async generateAIResponse(
     systemPrompt: string,
@@ -239,6 +253,10 @@ export class SuperAgent {
     opts: { today: string; todayLabel: string },
   ): Promise<AgentTurn> {
     const context = await this.getContextData()
+    const stages = await this.loadStages()
+    const STATIC_SLUGS = ['novo', 'interagiu', 'nao_interagiu', 'reuniao', 'no_show', 'reagendamento', 'proposta', 'fechado', 'perdido', 'lixeira']
+    const slugs = stages.length ? stages.filter(s => !s.arquivada).map(s => s.slug) : STATIC_SLUGS
+    const won = wonSlug(stages)
     const system = [
       'Você é o assistente do Escritório Digital DR Growth. Responda em português, de forma concisa e prática.',
       `Hoje é ${opts.todayLabel} (${opts.today}). Resolva datas relativas (hoje, amanhã, depois de amanhã, sexta, segunda, semana que vem) para datas absolutas no formato YYYY-MM-DD a partir de hoje. Se o dia da semana já passou nesta semana, use a próxima ocorrência.`,
@@ -254,7 +272,7 @@ export class SuperAgent {
       system,
       messages,
       tools: {
-        create_lead: createLeadTool, create_task: createTaskTool, mover_lead: moverLeadTool,
+        create_lead: createLeadTool, create_task: createTaskTool, mover_lead: buildMoverLeadTool(slugs),
         editar_cliente: editarClienteTool, registrar_pagamento: registrarPagamentoTool, registrar_reuniao: registrarReuniaoTool,
       },
       maxOutputTokens: 600,
@@ -268,7 +286,7 @@ export class SuperAgent {
       if (call.toolName === 'registrar_pagamento') return this.prepPayWeek(params)
       if (call.toolName === 'registrar_reuniao') return this.prepMeeting(params)
       // Ações de preview estático (resolução acontece na execução):
-      return { type: 'action', tool: call.toolName, params, requiresConfirm: needsConfirm(call.toolName, params), resposta: buildActionPreview(call.toolName, params) }
+      return { type: 'action', tool: call.toolName, params, requiresConfirm: needsConfirm(call.toolName, params, won), resposta: buildActionPreview(call.toolName, params) }
     }
     return { type: 'text', resposta: result.text?.trim() || 'Não entendi. Pode reformular?' }
   }

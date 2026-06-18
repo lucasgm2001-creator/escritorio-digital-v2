@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Markdown } from '@/components/ui/Markdown'
 import { createClient } from '@/lib/supabase/client'
 import { moveLead, type MovableLead } from '../comercial/leadActions'
-import { ALL_COLUMNS, type LeadStatus } from '../comercial/types'
+import { type LeadStatus } from '../comercial/types'
+import { loadStages } from '@/lib/funnelStages'
 import { payWeek, payWeekMessage, registerMeeting, updateClient } from '@/lib/commission/actions'
 import { markMilestones } from '@/lib/leadMilestones'
 import { ymd } from '@/lib/format'
@@ -103,7 +104,9 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
       const leadName = String(p.lead_name ?? '').trim()
       const destino = String(p.destino ?? '').trim()
       if (!leadName) return 'Não consegui mover: faltou o nome do lead.'
-      if (!ALL_COLUMNS.some(c => c.key === destino)) return `Não consegui mover: estágio "${destino}" inválido.`
+      const stages = await loadStages(supabase)
+      const stage = stages.find(s => s.slug === destino && !s.arquivada)
+      if (stages.length > 0 && !stage) return `Não consegui mover: estágio "${destino}" inválido.`
       // Busca por nome (igual ao vínculo de tarefa); trata "não achei" e ambiguidade.
       const { data: matches, error: findErr } = await supabase
         .from('leads')
@@ -117,10 +120,10 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
         if (exact.length === 1) lead = exact[0]
         else return `Achei mais de um lead parecido com "${leadName}": ${matches.map(m => m.name).join(', ')}. Qual deles?`
       }
-      const label = ALL_COLUMNS.find(c => c.key === destino)?.label ?? destino
+      const label = stage?.nome ?? destino
       if (lead.status === destino) return `O ${lead.name} já está em ${label}.`
-      // MESMA função do funil → dispara o won-flow ao ir pra "fechado".
-      const res = await moveLead(supabase, lead as MovableLead, destino as LeadStatus, userName)
+      // MESMA função do funil → dispara o won-flow pela flag is_won da fase.
+      const res = await moveLead(supabase, lead as MovableLead, destino as LeadStatus, userName, stages)
       if (!res.ok) return `Não consegui mover o ${lead.name}: ${res.error}`
       let msg = `Pronto! Movi o ${lead.name} pra ${label}.`
       for (const n of res.notes) if (n.message) msg += `\n${n.message}`
