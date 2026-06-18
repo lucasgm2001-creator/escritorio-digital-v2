@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Comissão nova, INCREMENTO 1: planos + plano do cliente (estrutura/exibição; sem pagamento).
+- Migration **029** (`plans` + `clients.plano_id` + `client_payments`) JÁ APLICADA por Lucas — arquivo só filado (idempotente).
+- Clientes: **plano via dropdown** (lê `plans` ativos por ordem) no criar/editar → grava `clients.plano_id`. Badge mostra "Plano · $valor/sem" (valor do plano quando houver, senão `plan_weekly` legado); MRR usa o valor efetivo. `plan_weekly` mantido como legado (não removido).
+- NÃO toca pagamento/comissão (`calc.ts`/`payWeek`/`registerMeeting`/`runWonFlow` intocados). Sem dinheiro, sem localStorage.
+
+---
+
 ✨ Novidade — Configurações reestruturada (incremento 1): navegação Andares/Sistema + Tema e Acessibilidade reais.
 - Nav em 2 grupos: **ANDARES** (Hall/Comercial/Tarefas/Studio/Clientes → placeholders "Em breve") e **SISTEMA**.
 - **Tema** (reusa a lógica existente): claro/escuro/auto + **horários da virada configuráveis** (client/localStorage); `src/lib/theme.ts` virou a fonte única dos horários (ThemeWatcher + script inline do layout leem dela).

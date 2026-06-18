@@ -14,6 +14,7 @@ interface Client {
   email?: string
   phone?: string
   plan_weekly: number
+  plano_id?: string | null
   status: 'ativo' | 'inativo' | 'prospect'
   start_date?: string
   end_date?: string
@@ -21,6 +22,8 @@ interface Client {
   jobs?: string[]
   created_at: string
 }
+
+interface Plan { id: string; nome: string; valor_semanal: number }
 
 interface Activity {
   id: string
@@ -35,8 +38,6 @@ interface Props {
   currentUser: { id: string; name: string }
 }
 
-const PLANS = [140, 190, 250]
-
 // Tokens bento, theme-aware (não usar #hex/roxo hardcoded).
 const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text placeholder:text-bento-muted focus:outline-none focus:border-lime'
 
@@ -46,6 +47,7 @@ const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3
 // "só entra 1 letra"). Fora, o nó é estável. Estado/handlers chegam via props.
 interface ClientRowProps {
   client: Client
+  plans: Plan[]
   inactive?: boolean
   editingJobsId: string | null
   jobInput: string
@@ -63,9 +65,12 @@ interface ClientRowProps {
 }
 
 function ClientRow({
-  client, inactive, editingJobsId, jobInput, expandedId, activities, loadingActivities,
+  client, plans, inactive, editingJobsId, jobInput, expandedId, activities, loadingActivities,
   onEdit, onToggleJobs, setJobInput, onAddJob, onRemoveJob, onToggleActivities, onReativar, onInativar,
 }: ClientRowProps) {
+  // Plano do banco manda; plan_weekly é só fallback legado.
+  const plan = plans.find(p => p.id === client.plano_id)
+  const weekly = plan?.valor_semanal ?? client.plan_weekly
   return (
     <div className={`bento-fx transition-colors duration-150 ${inactive ? 'opacity-60' : 'hover:border-lime/40'}`}>
       {/* Main row */}
@@ -82,7 +87,7 @@ function ClientRow({
             ? 'text-bento-muted border-bento-border bg-bento-bg'
             : 'text-green-400 border-green-800/50 bg-green-900/20'
         }`}>
-          {formatCurrency(client.plan_weekly, 'en-US', 'USD')}/sem
+          {plan ? `${plan.nome} · ` : ''}{formatCurrency(weekly, 'en-US', 'USD')}/sem
         </span>
         {client.start_date && (
           <span className="text-xs text-bento-muted shrink-0 hidden md:block">
@@ -201,8 +206,9 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
   const [search, setSearch] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
-  const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', plan_weekly: '140' })
-  const [editForm, setEditForm] = useState({ name: '', company: '', email: '', phone: '', plan_weekly: '' })
+  const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '' })
+  const [editForm, setEditForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '' })
+  const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(false)
   const [editingJobsId, setEditingJobsId] = useState<string | null>(null)
   const [jobInput, setJobInput] = useState('')
@@ -213,6 +219,17 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
 
   const supabase = createClient()
   const save = useSave()
+
+  // Planos ativos (por ordem). Lê plans; o cliente aponta pra um via plano_id.
+  useEffect(() => {
+    supabase.from('plans').select('id, nome, valor_semanal').eq('ativo', true).order('ordem')
+      .then(({ data }) => {
+        const list = (data ?? []) as Plan[]
+        setPlans(list)
+        setForm(prev => prev.plano_id ? prev : { ...prev, plano_id: list[0]?.id ?? '' })
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filtered = clients.filter(c => {
     if (!search) return true
@@ -225,7 +242,8 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
 
   const ativos   = filtered.filter(c => c.status === 'ativo')
   const inativos = filtered.filter(c => c.status === 'inativo')
-  const mrr      = clients.filter(c => c.status === 'ativo').reduce((sum, c) => sum + c.plan_weekly * 4, 0)
+  const planOf   = (c: Client) => plans.find(p => p.id === c.plano_id)
+  const mrr      = clients.filter(c => c.status === 'ativo').reduce((sum, c) => sum + (planOf(c)?.valor_semanal ?? c.plan_weekly) * 4, 0)
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -238,6 +256,7 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
       return
     }
 
+    const createPlan = plans.find(p => p.id === form.plano_id) ?? plans[0]
     setLoading(true)
     const { ok, data } = await save<Client>({
       run: () => supabase.from('clients').insert({
@@ -245,7 +264,8 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
         company: form.company || null,
         email: form.email || null,
         phone: form.phone || null,
-        plan_weekly: parseFloat(form.plan_weekly),
+        plano_id: createPlan?.id ?? null,
+        plan_weekly: createPlan?.valor_semanal ?? 140,
         status: 'ativo',
         start_date: new Date().toISOString().slice(0, 10),
         assigned_name: currentUser.name,
@@ -264,7 +284,7 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
         entity_id: data.id,
       })
       setNewOpen(false)
-      setForm({ name: '', company: '', email: '', phone: '', plan_weekly: '140' })
+      setForm({ name: '', company: '', email: '', phone: '', plano_id: plans[0]?.id ?? '' })
     }
     setLoading(false)
   }
@@ -273,12 +293,14 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
     if (!editClient) return
     const target = editClient
     setLoading(true)
+    const editPlan = plans.find(p => p.id === editForm.plano_id)
     const patch = {
       name: editForm.name || target.name,
       company: editForm.company || undefined,
       email: editForm.email || undefined,
       phone: editForm.phone || undefined,
-      plan_weekly: parseFloat(editForm.plan_weekly) || target.plan_weekly,
+      plano_id: editForm.plano_id || target.plano_id || null,
+      plan_weekly: editPlan?.valor_semanal ?? target.plan_weekly,
     }
     const { ok } = await save({
       optimistic: () => setClients(prev => prev.map(c => c.id === target.id ? { ...c, ...patch } : c)),
@@ -287,6 +309,7 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
         company: editForm.company || null,
         email: editForm.email || null,
         phone: editForm.phone || null,
+        plano_id: patch.plano_id,
         plan_weekly: patch.plan_weekly,
       }),
       rollback: () => setClients(prev => prev.map(c => c.id === target.id ? target : c)),
@@ -371,11 +394,12 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
   // Handlers passados ao ClientRow (escopo de módulo).
   const openEdit = (client: Client) => {
     setEditClient(client)
-    setEditForm({ name: client.name, company: client.company ?? '', email: client.email ?? '', phone: client.phone ?? '', plan_weekly: String(client.plan_weekly) })
+    setEditForm({ name: client.name, company: client.company ?? '', email: client.email ?? '', phone: client.phone ?? '', plano_id: client.plano_id ?? '' })
   }
   const toggleJobs = (id: string) => { setEditingJobsId(editingJobsId === id ? null : id); setJobInput('') }
 
   const rowProps = {
+    plans,
     editingJobsId, jobInput, expandedId, activities, loadingActivities,
     onEdit: openEdit, onToggleJobs: toggleJobs, setJobInput,
     onAddJob: handleAddJob, onRemoveJob: handleRemoveJob,
@@ -477,19 +501,11 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Plano semanal (USD)</label>
-                <div className="flex gap-2">
-                  {PLANS.map(p => (
-                    <button key={p} type="button" onClick={() => set('plan_weekly', String(p))}
-                      className={`flex-1 py-2 rounded-btn text-sm font-medium border transition-all ${
-                        form.plan_weekly === String(p)
-                          ? 'bg-lime text-lime-ink border-lime'
-                          : 'border-bento-border text-bento-muted hover:border-lime'
-                      }`}>
-                      ${p}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-medium text-bento-dim mb-1">Plano</label>
+                <select value={form.plano_id} onChange={e => set('plano_id', e.target.value)} className={inputCls}>
+                  {plans.length === 0 && <option value="">Carregando…</option>}
+                  {plans.map(p => <option key={p.id} value={p.id}>{p.nome} — ${p.valor_semanal}/sem</option>)}
+                </select>
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setNewOpen(false)}
@@ -536,19 +552,10 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Plano (USD/sem)</label>
-                <div className="flex gap-2">
-                  {PLANS.map(p => (
-                    <button key={p} type="button" onClick={() => setEditForm(prev => ({ ...prev, plan_weekly: String(p) }))}
-                      className={`flex-1 py-2 rounded-btn text-sm font-medium border transition-all ${
-                        editForm.plan_weekly === String(p)
-                          ? 'bg-lime text-lime-ink border-lime'
-                          : 'border-bento-border text-bento-muted hover:border-lime'
-                      }`}>
-                      ${p}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-medium text-bento-dim mb-1">Plano</label>
+                <select value={editForm.plano_id} onChange={e => setEditForm(prev => ({ ...prev, plano_id: e.target.value }))} className={inputCls}>
+                  {plans.map(p => <option key={p.id} value={p.id}>{p.nome} — ${p.valor_semanal}/sem</option>)}
+                </select>
               </div>
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setEditClient(null)}
