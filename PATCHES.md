@@ -6,6 +6,19 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — Área de Notícias automática no Hall (web_search).
+- Painel "Notícias do setor" full-width (abaixo do conteúdo, antes do Calendar): cards com título, pills
+  [categoria · estado(s) · severidade] (crítico=vermelho, alta=âmbar, média=neutro), resumo, impacto, fonte + tempo.
+  Filtros client-side (nicho + estado), realtime (`useRealtimeRows('news')`), estado vazio amigável.
+- Fonte automática: `POST /api/news/refresh` (Node, maxDuration 60) chama `claude-sonnet-4-6` com tool web_search
+  (maxUses 4), parseia JSON, dedup por `fonte_url` e grava via client **service-role** (`lib/supabase/service.ts`, server-only).
+- Agendador grátis: `.github/workflows/news-refresh.yml` (2×/dia) bate na rota com `x-cron-secret`. Fallback: ao abrir
+  o Hall, se a última atualização passou de 12h, dispara o refresh em background.
+- Migration **027 (tabela `news`)** JÁ APLICADA por Lucas — arquivo só filado (documentação). RLS: SELECT autenticado; escrita só service-role.
+- ENVs (Lucas configura): `SUPABASE_SERVICE_ROLE_KEY` (Vercel) e `CRON_SECRET` (Vercel + GitHub Secret) + variable `APP_BASE_URL` (GitHub). Sem dinheiro.
+
+---
+
 🐛 Fix — funil MOBILE (PhaseAccordion): número de leads por etapa grande + remoção do "US$ 0".
 - O ajuste do lote anterior tinha ido só pro `KanbanColumn` (kanban desktop); a aba Funil no celular usa o `PhaseAccordion`.
 - Agora o número por etapa é grande (Space Grotesk `text-3xl`) e o "US$ 0" foi removido também no mobile.

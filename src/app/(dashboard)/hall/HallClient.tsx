@@ -9,6 +9,7 @@ import { Panel } from '@/components/bento/Panel'
 import { Metric } from '@/components/bento/Metric'
 import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
+import { NewsSection } from './NewsSection'
 import { Maximize2, X, Trash2, Check, Clock } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
 import type { Task } from '../tarefas/types'
@@ -1141,6 +1142,9 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
             <AgentChat userId={userId} userName={userName} />
           </div>
         )}
+
+        {/* Notícias do setor (automáticas) — abaixo do conteúdo, antes do Calendar */}
+        <NewsSection />
 
         <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
       </div>
