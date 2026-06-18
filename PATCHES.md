@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Novidade — trava no banco contra semana de comissão duplicada.
+- Índice único uq_weekly_payments_deal_semana em weekly_payments(deal_id, numero_semana): a mesma
+  semana de uma venda não pode ser lançada duas vezes (corrida de 2 cliques agora é recusada pelo banco).
+- Migration 025 — JÁ APLICADA no banco por mim; o arquivo no repo é só documentação (NÃO rodar de novo).
+
+---
+
 ✨ Novidade — Studio: nicho do material + sugestão por nicho do lead (Bloco 4, parte 3).
 - Campo "nicho" no upload e no editar material, com autocompletar de nichos já usados em materiais E
   nos leads (leads.nicho). Tag de nicho no card + filtro de nicho na biblioteca.
