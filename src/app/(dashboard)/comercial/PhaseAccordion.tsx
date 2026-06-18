@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { StaticLeadCard } from './LeadCard'
-import { usdCompact as formatValue } from '@/lib/format'
 import { ALL_COLUMNS, type ColumnTone, type Lead } from './types'
 
 const TONE: Record<ColumnTone, { dot: string; name: string }> = {
@@ -30,7 +29,6 @@ export function PhaseAccordion({ leads, onLeadClick }: { leads: Lead[]; onLeadCl
     <div className="space-y-2">
       {ALL_COLUMNS.map(col => {
         const items = leads.filter(l => l.status === col.key)
-        const total = items.reduce((s, l) => s + (l.value || 0), 0)
         const tone = TONE[col.tone]
         const isOpen = open.has(col.key)
         return (
@@ -42,9 +40,9 @@ export function PhaseAccordion({ leads, onLeadClick }: { leads: Lead[]; onLeadCl
             >
               <span className={cn('w-[7px] h-[7px] rounded-full flex-none', tone.dot)} />
               <span className={cn('text-sm font-semibold flex-1 text-left truncate', tone.name)}>{col.label}</span>
-              <span className="text-right leading-tight flex-none">
-                <span className="block font-tech text-[11px] text-bento-muted tabular-nums">{items.length}</span>
-                <span className="block font-tech text-[10px] font-semibold text-bento-dim tabular-nums">{formatValue(total)}</span>
+              <span className="flex items-baseline gap-1 flex-none">
+                <span className="font-display text-3xl font-bold text-bento-text tabular-nums leading-none">{items.length}</span>
+                <span className="font-tech text-[10px] text-bento-muted">leads</span>
               </span>
               <svg className={cn('w-4 h-4 text-bento-muted transition-transform flex-none', isOpen && 'rotate-90')}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">

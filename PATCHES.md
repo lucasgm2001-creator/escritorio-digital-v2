@@ -6,6 +6,12 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix — funil MOBILE (PhaseAccordion): número de leads por etapa grande + remoção do "US$ 0".
+- O ajuste do lote anterior tinha ido só pro `KanbanColumn` (kanban desktop); a aba Funil no celular usa o `PhaseAccordion`.
+- Agora o número por etapa é grande (Space Grotesk `text-3xl`) e o "US$ 0" foi removido também no mobile.
+
+---
+
 ✨ Novidade — Mural também mostra TAREFAS (com hora) junto de agenda e avisos.
 - Tarefas pendentes (`done=false`) de HOJE + ATRASADAS entram no Mural (só exibição, zero sync, NÃO viram notice).
 - Item: ícone de relógio + pill "Tarefa"; atrasadas em **vermelho** (padrão de atraso do app). Read-only: toca → aba Tarefas.
