@@ -3,6 +3,7 @@ import type { FxConfig } from '@/lib/commission/types'
 import type { createClient } from '@/lib/supabase/client'
 import type { LeadStatus } from './types'
 import { ymd } from '@/lib/format'
+import { markMilestones, marcosForStage } from '@/lib/leadMilestones'
 
 type SupaClient = ReturnType<typeof createClient>
 
@@ -106,6 +107,8 @@ export async function moveLead(
   const { error } = await supabase
     .from('leads').update({ status: newStatus, stage_changed_at: nowIso, updated_at: nowIso }).eq('id', lead.id)
   if (error) return { ok: false, error: error.message, notes: [] }
+  // Marcos do ciclo (relatório) — idempotente, NÃO mexe em comissão. Avançar acumula.
+  await markMilestones(supabase, lead.id, marcosForStage(newStatus))
   const notes = (newStatus === 'fechado' && lead.status !== 'fechado') ? await runWonFlow(supabase, lead, userName) : []
   return { ok: true, notes }
 }
