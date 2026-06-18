@@ -1,5 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { TrendingUp } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Lead } from '../types'
 import { ALL_COLUMNS } from '../types'
 import { usdCompact as fmt } from '@/lib/format'
@@ -21,6 +24,27 @@ export function MetricasTab({ leads }: Props) {
   const avgTicket   = fechados > 0 ? closedValue / fechados : 0
   const denom       = fechados + perdidos + ativos.length
   const convRate    = denom > 0 ? (fechados / denom) * 100 : 0
+
+  // Conversão Reunião → Venda. Base canônica = marcos (lead_milestones, MESMA do relatório).
+  // Enquanto a 026/backfill não estiverem aplicados, cai no proxy do funil (status).
+  const [mile, setMile] = useState<{ reuniao: number; fechou: number } | null>(null)
+  useEffect(() => {
+    let active = true
+    createClient().from('lead_milestones').select('lead_id, marco').in('marco', ['reuniao', 'fechou'])
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error || !data) { setMile(null); return }
+        setMile({
+          reuniao: new Set(data.filter(d => d.marco === 'reuniao').map(d => d.lead_id)).size,
+          fechou:  new Set(data.filter(d => d.marco === 'fechou').map(d => d.lead_id)).size,
+        })
+      })
+    return () => { active = false }
+  }, [])
+  const useMarcos    = !!mile && mile.reuniao > 0
+  const reuniaoBase  = useMarcos ? mile!.reuniao : leads.filter(l => l.status === 'proposta' || l.status === 'fechado').length
+  const fechouBase   = useMarcos ? mile!.fechou : fechados
+  const convReuniao  = reuniaoBase > 0 ? (fechouBase / reuniaoBase) * 100 : 0
 
   const hot  = leads.filter(l => l.score > 650).length
   const warm = leads.filter(l => l.score > 400 && l.score <= 650).length
@@ -62,6 +86,18 @@ export function MetricasTab({ leads }: Props) {
             <p className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* Conversão Reunião → Venda — base: marcos do ciclo (proxy do funil enquanto não aplicada) */}
+      <div className={`${card} flex items-center justify-between gap-4`}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <TrendingUp className="w-4 h-4 flex-none" />
+            <p className="text-xs font-medium">Conversão Reunião → Venda</p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 tabular-nums">{fechouBase} de {reuniaoBase} reuniões viraram venda</p>
+        </div>
+        <p className="font-display text-4xl font-bold tabular-nums text-lime-fg flex-none">{convReuniao.toFixed(0)}%</p>
       </div>
 
       {/* Meio: Funil por Etapa | Valor por Estágio | Valor por Vendedor */}
