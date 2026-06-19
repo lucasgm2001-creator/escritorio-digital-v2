@@ -17,7 +17,7 @@ import { useSave } from '@/lib/useSave'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { monthlySummary, resolveRate, dealTotal } from '@/lib/commission/calc'
-import { payWeek, payWeekMessage, registerMeeting } from '@/lib/commission/actions'
+import { payWeek, payWeekMessage, registerMeeting, ensureClient } from '@/lib/commission/actions'
 import { markMilestones } from '@/lib/leadMilestones'
 import type { SalaryPeriod, Meeting, WeeklyPayment, FxConfig, Deal, DealStatus } from '@/lib/commission/types'
 import { usd, brl } from '@/lib/format'
@@ -514,12 +514,15 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     if (isNaN(total) || total <= 0) { setDealError('Valor total inválido.'); return }
     if (isNaN(semanas) || semanas <= 0) { setDealError('Número de semanas inválido.'); return }
     if (!dealForm.dataFechamento) { setDealError('Informe a data de fechamento.'); return }
+    if (!dealForm.client.trim()) { setDealError('Informe o cliente da venda.'); return }
     const vps = Math.round((total / semanas) * 100) / 100
-    const matched = clients.find(c => c.name.toLowerCase() === dealForm.client.trim().toLowerCase())
     setSavingDeal(true)
+    // Vínculo OBRIGATÓRIO: acha ou cria o cliente (nunca client_id null → sem deal órfão).
+    const clientId = await ensureClient(supabase, dealForm.client, { assignedName: sellerName })
+    if (!clientId) { setSavingDeal(false); setDealError('Não foi possível vincular/criar o cliente.'); return }
     const { ok, data } = await save<DealRow>({
       run: () => supabase.from('deals').insert({
-        seller_id: sellerId, client_id: matched?.id ?? null, client_name: dealForm.client.trim() || null,
+        seller_id: sellerId, client_id: clientId, client_name: dealForm.client.trim(),
         valor_total_usd: total, teto_semanas: semanas, valor_por_semana_usd: vps,
         status: 'em_andamento', data_fechamento: dealForm.dataFechamento,
       }).select('id, seller_id, client_name, valor_total_usd, teto_semanas, valor_por_semana_usd, status, data_fechamento').single(),
@@ -528,6 +531,7 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     })
     if (ok && data) {
       setDeals(prev => [toDealUI(data), ...prev])
+      setClients(prev => prev.some(c => c.id === clientId) ? prev : [...prev, { id: clientId, name: dealForm.client.trim() }])
       setShowNewDeal(false)
       setDealForm({ client: '', valorTotal: '100', semanas: '4', dataFechamento: todayISO() })
     }
@@ -608,19 +612,22 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     const paidCount = weeks.filter(w => w.dealId === deal.id).length
     if (semanas < paidCount) { toast({ type: 'error', message: `Já há ${paidCount} semana(s) paga(s). Desmarque antes de reduzir o número de semanas.` }); return false }
     const vps = Math.round((total / semanas) * 100) / 100
-    const matched = clients.find(c => c.name.toLowerCase() === patch.client.trim().toLowerCase())
+    if (!patch.client.trim()) { toast({ type: 'error', message: 'Informe o cliente da venda.' }); return false }
+    const clientId = await ensureClient(supabase, patch.client, { assignedName: sellerName })
+    if (!clientId) { toast({ type: 'error', message: 'Não foi possível vincular/criar o cliente.' }); return false }
     const prev = deal
-    const updated: DealUI = { ...deal, clientName: patch.client.trim() || null, valorTotalUsd: total, tetoSemanas: semanas, valorPorSemanaUsd: vps, dataFechamento: patch.dataFechamento }
+    const updated: DealUI = { ...deal, clientName: patch.client.trim(), valorTotalUsd: total, tetoSemanas: semanas, valorPorSemanaUsd: vps, dataFechamento: patch.dataFechamento }
     const { ok } = await save({
       optimistic: () => setDeals(ds => ds.map(d => d.id === deal.id ? updated : d)),
       run: () => supabase.from('deals').update({
-        client_id: matched?.id ?? null, client_name: patch.client.trim() || null,
+        client_id: clientId, client_name: patch.client.trim(),
         valor_total_usd: total, teto_semanas: semanas, valor_por_semana_usd: vps, data_fechamento: patch.dataFechamento,
       }).eq('id', deal.id),
       rollback: () => setDeals(ds => ds.map(d => d.id === deal.id ? prev : d)),
       success: 'Venda atualizada.',
       error: 'Não foi possível atualizar a venda',
     })
+    if (ok) setClients(cs => cs.some(c => c.id === clientId) ? cs : [...cs, { id: clientId, name: patch.client.trim() }])
     return ok
   }
 

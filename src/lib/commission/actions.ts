@@ -153,3 +153,24 @@ export async function voidClientWeek(
   if (deal) await supabase.from('weekly_payments').delete().eq('deal_id', deal.id).eq('numero_semana', numero)
   return { ok: true }
 }
+
+// Garante o vínculo do deal ao cliente: ACHA por nome (case-insensitive) ou CRIA. Evita o deal
+// órfão (client_id null), que quebra a derivação da comissão. Retorna null SÓ se faltar nome ou
+// a criação falhar → o chamador então NÃO deve criar o deal.
+export async function ensureClient(
+  supabase: SupaClient, name: string, extra?: { assignedName?: string | null },
+): Promise<string | null> {
+  const nm = (name ?? '').trim()
+  if (!nm) return null
+  const { data: existing } = await supabase.from('clients').select('id, status').ilike('name', nm).limit(1)
+  if (existing && existing.length) {
+    if (existing[0].status !== 'ativo') await supabase.from('clients').update({ status: 'ativo' }).eq('id', existing[0].id)
+    return existing[0].id
+  }
+  const { data: nc, error } = await supabase.from('clients').insert({
+    name: nm, plan_weekly: 0, status: 'ativo', assigned_name: extra?.assignedName ?? null,
+    start_date: new Date().toISOString(),
+  }).select('id').single()
+  if (error || !nc) { console.error('[ensureClient] falha ao criar cliente', { name: nm, error: error?.message }); return null }
+  return nc.id
+}

@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Fix (DINHEIRO) — deal órfão (`client_id` null) que quebrava a derivação da comissão.
+- **Causa A** (`runWonFlow`): se o cliente não vinculasse (insert falhou → `clientId` null), o código **continuava** e criava o deal com `client_id` null. Agora há **GUARDA**: sem cliente, **NÃO cria o deal**, loga (`console.error`) + aviso (não falha silencioso).
+- **Causa B** ("Nova venda"/editar venda em Comissões): nome de cliente **livre** que não casava exato virava `client_id` null. Agora **`ensureClient`** ACHA por nome (case-insensitive) **ou CRIA** → `deals.client_id` sempre preenchido; bloqueia se faltar o nome; novo cliente entra na lista local.
+- `ensureClient` (actions.ts) compartilhado. **`calc.ts`/`payWeek` intactos** (só a garantia do vínculo na criação).
+
+---
+
 🔄 Mudança (DINHEIRO/AUTOMAÇÃO) — Comissão automática (INCREMENTO 3): scheduler + estorno + exibição.
 - **Scheduler** `/api/commission/auto` (GitHub Action 1x/dia, `x-cron-secret`): p/ cada cliente **ativo**, no seu dia (`clients.dia_pagamento_semana`), marca a próxima semana devida via o **MESMO `payClientWeek`** (receita + comissão derivada). Inativo → pula. Idempotente. **SEGURANÇA:** cron p/ TODOS só roda com env **`COMMISSION_AUTO_ENABLED="true"`**; botão **"Rodar auto agora"** testa 1 cliente (`{clientId}`).
 - **Estorno** `voidClientWeek`: anula a receita (flag `client_payments.anulado`, **auditável, sem delete**) e **DELETA a comissão** derivada da semana (calc.ts/payWeek **intactos**). UI "Anular" por semana + confirmação.

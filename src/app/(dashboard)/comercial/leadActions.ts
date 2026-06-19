@@ -59,6 +59,14 @@ export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userNa
     else clientId = newClient?.id ?? null
   }
 
+  // GUARDA: sem cliente vinculado NÃO criamos o deal — deal órfão (client_id null) quebra a
+  // derivação da comissão. Avisa (não falha silencioso) e para aqui.
+  if (!clientId) {
+    console.error('[runWonFlow] client_id nulo — venda NÃO criada para evitar deal órfão', { lead: lead.name })
+    notes.push({ message: 'Lead movido, mas NÃO lancei a comissão: não consegui vincular o cliente. Cadastre o cliente e lance a venda manualmente.', type: 'error' })
+    return notes
+  }
+
   // Dono do deal = vendedor ativo (decisão: hoje só há 1). Resolve dinamicamente,
   // sem id de fallback fixo. Sem vendedor ativo → não cria deal com id inventado.
   const { data: activeSellers } = await supabase.from('sellers').select('id').eq('status', 'ativo').order('created_at')
