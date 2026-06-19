@@ -1,0 +1,21 @@
+name: commission-auto
+
+# Auto-preenche a semana paga dos clientes ATIVOS 1x/dia (cada um no seu dia de pagamento).
+# SEGURANÇA: a rota só processa TODOS se a env COMMISSION_AUTO_ENABLED="true" estiver setada na
+# Vercel (default desligado). Pra testar 1 cliente antes, use o botão "Rodar auto agora" na tela.
+# Secrets/Variables (Actions): Secret CRON_SECRET (mesmo da Vercel) + Variable APP_BASE_URL.
+
+on:
+  schedule:
+    - cron: '30 12 * * *'   # ~09:30 BRT, 1x/dia
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/commission/auto
+        run: |
+          curl -fsS -X POST "${{ vars.APP_BASE_URL }}/api/commission/auto" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"

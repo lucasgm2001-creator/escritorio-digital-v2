@@ -136,3 +136,20 @@ export async function payClientWeek(
   if (dup) return { ok: false, reason: 'dup', commission, valorUsd }
   return { ok: true, valorUsd, commission }
 }
+
+// ESTORNO auditável: ANULA a receita (flag em client_payments, SEM delete) e REMOVE a comissão
+// derivada da semana (DELETE da weekly_payment → calc.ts fica intacto: a linha simplesmente some).
+// Requer as colunas anulado/anulado_em/anulado_motivo em client_payments (Lucas adiciona no banco).
+export async function voidClientWeek(
+  supabase: SupaClient, clientId: string, numero: number, motivo?: string | null,
+): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase.from('client_payments')
+    .update({ anulado: true, anulado_em: new Date().toISOString(), anulado_motivo: motivo ?? null })
+    .eq('client_id', clientId).eq('numero_semana', numero)
+  if (error) return { ok: false, message: error.message }
+  // Remove a comissão da MESMA semana (deal do cliente). numero>4 não tem comissão → no-op.
+  const { data: deals } = await supabase.from('deals').select('id').eq('client_id', clientId).order('data_fechamento', { ascending: false }).limit(1)
+  const deal = deals?.[0]
+  if (deal) await supabase.from('weekly_payments').delete().eq('deal_id', deal.id).eq('numero_semana', numero)
+  return { ok: true }
+}
