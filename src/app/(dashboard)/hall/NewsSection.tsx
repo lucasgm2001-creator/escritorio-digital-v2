@@ -27,8 +27,10 @@ const NICHOS: { key: string; label: string }[] = [
   { key: 'imigracao', label: 'Imigração' },
   { key: 'house_cleaning', label: 'House Cleaning' },
   { key: 'servicos', label: 'Serviços' },
+  { key: 'clima', label: 'Clima' },
 ]
 const ESTADOS = ['MA', 'NJ', 'CA', 'NC', 'SC', 'US']
+const RECENT_MS = 30 * 24 * 60 * 60 * 1000 // só mostra notícias dos últimos 30 dias
 
 // Cor só com significado: crítico = vermelho, alta = âmbar, média = neutro.
 const SEV: Record<string, { label: string; cls: string }> = {
@@ -63,10 +65,15 @@ export function NewsSection() {
 
   useRealtimeRows<News>('news', setNews)
 
-  const filtered = useMemo(
-    () => news.filter(n => (!nicho || n.categoria === nicho) && (!estado || (n.estados ?? []).includes(estado))),
-    [news, nicho, estado],
-  )
+  // Recentes primeiro (published_at DESC) e só dos últimos 30 dias; sem data fica por último mas aparece.
+  const filtered = useMemo(() => {
+    const now = Date.now()
+    const ts = (n: News) => { const t = n.published_at ? Date.parse(n.published_at) : NaN; return Number.isNaN(t) ? 0 : t }
+    return news
+      .filter(n => (!nicho || n.categoria === nicho) && (!estado || (n.estados ?? []).includes(estado)))
+      .filter(n => { const t = ts(n); return t === 0 ? true : (now - t) <= RECENT_MS })
+      .sort((a, b) => ts(b) - ts(a))
+  }, [news, nicho, estado])
 
   return (
     <Panel label="Notícias do setor" action={<Newspaper className="w-3.5 h-3.5 text-bento-muted" />}>

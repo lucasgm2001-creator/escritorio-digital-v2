@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Notícias: recência + clima extremo + quadro em destaque.
+- **Busca (rota):** prompt exige notícias dos **ÚLTIMOS 7 DIAS** com `published_at` real (descarta antigo); filtro de recência no insert (>10 dias fora). **Nova categoria "clima"** — eventos climáticos extremos (nevasca/frio/furacão/enchente/calor/incêndio) em MA/NJ/CA/NC/SC + nacional que **afetam trabalho de campo**.
+- **Limpeza:** após gravar, apaga `news` com `published_at` > 30 dias (tabela não acumula velharia).
+- **NewsSection:** ordena por `published_at` DESC e mostra só os **últimos 30 dias**; **chip "Clima"** no filtro.
+- **Hall:** quadro "Notícias do setor" **subiu** — abaixo de "Atividades hoje", **acima da Agenda** (briefing do dia).
+- Cron diário já existe (GitHub Action 2x/dia, manhã+tarde). Sem schema (clima usa `categoria` text), sem dinheiro.
+
+---
+
 🔄 Mudança — Hall (aba Atividades) reorganizado: 1 só visão de tempo.
 - As 3 caixas de tempo viraram UMA: mantido o calendário **Diário/Semanal/Mensal/Anual**, renomeado **"Agenda"** e **subido** (logo após o stat). **Removidos** o card "Agenda" (esta semana / no calendário) e a faixa "Agenda · esta semana" (Seg→Dom) — duplicatas.
 - Nova ordem: saudação/relógios/online → tabs → **Atividades hoje** → **Agenda** → Atividades Recentes + Mural → Notícias.

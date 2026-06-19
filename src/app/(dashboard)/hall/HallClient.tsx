@@ -931,6 +931,9 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
               <p className="font-tech text-[11px] text-bento-muted mt-1.5">{activities.length} no total</p>
             </Panel>
 
+            {/* NOTÍCIAS — briefing do dia, em destaque no topo */}
+            <NewsSection />
+
             {/* AGENDA única — calendário Diário/Semanal/Mensal/Anual (calendar_events + tarefas) */}
             <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
 
@@ -1094,8 +1097,6 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
           </div>
         )}
 
-        {/* Notícias do setor (automáticas) — por último */}
-        <NewsSection />
       </div>
 
       {history && (
