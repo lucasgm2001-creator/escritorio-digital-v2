@@ -6,6 +6,15 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 F4 — Mural ↔ Agenda: mesma fonte de tarefas.
+- **Antes:** o Mural carregava um subconjunto próprio (pendentes com data ≤ hoje) → mostrava menos que a Agenda.
+- **Agora:** Mural e Agenda leem a **mesma fonte** (`initialTasks`, idêntica à do Calendar). Carga separada do Mural removida (sem lógica duplicada).
+- Ordem: **atrasadas** → eventos de hoje → **próximas** (por data) → **concluídas** (apagadas) → avisos.
+- Cor **com significado**: vermelho = atrasada · lime = no prazo · cinza/riscada = concluída.
+- Avisos postados **mantidos**; realtime de avisos/atividades preservado.
+
+---
+
 ✨ F3 — Configurações: placeholders viram funcionais.
 - **Conta**: e-mail (real) + **alterar senha** (Supabase Auth) + atalho pro Perfil (nome/foto).
 - **Aparência**: **Densidade** Confortável/Compacto — pref visual no `<html>` (`ui-compact`), aplicada em todo o sistema sem flash (boot script).
