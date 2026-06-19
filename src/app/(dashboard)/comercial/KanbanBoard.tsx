@@ -22,7 +22,8 @@ import { VendedoresTab } from './tabs/VendedoresTab'
 import { FasesTab } from './tabs/FasesTab'
 import { ClientesClient, type Client as ClienteRow } from '../clientes/ClientesClient'
 import type { Lead, LeadStatus } from './types'
-import { columnsFromStages, tiersFromColumns, type FunnelStage } from '@/lib/funnelStages'
+import { columnsFromStages, tiersFromColumns, wonSlug, type FunnelStage } from '@/lib/funnelStages'
+import { WonPlanModal } from './WonPlanModal'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
 type Tab = 'funil' | 'clientes' | 'metricas' | 'vendedores' | 'fases'
@@ -76,6 +77,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   const [activeId, setActiveId] = useState<string | null>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [pendingWon, setPendingWon] = useState<Lead | null>(null)   // lead aguardando escolha de plano (fechamento)
   const [tab, setTab] = useState<Tab>('funil')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   // Desktop = colunas com drag; mobile = acordeão de fases. Renderiza só UM
@@ -93,6 +95,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   // Fases do funil vindas do banco (incremento 1: idênticas ao estático). Render + won-flow leem daqui.
   const cols = useMemo(() => columnsFromStages(initialStages), [initialStages])
   const tiers = useMemo(() => tiersFromColumns(cols), [cols])
+  const wonStatus = useMemo(() => wonSlug(initialStages) as LeadStatus, [initialStages])
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
@@ -128,15 +131,15 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(e.active.id as string)
 
-  // Move um lead de fase: otimista → persiste via moveLead (lógica compartilhada que,
-  // ao ir pra "fechado", dispara o won-flow/comissão) → rollback+toast se falhar.
-  const moveLeadToStatus = useCallback(async (lead: Lead, newStatus: LeadStatus): Promise<boolean> => {
+  // Executa o movimento de fato: otimista → persiste via moveLead (que dispara o won-flow/comissão
+  // ao ir pra is_won) → rollback+toast se falhar. planoId só é usado no fechamento.
+  const doMove = useCallback(async (lead: Lead, newStatus: LeadStatus, planoId: string | null = null): Promise<boolean> => {
     if (lead.status === newStatus) return true
     const prevStatus = lead.status
     const prevStage = lead.stage_changed_at
     const nowIso = new Date().toISOString()
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus, stage_changed_at: nowIso } : l))   // otimista
-    const res = await moveLead(supabase, lead, newStatus, currentUser.name, initialStages)
+    const res = await moveLead(supabase, lead, newStatus, currentUser.name, initialStages, planoId)
     if (!res.ok) {
       setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: prevStatus, stage_changed_at: prevStage } : l))   // rollback
       showToast(`Não foi possível mover o lead: ${res.error}`, 'error')
@@ -145,6 +148,26 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
     for (const n of res.notes) showToast(n.message, n.type)
     return true
   }, [supabase, currentUser.name, initialStages])
+
+  // Choke point de TODO movimento (drag, tap, diário). Ao FECHAR (is_won) pelo funil, intercepta
+  // e pede o PLANO antes de criar a venda (Fase 2A). Demais fases movem direto. (Agente = caminho à parte.)
+  const moveLeadToStatus = useCallback(async (lead: Lead, newStatus: LeadStatus): Promise<boolean> => {
+    if (lead.status === newStatus) return true
+    if (newStatus === wonStatus && lead.status !== wonStatus) {
+      setPendingWon(lead)   // abre o modal de plano; o move real acontece no confirmWon
+      return false
+    }
+    return doMove(lead, newStatus)
+  }, [wonStatus, doMove])
+
+  // Confirma o fechamento com o plano escolhido → cria a venda pelo % do plano e fecha o diário.
+  const confirmWon = useCallback(async (planoId: string | null) => {
+    const lead = pendingWon
+    setPendingWon(null)
+    if (!lead) return
+    await doMove(lead, wonStatus, planoId)
+    setSelectedLead(null)
+  }, [pendingWon, wonStatus, doMove])
 
   // Registra um contato com o lead em lead_interactions (fundação do relatório de
   // engajamento). atendeu/mensagem = engajou; nao_atendeu NÃO conta como engajado.
@@ -284,6 +307,15 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
           }}
           onDeleted={(id) => { setLeads(prev => prev.filter(l => l.id !== id)); setSelectedLead(null) }}
           currentUser={currentUser}
+        />
+      )}
+
+      {/* Fechamento (Fase 2A): escolhe o plano → comissão pelo % do plano. Cancelar não fecha a venda. */}
+      {pendingWon && (
+        <WonPlanModal
+          leadName={pendingWon.name}
+          onConfirm={confirmWon}
+          onCancel={() => setPendingWon(null)}
         />
       )}
 

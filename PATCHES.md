@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Fase 2A · Etapa 2 — Won-flow pede o plano e calcula a comissão pelo %.
+- Mover um lead pra fase **is_won** (drag / tap / diário) abre um **modal de plano** (pré-seleciona o plano atual do cliente, se houver). **Cancelar não fecha a venda.**
+- No fechamento: grava `clients.plano_id`; `vps = round(valor_semanal × % / 100)`; cria o deal com `valor_por_semana_usd = vps`, `teto = 4`, `valor_total = vps×4`, `comissao_percentual = %` (auditoria); **semana-1 com o MESMO vps** (corrige o 25 chumbado em `leadActions.ts`).
+- Plano **sem %** → legado **US$25**. `payWeek`/`calc.ts`/`registerMeeting` e a **venda manual**: intactos. **Vendas antigas não são reprocessadas.** Agente do Hall: caminho à parte (legado, sem modal).
+
+---
+
 ✨ Fase 2A · Etapa 1 — Planos & Comissão (Configurações).
 - Nova seção **Configurações › Planos & Comissão**: define o **% do valor semanal** de cada plano que vira comissão (grava `plans.comissao_percentual`).
 - **Preview ao vivo**: "20% de US$140 = US$28/semana (× 4 = US$112 por venda)". Vazio = **legado US$25/semana**.

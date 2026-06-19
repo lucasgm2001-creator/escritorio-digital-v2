@@ -6,6 +6,7 @@ import { ymd } from '@/lib/format'
 import { markMilestones } from '@/lib/leadMilestones'
 import { wonSlug, marcosForSlug, type FunnelStage } from '@/lib/funnelStages'
 import { resolveClientPlan } from '@/lib/commission/actions'
+import { weeklyCommissionUsd, hasCommissionPct, LEGACY_VPS_USD, DEFAULT_TETO_SEMANAS } from '@/lib/commission/planCommission'
 
 type SupaClient = ReturnType<typeof createClient>
 
@@ -29,7 +30,7 @@ export interface MovableLead {
 // se inativo) + LANÇA o deal de comissão (+1ª semana paga). Idempotente: não duplica se
 // o lead sair e voltar (dedup por lead_id, com fallback client_name+seller).
 // Extraído do KanbanBoard pra ser reusado pelo agente do Hall — MESMA lógica, sem duplicar.
-export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userName: string): Promise<ActionNote[]> {
+export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userName: string, planoId: string | null = null): Promise<ActionNote[]> {
   const notes: ActionNote[] = []
   const today = ymd(new Date())
 
@@ -83,9 +84,26 @@ export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userNa
   const { data: deals } = await supabase.from('deals').select('id, lead_id, client_name').eq('seller_id', sellerId)
   if ((deals ?? []).some(x => x.lead_id === lead.id || x.client_name === lead.name)) return notes
 
+  // 2.5) Plano escolhido no fechamento (Fase 2A): grava no cliente + calcula a comissão/semana
+  //      pelo % do plano. Sem plano OU plano sem % → LEGADO (US$25/sem). NÃO mexe em payWeek/calc.
+  let vps = LEGACY_VPS_USD
+  let pctUsed: number | null = null
+  if (planoId) {
+    await supabase.from('clients').update({ plano_id: planoId }).eq('id', clientId)
+    const { data: pl } = await supabase.from('plans').select('valor_semanal, comissao_percentual').eq('id', planoId).maybeSingle()
+    const pct = pl?.comissao_percentual != null ? Number(pl.comissao_percentual) : null
+    if (pl && hasCommissionPct(pct)) {
+      pctUsed = pct
+      vps = weeklyCommissionUsd(Number(pl.valor_semanal), pct)
+    }
+  }
+  const tetoSemanas = DEFAULT_TETO_SEMANAS
+  const valorTotalUsd = Math.round(vps * tetoSemanas * 100) / 100
+
   const { data: deal, error: dealErr } = await supabase.from('deals').insert({
     seller_id: sellerId, client_id: clientId, client_name: lead.name, lead_id: lead.id,
-    valor_total_usd: 100, teto_semanas: 4, valor_por_semana_usd: 25,
+    valor_total_usd: valorTotalUsd, teto_semanas: tetoSemanas, valor_por_semana_usd: vps,
+    comissao_percentual: pctUsed,
     status: 'em_andamento', data_fechamento: today,
   }).select('id').single()
   if (dealErr || !deal) {
@@ -98,7 +116,7 @@ export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userNa
   const manual = fx?.cotacao_manual != null ? Number(fx.cotacao_manual) : null
   const fxc: FxConfig = { cotacaoManual: manual, cotacaoTravada: !!fx?.cotacao_travada }
   const { error: wkErr } = await supabase.from('weekly_payments').insert({
-    deal_id: deal.id, numero_semana: 1, valor_usd: 25, paid_on: today, cotacao_usd_brl: resolveRate(fxc, manual ?? 0),
+    deal_id: deal.id, numero_semana: 1, valor_usd: vps, paid_on: today, cotacao_usd_brl: resolveRate(fxc, manual ?? 0),
   })
   if (wkErr) { notes.push({ message: `Deal criado, mas falhou a 1ª semana: ${wkErr.message}`, type: 'error' }); return notes }
 
@@ -120,7 +138,7 @@ export async function runWonFlow(supabase: SupaClient, lead: MovableLead, userNa
 // dispara o won-flow (comissão). NÃO faz UI — devolve resultado + notas pro chamador
 // decidir como mostrar (toast no funil / texto no chat do agente).
 export async function moveLead(
-  supabase: SupaClient, lead: MovableLead, newStatus: LeadStatus, userName: string, stages: FunnelStage[],
+  supabase: SupaClient, lead: MovableLead, newStatus: LeadStatus, userName: string, stages: FunnelStage[], planoId: string | null = null,
 ): Promise<{ ok: boolean; error?: string; notes: ActionNote[] }> {
   if (lead.status === newStatus) return { ok: true, notes: [] }
   const nowIso = new Date().toISOString()
@@ -131,6 +149,6 @@ export async function moveLead(
   await markMilestones(supabase, lead.id, marcosForSlug(stages, newStatus))
   // Won-flow (DINHEIRO) dispara pela FLAG is_won da fase (não por slug fixo). Comportamento idêntico.
   const won = wonSlug(stages)
-  const notes = (newStatus === won && lead.status !== won) ? await runWonFlow(supabase, lead, userName) : []
+  const notes = (newStatus === won && lead.status !== won) ? await runWonFlow(supabase, lead, userName, planoId) : []
   return { ok: true, notes }
 }
