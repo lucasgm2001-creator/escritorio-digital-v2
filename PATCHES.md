@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Fase 2A · Etapa 1 — Planos & Comissão (Configurações).
+- Nova seção **Configurações › Planos & Comissão**: define o **% do valor semanal** de cada plano que vira comissão (grava `plans.comissao_percentual`).
+- **Preview ao vivo**: "20% de US$140 = US$28/semana (× 4 = US$112 por venda)". Vazio = **legado US$25/semana**.
+- Helper puro `planCommission.ts` (`weeklyCommissionUsd`) — reusado pelo won-flow na etapa 2. **NÃO** toca `payWeek`/`calc.ts`/manual.
+- Migration `033_plan_commission_percentual.sql` (paridade de repo; já aplicada em prod): `plans.comissao_percentual` + `deals.comissao_percentual`.
+
+---
+
 🔄 F4 — Mural ↔ Agenda: mesma fonte de tarefas.
 - **Antes:** o Mural carregava um subconjunto próprio (pendentes com data ≤ hoje) → mostrava menos que a Agenda.
 - **Agora:** Mural e Agenda leem a **mesma fonte** (`initialTasks`, idêntica à do Calendar). Carga separada do Mural removida (sem lógica duplicada).

@@ -5,17 +5,18 @@ import Image from 'next/image'
 import {
   Sun, Moon, Monitor, Home, Briefcase, ListChecks, Projector, Users,
   Palette, Accessibility, Image as ImageIcon, User, LayoutGrid, Database, Plug, Info,
-  Download, RefreshCw, ExternalLink,
+  Download, RefreshCw, ExternalLink, BadgePercent,
   type LucideIcon,
 } from 'lucide-react'
 import { Panel } from '@/components/bento/Panel'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { ymd } from '@/lib/format'
+import { ymd, usd } from '@/lib/format'
 import { SYSTEM_LOGO_BUCKET, SYSTEM_LOGO_PATH } from '@/lib/logo'
 import { isDarkByTime, getDarkHours, DEFAULT_DARK_START, DEFAULT_DARK_END } from '@/lib/theme'
 import { loadA11y, saveA11y, applyA11y, DEFAULT_A11Y, type A11ySettings, type FontScale } from '@/lib/a11y'
 import { loadDensity, saveDensity, applyDensity, type Density } from '@/lib/uiPrefs'
+import { weeklyCommissionUsd, hasCommissionPct, DEFAULT_TETO_SEMANAS, LEGACY_VPS_USD } from '@/lib/commission/planCommission'
 
 // classes compartilhadas
 const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text placeholder:text-bento-muted focus:outline-none focus:border-lime min-h-[44px]'
@@ -468,8 +469,97 @@ const SISTEMA: NavItem[] = [
   { key: 'aparencia', label: 'Aparência', Icon: LayoutGrid },
   { key: 'dados', label: 'Dados & Export', Icon: Database },
   { key: 'integracoes', label: 'Integrações', Icon: Plug },
+  { key: 'planos', label: 'Planos & Comissão', Icon: BadgePercent },
   { key: 'sobre', label: 'Sobre', Icon: Info },
 ]
+
+// ─── SISTEMA › Planos & Comissão (catálogo + % por plano — Fase 2A) ───
+// Grava plans.comissao_percentual. NÃO recalcula vendas existentes; vale só p/ vendas novas do funil.
+interface PlanRow { id: string; nome: string; valor_semanal: number; comissao_percentual: number | null }
+
+function PlanosSection() {
+  const supabase = createClient()
+  const [plans, setPlans] = useState<PlanRow[]>([])
+  const [draft, setDraft] = useState<Record<string, string>>({})   // id → texto do campo %
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ id: string; t: 'ok' | 'err'; m: string } | null>(null)
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('plans').select('id, nome, valor_semanal, comissao_percentual').eq('ativo', true).order('ordem')
+    const list = (data ?? []) as PlanRow[]
+    setPlans(list)
+    setDraft(Object.fromEntries(list.map(p => [p.id, p.comissao_percentual != null ? String(p.comissao_percentual) : ''])))
+    setLoading(false)
+  }, [supabase])
+  useEffect(() => { load() }, [load])
+
+  const salvar = async (p: PlanRow) => {
+    const raw = (draft[p.id] ?? '').trim().replace(',', '.')
+    let pct: number | null
+    if (raw === '') pct = null   // vazio = legado
+    else {
+      pct = Number(raw)
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) { setMsg({ id: p.id, t: 'err', m: 'Informe um % entre 0 e 100 (ou vazio p/ legado).' }); return }
+    }
+    setBusyId(p.id); setMsg(null)
+    const { error } = await supabase.from('plans').update({ comissao_percentual: pct }).eq('id', p.id)
+    setBusyId(null)
+    if (error) { setMsg({ id: p.id, t: 'err', m: `Não foi possível salvar: ${error.message}` }); return }
+    setPlans(prev => prev.map(x => x.id === p.id ? { ...x, comissao_percentual: pct } : x))
+    setMsg({ id: p.id, t: 'ok', m: 'Comissão salva.' })
+  }
+
+  return (
+    <Panel label="Planos & Comissão">
+      <div className="space-y-3">
+        <p className="text-xs text-bento-muted">
+          Quanto da mensalidade semanal de cada plano vira comissão do vendedor. Vale só para vendas <strong>novas</strong> fechadas pelo funil — vendas já lançadas não mudam. Vazio = legado ({usd(LEGACY_VPS_USD)}/semana).
+        </p>
+        {loading ? <p className="text-sm text-bento-muted">Carregando...</p> : plans.length === 0 ? (
+          <p className="text-sm text-bento-muted">Nenhum plano ativo na tabela plans.</p>
+        ) : plans.map(p => {
+          const rawDraft = (draft[p.id] ?? '').trim().replace(',', '.')
+          const previewPct = rawDraft === '' ? null : Number(rawDraft)
+          const valido = previewPct == null || (Number.isFinite(previewPct) && previewPct >= 0 && previewPct <= 100)
+          const legado = !hasCommissionPct(previewPct)
+          const vps = weeklyCommissionUsd(p.valor_semanal, hasCommissionPct(previewPct) ? previewPct : null)
+          return (
+            <div key={p.id} className="bento-fx p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-bento-text truncate">{p.nome}</p>
+                  <p className="font-tech text-[11px] text-bento-muted">{usd(p.valor_semanal)}/semana</p>
+                </div>
+                <div className="flex items-end gap-2 shrink-0">
+                  <label className="text-[11px] text-bento-muted">Comissão (%)
+                    <div className="flex items-center gap-1 mt-1">
+                      <input inputMode="decimal" value={draft[p.id] ?? ''} placeholder="—"
+                        onChange={e => setDraft(d => ({ ...d, [p.id]: e.target.value }))}
+                        className="w-20 bg-bento-bg border border-bento-border rounded-btn px-2 py-1.5 text-sm text-bento-text text-right focus:outline-none focus:border-lime" />
+                      <span className="text-sm text-bento-muted">%</span>
+                    </div>
+                  </label>
+                  <button onClick={() => salvar(p)} disabled={busyId === p.id || !valido}
+                    className="bento-btn px-3 py-1.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[36px]">
+                    {busyId === p.id ? '...' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 border-t border-bento-border/60 pt-2">
+                <BadgePercent className="w-3.5 h-3.5 text-bento-muted shrink-0" />
+                {legado
+                  ? <p className="font-tech text-[11px] text-bento-muted">Sem % → usando legado <span className="text-bento-text">{usd(LEGACY_VPS_USD)}/semana</span> (× {DEFAULT_TETO_SEMANAS} = {usd(LEGACY_VPS_USD * DEFAULT_TETO_SEMANAS)} por venda).</p>
+                  : <p className="font-tech text-[11px] text-bento-dim">{previewPct}% de {usd(p.valor_semanal)} = <span className="text-bento-text font-semibold">{usd(vps)}/semana</span> (× {DEFAULT_TETO_SEMANAS} = {usd(vps * DEFAULT_TETO_SEMANAS)} por venda).</p>}
+              </div>
+              {msg && msg.id === p.id && <p className={cn('text-xs', msg.t === 'ok' ? 'text-green-400' : 'text-red-400')}>{msg.m}</p>}
+            </div>
+          )
+        })}
+      </div>
+    </Panel>
+  )
+}
 
 function NavGroup({ title, items, active, onSelect }: { title: string; items: NavItem[]; active: string; onSelect: (k: string) => void }) {
   return (
@@ -508,6 +598,7 @@ export function ConfiguracoesClient({ userId }: Props) {
       case 'aparencia': return <AparenciaSection />
       case 'dados': return <DadosSection />
       case 'integracoes': return <IntegracoesSection />
+      case 'planos': return <PlanosSection />
       default: return null
     }
   })()
