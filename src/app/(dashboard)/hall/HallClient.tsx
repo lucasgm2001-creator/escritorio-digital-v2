@@ -100,51 +100,28 @@ function saoPauloDay(d: Date): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
-// Linha de evento de agenda no Mural (read-only; toca pra abrir o detalhe no Calendar).
+// Linha de evento de agenda no Mural (compacta, 1 linha; toca pra abrir no Calendar).
 function MuralAgendaRow({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
-      className="w-full text-left rounded-bento border border-bento-border p-3 hover:border-lime/60 transition-colors">
-      <div className="flex items-center justify-between mb-1 gap-2">
-        <p className="text-sm font-semibold text-bento-text truncate">{ev.title}</p>
-        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-lime/40 text-lime-fg font-semibold">
-          <Clock className="w-3 h-3" /> Agenda
-        </span>
-      </div>
-      <p className="font-tech text-xs text-bento-dim">
-        {ev.start_time ? ev.start_time.slice(0, 5) : 'Hoje'}{ev.description ? ` · ${ev.description}` : ''}
-      </p>
+      className="w-full flex items-center gap-2 text-left rounded-bento border border-lime/30 px-3 py-2 hover:border-lime/60 transition-colors">
+      <Clock className="w-3.5 h-3.5 text-lime-fg flex-none" />
+      <span className="text-sm text-bento-text truncate flex-1 min-w-0">{ev.title}</span>
+      {ev.start_time && <span className="font-tech text-[11px] text-bento-muted flex-none tabular-nums">{ev.start_time.slice(0, 5)}</span>}
     </button>
   )
 }
 
-// Linha de tarefa no Mural — MESMA fonte da Agenda. Cor COM significado:
-// vermelho = atrasada · lime = no prazo · cinza/apagada = concluída. Toca → aba Tarefas.
-type TaskState = 'overdue' | 'ontime' | 'done'
-function MuralTaskRow({ task, state, onClick }: { task: Task; state: TaskState; onClick: () => void }) {
+// Linha de tarefa no Mural (compacta, 1 linha). O Mural mostra só tarefas de HOJE pendentes,
+// então o ponto lime = "do dia". Título trunca em 1 linha. Toca → aba Tarefas.
+function MuralTaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
   const hora = task.due_time ? task.due_time.slice(0, 5) : ''
-  const dia = task.due_date ? `${task.due_date.slice(8, 10)}/${task.due_date.slice(5, 7)}` : ''
-  const overdue = state === 'overdue', done = state === 'done'
   return (
     <button type="button" onClick={onClick}
-      className={cn('w-full text-left rounded-bento border p-3 transition-colors',
-        overdue ? 'border-red-800/50 bg-red-900/10 hover:border-red-700/70'
-          : done ? 'border-bento-border/50 opacity-60 hover:opacity-100'
-          : 'border-bento-border hover:border-lime/60')}>
-      <div className="flex items-center justify-between mb-1 gap-2">
-        <p className={cn('text-sm font-semibold truncate', done ? 'text-bento-muted line-through' : 'text-bento-text')}>{task.title}</p>
-        <span className={cn('shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-semibold',
-          overdue ? 'border-red-700/50 text-red-400'
-            : done ? 'border-bento-border text-bento-muted'
-            : 'border-lime/40 text-lime-fg')}>
-          {done ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />} Tarefa
-        </span>
-      </div>
-      <p className={cn('font-tech text-xs', overdue ? 'text-red-400' : done ? 'text-bento-muted' : 'text-bento-dim')}>
-        {overdue ? `Atrasada · ${hora ? `${hora} · ` : ''}${dia}`
-          : done ? `Concluída · ${dia}`
-          : `${dia}${hora ? ` · ${hora}` : ''}`}
-      </p>
+      className="w-full flex items-center gap-2 text-left rounded-bento border border-bento-border px-3 py-2 hover:border-lime/60 transition-colors">
+      <span className="w-1.5 h-1.5 rounded-full bg-lime flex-none" />
+      <span className="text-sm text-bento-text truncate flex-1 min-w-0">{task.title}</span>
+      {hora && <span className="font-tech text-[11px] text-bento-muted flex-none tabular-nums">{hora}</span>}
     </button>
   )
 }
@@ -881,6 +858,7 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
   const [focusEvent, setFocusEvent]   = useState<CalendarEvent | null>(null)
   const [counts, setCounts]           = useState({ leads: 0, clientes: 0 })
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
+  const [muralVerMais, setMuralVerMais] = useState(false)   // Mural: revela o resto das tarefas de hoje
   const router = useRouter()
 
   // App pessoal de usuário único: acesso total.
@@ -974,14 +952,15 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
   // Toda tarefa com data que aparece na Agenda aparece aqui também. Ordem: atrasadas →
   // próximas (por data) → concluídas (apagadas). Mantém os eventos de HOJE e os avisos.
   const hojeStr = saoPauloDay(new Date())
-  const sortByDate = (a: Task, b: Task) =>
-    ((a.due_date || '') + (a.due_time || '99:99')).localeCompare((b.due_date || '') + (b.due_time || '99:99'))
-  const tarefasComData    = initialTasks.filter(t => !!t.due_date)
-  const tarefasAtrasadas  = tarefasComData.filter(t => !t.done && (t.due_date as string) <  hojeStr).sort(sortByDate)
-  const tarefasProximas   = tarefasComData.filter(t => !t.done && (t.due_date as string) >= hojeStr).sort(sortByDate)
-  const tarefasConcluidas = tarefasComData.filter(t => t.done).sort((a, b) => sortByDate(b, a))   // recentes primeiro
+  // Mural ENXUTO: só o DIA. Tarefas de HOJE pendentes (data civil de Brasília) — atrasadas, futuras
+  // e concluídas NÃO entram (a Agenda continua mostrando tudo). Eventos de hoje + avisos seguem.
+  const MURAL_LIMIT = 4
+  const tarefasHoje = initialTasks
+    .filter(t => t.due_date === hojeStr && !t.done)
+    .sort((a, b) => (a.due_time || '99:99').localeCompare(b.due_time || '99:99'))
+  const tarefasHojeVis = muralVerMais ? tarefasHoje : tarefasHoje.slice(0, MURAL_LIMIT)
   const eventosHoje = calEvents.filter(e => e.date === hojeStr).sort((a, b) => (a.start_time || '99:99').localeCompare(b.start_time || '99:99'))
-  const muralVazio = tarefasAtrasadas.length + tarefasProximas.length + tarefasConcluidas.length + eventosHoje.length + notices.length === 0
+  const muralVazio = tarefasHoje.length + eventosHoje.length + notices.length === 0
 
   const todaySP = saoPauloDay(new Date())
   // KPIs do dia (reusa dados já carregados): tarefas de hoje pendentes + próximas reuniões na agenda.
@@ -1188,21 +1167,21 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
                     </div>
                   )}
                   {muralVazio
-                    ? <p className="text-sm text-bento-muted py-6 text-center">Nada na agenda, tarefas ou avisos.</p>
+                    ? <p className="text-sm text-bento-muted py-6 text-center">Nenhuma tarefa para hoje.</p>
                     : <>
-                    {/* Mesma fonte da Agenda: atrasadas → eventos de hoje → próximas → concluídas → avisos. */}
-                    {tarefasAtrasadas.map(t => (
-                      <MuralTaskRow key={`tk-${t.id}`} task={t} state="overdue" onClick={() => router.push('/tarefas')} />
-                    ))}
+                    {/* Só o DIA: eventos de hoje + tarefas de hoje (máx 4 + "ver mais") + avisos. */}
                     {eventosHoje.map(ev => (
                       <MuralAgendaRow key={`ev-${ev.id}`} ev={ev} onClick={() => setFocusEvent(ev)} />
                     ))}
-                    {tarefasProximas.map(t => (
-                      <MuralTaskRow key={`tk-${t.id}`} task={t} state="ontime" onClick={() => router.push('/tarefas')} />
+                    {tarefasHojeVis.map(t => (
+                      <MuralTaskRow key={`tk-${t.id}`} task={t} onClick={() => router.push('/tarefas')} />
                     ))}
-                    {tarefasConcluidas.map(t => (
-                      <MuralTaskRow key={`tk-${t.id}`} task={t} state="done" onClick={() => router.push('/tarefas')} />
-                    ))}
+                    {tarefasHoje.length > MURAL_LIMIT && (
+                      <button type="button" onClick={() => setMuralVerMais(v => !v)}
+                        className="w-full text-center font-tech text-[11px] text-bento-muted hover:text-lime-fg py-1 transition-colors">
+                        {muralVerMais ? 'ver menos' : `ver mais (${tarefasHoje.length - MURAL_LIMIT})`}
+                      </button>
+                    )}
                     {notices.map(n => (
                       <div key={n.id} className={`rounded-bento border p-3 ${NOTICE_BORDER[n.priority] ?? 'border-bento-border'}`}>
                         <div className="flex items-center justify-between mb-1 gap-2">

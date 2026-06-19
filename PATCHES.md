@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mural enxuto — só o DIA.
+- Mural mostra **somente tarefas de hoje** (`due_date = hoje`, Brasília) **pendentes**. Atrasadas/futuras/concluídas **não aparecem** (a Agenda continua mostrando tudo).
+- **Máx 4** tarefas + botão **"ver mais"** (revela o resto do dia). Cards **compactos** (1 linha, título truncado) no mobile e desktop.
+- Mantém **eventos de hoje** + **avisos postados**. Vazio: "Nenhuma tarefa para hoje".
+
+---
+
 ✨ Fase 2A · Etapa 2 — Won-flow pede o plano e calcula a comissão pelo %.
 - Mover um lead pra fase **is_won** (drag / tap / diário) abre um **modal de plano** (pré-seleciona o plano atual do cliente, se houver). **Cancelar não fecha a venda.**
 - No fechamento: grava `clients.plano_id`; `vps = round(valor_semanal × % / 100)`; cria o deal com `valor_por_semana_usd = vps`, `teto = 4`, `valor_total = vps×4`, `comissao_percentual = %` (auditoria); **semana-1 com o MESMO vps** (corrige o 25 chumbado em `leadActions.ts`).
