@@ -10,7 +10,7 @@ import { Metric } from '@/components/bento/Metric'
 import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
-import { Maximize2, X, Trash2, Check, Clock } from 'lucide-react'
+import { Maximize2, X, Trash2, Check, Clock, CalendarDays } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
 import type { Task } from '../tarefas/types'
 
@@ -600,6 +600,10 @@ function Calendar({ userId, events, onEventsChange, focusEvent, onFocusHandled }
   return (
     <>
       <section className="bento-fx p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarDays className="w-4 h-4 text-lime-fg" />
+          <h2 className="font-display font-bold text-bento-text text-sm tracking-tight">Agenda</h2>
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <button onClick={() => navigate(-1)}
@@ -750,7 +754,6 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)   // aviso aguardando confirmação
   const [deletingNotice, setDeletingNotice] = useState<string | null>(null) // aviso sendo excluído
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
-  const [agendaOpen, setAgendaOpen]   = useState(false)
   const [focusEvent, setFocusEvent]   = useState<CalendarEvent | null>(null)
   const [tasks, setTasks]             = useState<Task[]>([])
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
@@ -844,16 +847,6 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
   ].sort((a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99'))
   const muralVazio = tarefasAtrasadas.length + hojeMesclado.length + notices.length === 0
 
-  // ── Métricas reais (estáticas) para os painéis ──────────────────────────────
-  const todayStr = toDateStr(new Date())
-  const weekdayBars = getWeekDays(new Date()).map(d => ({
-    label: d.label,
-    isToday: d.dateStr === todayStr,
-    count: calEvents.filter(e => e.date === d.dateStr).length,
-  }))
-  const eventsThisWeek = weekdayBars.reduce((s, d) => s + d.count, 0)
-  const maxWeekday = Math.max(1, ...weekdayBars.map(d => d.count))
-  const eventsToday = calEvents.filter(e => e.date === todayStr).length
   const todaySP = saoPauloDay(new Date())
   const activitiesToday = activities.filter(a => a.created_at && saoPauloDay(new Date(a.created_at)) === todaySP).length
 
@@ -929,59 +922,17 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
 
         {activeTab === 'activities' && (
           <>
-            {/* Resumos compactos — lado a lado */}
-            <div className="grid grid-cols-2 gap-4">
-              <Panel label="Atividades hoje">
-                <div className="flex items-end gap-2">
-                  <Metric size="sm">{activitiesToday}</Metric>
-                  <span className="font-tech text-[11px] text-bento-muted pb-1">hoje</span>
-                </div>
-                <p className="font-tech text-[11px] text-bento-muted mt-1.5">{activities.length} no total</p>
-              </Panel>
-              <Panel label="Agenda">
-                <div className="flex items-end gap-2">
-                  <Metric size="sm">{eventsThisWeek}</Metric>
-                  <span className="font-tech text-[11px] text-bento-muted pb-1">esta semana</span>
-                </div>
-                <p className="font-tech text-[11px] text-bento-muted mt-1.5">{calEvents.length} no calendário</p>
-              </Panel>
-            </div>
-
-            {/* Agenda · esta semana — caixa recolhível (começa fechada, com espiada) */}
-            <Panel>
-              <button type="button" onClick={() => setAgendaOpen(o => !o)}
-                className="w-full flex items-center justify-between gap-2 text-left">
-                <span className="min-w-0">
-                  <span className="block font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted">Agenda · esta semana</span>
-                  {!agendaOpen && (
-                    <span className="font-tech text-[11px] text-bento-muted">
-                      {eventsThisWeek} evento{eventsThisWeek === 1 ? '' : 's'} · {eventsToday > 0 ? `${eventsToday} hoje` : 'nada agendado para hoje'}
-                    </span>
-                  )}
-                </span>
-                <svg className={cn('w-4 h-4 text-bento-muted transition-transform flex-none', agendaOpen && 'rotate-180')}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {agendaOpen && (
-                <div className="mt-4">
-                  <div className="bento-bars h-[64px]">
-                    {weekdayBars.map(d => (
-                      <div key={d.label} className={cn('bento-bar', d.isToday && 'is-now')}
-                        style={{ height: `${maxWeekday > 0 ? Math.max(8, (d.count / maxWeekday) * 100) : 6}%` }} />
-                    ))}
-                  </div>
-                  <div className="flex gap-1.5 mt-2">
-                    {weekdayBars.map(d => (
-                      <span key={d.label} className={cn('flex-1 text-center font-tech text-[9px]', d.isToday ? 'text-lime-fg' : 'text-bento-muted/70')}>
-                        {d.isToday ? 'hoje' : d.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+            {/* Resumo compacto */}
+            <Panel label="Atividades hoje">
+              <div className="flex items-end gap-2">
+                <Metric size="sm">{activitiesToday}</Metric>
+                <span className="font-tech text-[11px] text-bento-muted pb-1">hoje</span>
+              </div>
+              <p className="font-tech text-[11px] text-bento-muted mt-1.5">{activities.length} no total</p>
             </Panel>
+
+            {/* AGENDA única — calendário Diário/Semanal/Mensal/Anual (calendar_events + tarefas) */}
+            <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
 
             {/* Conteúdo principal */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1143,10 +1094,8 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
           </div>
         )}
 
-        {/* Notícias do setor (automáticas) — abaixo do conteúdo, antes do Calendar */}
+        {/* Notícias do setor (automáticas) — por último */}
         <NewsSection />
-
-        <Calendar userId={userId} events={calEvents} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
       </div>
 
       {history && (

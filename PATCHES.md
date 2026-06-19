@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Mudança — Hall (aba Atividades) reorganizado: 1 só visão de tempo.
+- As 3 caixas de tempo viraram UMA: mantido o calendário **Diário/Semanal/Mensal/Anual**, renomeado **"Agenda"** e **subido** (logo após o stat). **Removidos** o card "Agenda" (esta semana / no calendário) e a faixa "Agenda · esta semana" (Seg→Dom) — duplicatas.
+- Nova ordem: saudação/relógios/online → tabs → **Atividades hoje** → **Agenda** → Atividades Recentes + Mural → Notícias.
+- Mural e Notícias **intactos**. Mesmas fontes (`calendar_events` + `tasks`). Sem schema, sem dinheiro. (Removidas vars órfãs: weekdayBars/eventsThisWeek/eventsToday/agendaOpen.)
+
+---
+
 🐛 Fix (DINHEIRO) — deal órfão (`client_id` null) que quebrava a derivação da comissão.
 - **Causa A** (`runWonFlow`): se o cliente não vinculasse (insert falhou → `clientId` null), o código **continuava** e criava o deal com `client_id` null. Agora há **GUARDA**: sem cliente, **NÃO cria o deal**, loga (`console.error`) + aviso (não falha silencioso).
 - **Causa B** ("Nova venda"/editar venda em Comissões): nome de cliente **livre** que não casava exato virava `client_id` null. Agora **`ensureClient`** ACHA por nome (case-insensitive) **ou CRIA** → `deals.client_id` sempre preenchido; bloqueia se faltar o nome; novo cliente entra na lista local.
