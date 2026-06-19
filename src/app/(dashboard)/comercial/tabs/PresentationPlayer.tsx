@@ -87,7 +87,8 @@ function PdfView({ url }: { url: string }) {
           const canvas = document.createElement('canvas')
           canvas.style.width = '100%'
           canvas.style.aspectRatio = `${base.width} / ${base.height}`
-          canvas.className = 'block w-full mb-3 bg-white rounded-sm shadow-lg'
+          // Fundo escuro (não branco): antes da página pintar, micro-gap aparece escuro, não em branco.
+          canvas.className = 'block w-full mb-3 bg-transparent rounded-sm shadow-lg'
           container.appendChild(canvas)
 
           let done = false
@@ -164,13 +165,34 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
   const rootRef = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Crossfade: 'outgoing' segura o slide atual visível embaixo até o próximo entrar; 'shown'
+  // dispara o fade-in. reduce = respeita "menos movimento" da Acessibilidade (troca instantânea).
+  const [outgoing, setOutgoing] = useState<number | null>(null)
+  const [shown, setShown] = useState(true)
+  const [reduce] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('a11y-reduce-motion'))
 
   const total = materials.length
   const current = materials[index]
 
-  const go = useCallback((i: number) => setIndex(Math.max(0, Math.min(total - 1, i))), [total])
-  const next = useCallback(() => setIndex(i => Math.min(total - 1, i + 1)), [total])
-  const prev = useCallback(() => setIndex(i => Math.max(0, i - 1)), [total])
+  // Troca suave: guarda o slide atual como 'outgoing' (fica embaixo, opaco) e o novo entra por opacity.
+  const change = useCallback((i: number) => {
+    const t = Math.max(0, Math.min(total - 1, i))
+    if (t === index) return
+    setOutgoing(index)
+    setShown(false)
+    setIndex(t)
+  }, [total, index])
+  const go = change
+  const next = useCallback(() => change(index + 1), [change, index])
+  const prev = useCallback(() => change(index - 1), [change, index])
+
+  // Fade-in do novo no frame seguinte; remove o antigo só ao fim da transição (sem gap branco).
+  useEffect(() => {
+    if (outgoing === null) return
+    const raf = requestAnimationFrame(() => setShown(true))
+    const t = setTimeout(() => setOutgoing(null), (reduce ? 0 : 200) + 30)
+    return () => { cancelAnimationFrame(raf); clearTimeout(t) }
+  }, [index, outgoing, reduce])
 
   const close = useCallback(() => {
     if (fullscreenElement()) exitFullscreen()
@@ -245,8 +267,26 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
           </aside>
         )}
 
-        <div className="relative flex-1 min-w-0 flex items-center justify-center p-4 sm:p-8">
-          {current ? <MaterialFrame material={current} /> : <p className="text-white/60 text-sm">Sem material disponível.</p>}
+        <div className="relative flex-1 min-w-0 bg-black overflow-hidden">
+          {/* Outgoing — embaixo, opaco até o novo terminar de entrar (sem flash branco no meio) */}
+          {outgoing !== null && outgoing !== index && materials[outgoing] && (
+            <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
+              <MaterialFrame material={materials[outgoing]} />
+            </div>
+          )}
+          {/* Incoming — por cima, fade-in rápido (~200ms); instantâneo no reduce-motion */}
+          <div key={index}
+            className={cn('absolute inset-0 flex items-center justify-center p-4 sm:p-8', reduce ? '' : 'transition-opacity duration-200')}
+            style={{ opacity: shown ? 1 : 0 }}>
+            {current ? <MaterialFrame material={current} /> : <p className="text-white/60 text-sm">Sem material disponível.</p>}
+          </div>
+          {/* Pré-carrega vizinhos (imagens) — prontos ANTES da troca, sem load gap */}
+          <div className="hidden">
+            {[index - 1, index + 1].map(i => materials[i]).filter((m): m is PlayerMaterial => !!m && (m.mime_type ?? '').startsWith('image/')).map(m => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={m.id} src={m.url} alt="" aria-hidden loading="eager" />
+            ))}
+          </div>
           {total > 1 && (
             <>
               <button onClick={e => { blur(e); prev() }} disabled={index === 0} aria-label="Anterior"
