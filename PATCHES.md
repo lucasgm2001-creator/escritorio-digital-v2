@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Apresentação: fim do "carregamento"/flash branco ao trocar de slide.
+- **Causa:** o visualizador **remontava a cada troca** (`key={index}`) → o `PdfView` re-importava o pdf.js e **re-buscava/re-renderizava o PDF do zero** a cada slide (e o "outgoing" montava um 2º `PdfView`). **Não** era navegação nem `loading.tsx` (o body já é escuro `#080D0A`).
+- **Agora:** **deck montado uma vez** — cada slide é uma camada fixa (key por slot, não por índice); trocar = só alternar `opacity`. **Sem remontar, sem refetch**; voltar a um slide é instantâneo.
+- **Vizinhos pré-montados** (preload real de PDF e imagem) → troca sequencial instantânea. **Fundo preto sempre atrás** (nunca branco no gap). `reduce-motion` = troca sem fade. Pipeline de PDF (pdftoppm+img2pdf / `PdfView`) **intacto**.
+
+---
+
 ✨ Responsável (vendedor) nas tarefas.
 - Tarefa ganha **"Responsável"** escolhido entre os vendedores (`sellers`); nova tarefa nasce com o vendedor ativo (Lucas). Grava `tasks.responsavel_id` + `responsavel_nome`.
 - Aba Tarefas: **filtro "Responsável: Todos / <vendedor>"**. Como só há Lucas, tudo aparece sob ele (extensível).

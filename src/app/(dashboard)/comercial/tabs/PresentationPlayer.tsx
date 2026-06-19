@@ -165,34 +165,31 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
   const rootRef = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  // Crossfade: 'outgoing' segura o slide atual visível embaixo até o próximo entrar; 'shown'
-  // dispara o fade-in. reduce = respeita "menos movimento" da Acessibilidade (troca instantânea).
-  const [outgoing, setOutgoing] = useState<number | null>(null)
-  const [shown, setShown] = useState(true)
+  // Deck montado: cada slide visitado (+ vizinhos) fica MONTADO; só alterna a opacity → troca
+  // instantânea, sem remontar nem rebuscar o PDF/imagem. reduce = troca sem fade (Acessibilidade).
+  const [mounted, setMounted] = useState<Set<number>>(() => new Set<number>([0, 1].filter(i => i < materials.length)))
   const [reduce] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('a11y-reduce-motion'))
 
   const total = materials.length
-  const current = materials[index]
 
-  // Troca suave: guarda o slide atual como 'outgoing' (fica embaixo, opaco) e o novo entra por opacity.
+  // Troca = só muda o índice (estado). Sem navegação, sem remontar, sem refetch.
   const change = useCallback((i: number) => {
     const t = Math.max(0, Math.min(total - 1, i))
-    if (t === index) return
-    setOutgoing(index)
-    setShown(false)
-    setIndex(t)
+    if (t !== index) setIndex(t)
   }, [total, index])
   const go = change
   const next = useCallback(() => change(index + 1), [change, index])
   const prev = useCallback(() => change(index - 1), [change, index])
 
-  // Fade-in do novo no frame seguinte; remove o antigo só ao fim da transição (sem gap branco).
+  // Mantém montados o slide atual + vizinhos (preload). O que já montou FICA montado (Set só
+  // cresce) → voltar a um slide é instantâneo, sem recarregar PDF/imagem.
   useEffect(() => {
-    if (outgoing === null) return
-    const raf = requestAnimationFrame(() => setShown(true))
-    const t = setTimeout(() => setOutgoing(null), (reduce ? 0 : 200) + 30)
-    return () => { cancelAnimationFrame(raf); clearTimeout(t) }
-  }, [index, outgoing, reduce])
+    setMounted(prev => {
+      const next = new Set(prev)
+      for (const i of [index - 1, index, index + 1]) if (i >= 0 && i < total) next.add(i)
+      return next
+    })
+  }, [index, total])
 
   const close = useCallback(() => {
     if (fullscreenElement()) exitFullscreen()
@@ -268,25 +265,19 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
         )}
 
         <div className="relative flex-1 min-w-0 bg-black overflow-hidden">
-          {/* Outgoing — embaixo, opaco até o novo terminar de entrar (sem flash branco no meio) */}
-          {outgoing !== null && outgoing !== index && materials[outgoing] && (
-            <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
-              <MaterialFrame material={materials[outgoing]} />
-            </div>
+          {/* Deck: cada slide montado é uma camada fixa; só o atual fica opaco. Trocar = alternar
+              opacity (sem remontar nem rebuscar). Fundo preto sempre atrás → nunca branco no gap.
+              Vizinhos já montados = troca instantânea; reduce-motion = sem fade. */}
+          {total === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center"><p className="text-white/60 text-sm">Sem material disponível.</p></div>
           )}
-          {/* Incoming — por cima, fade-in rápido (~200ms); instantâneo no reduce-motion */}
-          <div key={index}
-            className={cn('absolute inset-0 flex items-center justify-center p-4 sm:p-8', reduce ? '' : 'transition-opacity duration-200')}
-            style={{ opacity: shown ? 1 : 0 }}>
-            {current ? <MaterialFrame material={current} /> : <p className="text-white/60 text-sm">Sem material disponível.</p>}
-          </div>
-          {/* Pré-carrega vizinhos (imagens) — prontos ANTES da troca, sem load gap */}
-          <div className="hidden">
-            {[index - 1, index + 1].map(i => materials[i]).filter((m): m is PlayerMaterial => !!m && (m.mime_type ?? '').startsWith('image/')).map(m => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={m.id} src={m.url} alt="" aria-hidden loading="eager" />
-            ))}
-          </div>
+          {materials.map((m, i) => mounted.has(i) && (
+            <div key={i} aria-hidden={i !== index}
+              className={cn('absolute inset-0 flex items-center justify-center p-4 sm:p-8', reduce ? '' : 'transition-opacity duration-200')}
+              style={{ opacity: i === index ? 1 : 0, pointerEvents: i === index ? 'auto' : 'none', zIndex: i === index ? 1 : 0 }}>
+              <MaterialFrame material={m} />
+            </div>
+          ))}
           {total > 1 && (
             <>
               <button onClick={e => { blur(e); prev() }} disabled={index === 0} aria-label="Anterior"
