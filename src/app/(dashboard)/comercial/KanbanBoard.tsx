@@ -19,11 +19,12 @@ import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
 import { usdCompact as fmtUSDc } from '@/lib/format'
 import { MetricasTab } from './tabs/MetricasTab'
 import { VendedoresTab } from './tabs/VendedoresTab'
+import { ClientesClient, type Client as ClienteRow } from '../clientes/ClientesClient'
 import type { Lead, LeadStatus } from './types'
 import { columnsFromStages, tiersFromColumns, type FunnelStage } from '@/lib/funnelStages'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
-type Tab = 'funil' | 'metricas' | 'vendedores'
+type Tab = 'funil' | 'clientes' | 'metricas' | 'vendedores'
 
 interface CurrentUser { id: string; name: string }
 
@@ -65,7 +66,7 @@ function SummaryLegend({ cls, t }: { cls: string; t: string }) {
   return <span className="flex items-center gap-1"><span className={cn('w-2 h-2 rounded-full', cls)} />{t}</span>
 }
 
-export function KanbanBoard({ initialLeads, initialStages, currentUser }: { initialLeads: Lead[], initialStages: FunnelStage[], currentUser: CurrentUser }) {
+export function KanbanBoard({ initialLeads, initialStages, initialClients, currentUser }: { initialLeads: Lead[], initialStages: FunnelStage[], initialClients: ClienteRow[], currentUser: CurrentUser }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   // Reflete dados frescos do servidor após router.refresh() (revalidação ao focar a aba).
   useEffect(() => { setLeads(initialLeads) }, [initialLeads])
@@ -99,15 +100,20 @@ export function KanbanBoard({ initialLeads, initialStages, currentUser }: { init
 
   // Deep-link vindo do Hall: /comercial?lead=<id> abre o lead no funil.
   useEffect(() => {
-    const leadId = new URLSearchParams(window.location.search).get('lead')
-    if (!leadId) return
-    const lead = leads.find(l => l.id === leadId)
-    if (lead) { setTab('funil'); setSelectedLead(lead) }
+    const params = new URLSearchParams(window.location.search)
+    const tabParam = params.get('tab')
+    if (tabParam && ['funil', 'clientes', 'metricas', 'vendedores'].includes(tabParam)) setTab(tabParam as Tab)
+    const leadId = params.get('lead')
+    if (leadId) {
+      const lead = leads.find(l => l.id === leadId)
+      if (lead) { setTab('funil'); setSelectedLead(lead) }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'funil',        label: 'Funil' },
+    { key: 'clientes',     label: 'Clientes' },
     { key: 'metricas',     label: 'Métricas' },
     { key: 'vendedores',   label: 'Equipe e Comissões' },
   ]
@@ -250,6 +256,7 @@ export function KanbanBoard({ initialLeads, initialStages, currentUser }: { init
           </div>
         )}
 
+        {tab === 'clientes'     && <div className="h-full overflow-auto bg-bento-bg"><ClientesClient initialClients={initialClients} currentUser={currentUser} /></div>}
         {tab === 'metricas'     && <MetricasTab leads={filteredLeads} />}
         {tab === 'vendedores'   && <VendedoresTab />}
       </div>

@@ -7,10 +7,11 @@ export default async function ComercialPage() {
   const supabase = createClient()
 
   // getUser (cacheado — reusa o do layout) em paralelo com os leads e as fases do funil.
-  const [user, { data: leads }, stages] = await Promise.all([
+  const [user, { data: leads }, stages, { data: clients }] = await Promise.all([
     getSessionUser(),
     supabase.from('leads').select('*').order('score', { ascending: false }),
     getStages(),
+    supabase.from('clients').select('*').order('created_at', { ascending: false }),
   ])
   const profile = await getProfile(user?.id ?? '')
 
@@ -18,6 +19,7 @@ export default async function ComercialPage() {
     <KanbanBoard
       initialLeads={leads ?? []}
       initialStages={stages}
+      initialClients={clients ?? []}
       currentUser={{
         id:   profile?.id   ?? user?.id   ?? '',
         name: profile?.name ?? user?.email?.split('@')[0] ?? 'Usuário',

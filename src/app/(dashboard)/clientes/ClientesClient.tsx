@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useSave } from '@/lib/useSave'
 import { formatCurrency, formatDate, timeAgo } from '@/lib/utils'
 
-interface Client {
+export interface Client {
   id: string
   name: string
   company?: string
