@@ -12,13 +12,16 @@ import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { Maximize2, X, Trash2, Check, Clock, CalendarDays } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
-import type { Task } from '../tarefas/types'
+import type { Task, LinkOption } from '../tarefas/types'
+import { TarefasClient } from '../tarefas/TarefasClient'
 
-type Tab = 'activities' | 'agent'
+type Tab = 'activities' | 'tarefas' | 'agent'
 
 interface Props {
   initialActivities: Activity[]
   initialNotices: Notice[]
+  initialTasks: Task[]
+  linkOptions: LinkOption[]
   userName: string
   userId: string
 }
@@ -736,7 +739,7 @@ function HistoryModal({ kind, initial, onClose }: {
 
 // ─── Main HallClient ──────────────────────────────────────────────────────────
 
-export function HallClient({ initialActivities, initialNotices, userName, userId }: Props) {
+export function HallClient({ initialActivities, initialNotices, initialTasks, linkOptions, userName, userId }: Props) {
   const [activeTab, setActiveTab]     = useState<Tab>('activities')
   const [activities, setActivities]   = useState<Activity[]>(initialActivities)
   const [notices, setNotices]         = useState<Notice[]>(initialNotices)
@@ -761,6 +764,12 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
 
   // App pessoal de usuário único: acesso total.
   const canPostNotice = true
+
+  // Deep-link: /hall?tab=tarefas (vindo do redirect de /tarefas) abre a aba certa.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'tarefas' || t === 'agent' || t === 'activities') setActiveTab(t as Tab)
+  }, [])
 
   useEffect(() => {
     setGreeting(computeGreeting())
@@ -858,8 +867,12 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
 
   const TABS = [
     {
-      id: 'activities' as Tab, label: 'Atividades',
+      id: 'activities' as Tab, label: 'Visão Geral',
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+    },
+    {
+      id: 'tarefas' as Tab, label: 'Tarefas',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>,
     },
     {
       id: 'agent' as Tab, label: 'Agente',
@@ -1089,6 +1102,10 @@ export function HallClient({ initialActivities, initialNotices, userName, userId
               </Panel>
             </div>
           </>
+        )}
+
+        {activeTab === 'tarefas' && (
+          <TarefasClient initialTasks={initialTasks} linkOptions={linkOptions} currentUser={{ id: userId, name: userName }} />
         )}
 
         {activeTab === 'agent' && (
