@@ -192,6 +192,15 @@ interface EventModalProps {
   onSaved: (event: CalendarEvent) => void
 }
 
+// Fecha modal no ESC (além do X e do clique fora). Reusado pelos modais da Agenda.
+function useEscape(onClose: () => void) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+}
+
 function EventModal({ date, hour, userId, onClose, onSaved }: EventModalProps) {
   const [form, setForm] = useState({
     title: '',
@@ -239,9 +248,11 @@ function EventModal({ date, hour, userId, onClose, onSaved }: EventModalProps) {
     }
   }
 
+  useEscape(onClose)
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
         <div className="flex items-center justify-between p-5 border-b border-bento-border">
           <h2 className="font-display font-bold text-bento-text text-base">Novo Evento</h2>
           <button onClick={onClose} className="text-bento-muted hover:text-bento-text transition-colors p-1">
@@ -338,9 +349,11 @@ function EventDetailModal({ event, onClose, onDelete }: { event: CalendarEvent; 
     onClose()
   }
 
+  useEscape(onClose)
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm animate-slide-up">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm animate-slide-up">
         <div className="flex items-center justify-between p-5 border-b border-bento-border">
           <div className="flex items-center gap-2.5">
             <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: event.color }} />
