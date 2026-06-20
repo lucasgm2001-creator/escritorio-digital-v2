@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { Lead } from '../types'
 import { ALL_COLUMNS } from '../types'
-import { usdCompact as fmt } from '@/lib/format'
+import { usdCompact as fmt, ymd } from '@/lib/format'
 import { rangeFor, MODES, type Range } from '@/lib/period'
 
 interface Props { leads: Lead[] }
@@ -33,7 +33,10 @@ export function MetricasTab({ leads }: Props) {
     const s = range.start.getTime(), e = range.end.getTime()
     const inRange = (iso?: string | null) => { if (!iso) return false; const t = new Date(iso).getTime(); return t >= s && t <= e }
 
-    const recebidosLeads = leads.filter(l => inRange(l.created_at))
+    // Recebidos pela DATA DE CHEGADA (received_at, civil): compara YMD (sem fuso); fallback created_at.
+    const startYMD = ymd(range.start), endYMD = ymd(range.end)
+    const dayChegada = (l: Lead) => (l.received_at ?? l.created_at ?? '').slice(0, 10)
+    const recebidosLeads = leads.filter(l => { const d = dayChegada(l); return d >= startYMD && d <= endYMD })
     const recebidos = recebidosLeads.length
     const pipeline = recebidosLeads.filter(l => !isTerminal(l.status)).reduce((acc, l) => acc + (l.value || 0), 0)
 

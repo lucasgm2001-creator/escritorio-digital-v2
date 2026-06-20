@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ "Data de chegada" do lead (received_at) — separa chegada de cadastro.
+- **Banco:** coluna `leads.received_at` (date, default hoje) já em prod; `037_lead_received_at.sql` só pra paridade do repo.
+- **Form:** campo "Data de chegada" no **topo** do criar (LeadModal, default hoje) e **editável** no detalhe (LeadDiary). Caminho do **agente** segue default hoje (sem campo).
+- **Relatórios:** "recebidos"/novos-leads-no-período passam a contar por **`received_at`** (antes `created_at`) — no **Relatório do Vendedor** (RelatorioComercial) **E** nas **Métricas do Comercial** (MetricasTab). Comparação por YMD (sem fuso). Outros marcos (interagiu/reunião/fechou) seguem por `achieved_on` — **intactos**.
+- **Dinheiro intocado** (received_at é dado de lead/relatório).
+
+---
+
 🐛 Agente: explicação do MRR consistente com o número.
 - O número já estava certo (`mrrUsd` = ativos × valor semanal × 4), mas ao **explicar** o agente inventava "× ~4,33 semanas/mês" → contradizia o próprio valor (ex.: 140 × 4,33 × 3 = 1.818 ≠ 1.680).
 - **Só instrução** no system prompt (`chatWithActions`): explicar SEMPRE como **ativos × valor semanal × 4 (quatro semanas)**, usar o `mrrUsd` do contexto, **proibido** inventar 4,33/× 4,3/média mensal. Número e fórmula **intactos** (vêm prontos via `mrrUsd`).

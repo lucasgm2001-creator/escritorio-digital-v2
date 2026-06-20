@@ -17,6 +17,8 @@ const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0);
 const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x }
 // Semana começa na SEGUNDA.
 const mondayOf = (d: Date) => { const x = startOfDay(d); const wd = x.getDay(); x.setDate(x.getDate() + (wd === 0 ? -6 : 1 - wd)); return x }
+// Parse seguro: 'YYYY-MM-DD' (received_at) ganha hora local (T12) p/ não cair no dia anterior por fuso.
+const localDate = (s: string) => new Date(s.length === 10 ? `${s}T12:00:00` : s)
 
 function rangeFor(mode: Mode, now = new Date()): Range {
   if (mode === 'dia') return { mode, start: startOfDay(now), end: endOfDay(now), label: `Dia ${ddmm(now)}` }
@@ -85,9 +87,9 @@ export function RelatorioComercial() {
       setLoading(true)
       const startYMD = ymd(range.start), endYMD = ymd(range.end)
       const [leadRes, msRes, allLeadsRes, wkRes, cpRes] = await Promise.all([
-        // Recebidos: leads criados no período (fonte inalterada).
-        supabase.from('leads').select('id, name, created_at')
-          .gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
+        // Recebidos: leads pela DATA DE CHEGADA (received_at) no período — NÃO pelo cadastro (created_at).
+        supabase.from('leads').select('id, name, received_at')
+          .gte('received_at', startYMD).lte('received_at', endYMD).order('received_at', { ascending: false }),
         // Interagiu / Reunião / Fechou: marcos do ciclo, pela DATA do marco (achieved_on).
         supabase.from('lead_milestones').select('id, marco, achieved_on, lead_id, leads(name)')
           .gte('achieved_on', startISO).lte('achieved_on', endISO).order('achieved_on', { ascending: false }),
@@ -116,7 +118,7 @@ export function RelatorioComercial() {
       setReceitaUsd(((cpRes.data ?? []) as { valor_usd: number; anulado?: boolean }[]).filter(r => !r.anulado).reduce((s, r) => s + Number(r.valor_usd || 0), 0))
 
       const merged: Item[] = [
-        ...leads.map(l => ({ kind: 'recebido' as const, date: l.created_at as string, label: (l.name as string) || 'Lead' })),
+        ...leads.map(l => ({ kind: 'recebido' as const, date: l.received_at as string, label: (l.name as string) || 'Lead' })),
         ...ms.map(x => ({ kind: x.marco as 'interagiu' | 'reuniao' | 'fechou', date: x.achieved_on as string, label: leadNameOf(x.leads) })),
       ].sort((a, b) => (a.date < b.date ? 1 : -1))
       setItems(merged)
@@ -180,7 +182,7 @@ export function RelatorioComercial() {
           startY: 76,
           head: [['Data', 'Tipo', 'Detalhe']],
           body: items.map(i => [
-            new Date(i.date).toLocaleDateString('pt-BR'),
+            localDate(i.date).toLocaleDateString('pt-BR'),
             i.kind === 'recebido' ? 'Lead recebido' : i.kind === 'interagiu' ? 'Interagiu' : i.kind === 'reuniao' ? 'Reunião' : 'Fechou',
             i.label + (i.sub ? ` (${i.sub})` : ''),
           ]),
@@ -316,7 +318,7 @@ export function RelatorioComercial() {
                   <p className="font-tech text-[10px] text-bento-muted">{tipo}</p>
                 </div>
                 <span className="font-tech text-[11px] text-bento-muted tabular-nums flex-none">
-                  {new Date(i.date).toLocaleDateString('pt-BR')}
+                  {localDate(i.date).toLocaleDateString('pt-BR')}
                 </span>
               </div>
             )
