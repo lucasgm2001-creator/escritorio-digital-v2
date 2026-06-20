@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskModal, type TaskPrefill } from './TaskModal'
 import { RelatorioComercial } from './RelatorioComercial'
+import { ymd } from '@/lib/format'
 import type { Task, LinkOption, ParsedTask } from './types'
 import { useToast } from '@/components/ui/toast'
 
@@ -44,13 +45,10 @@ interface Props {
   currentUser: { id: string; name: string }
 }
 
-// ── Datas (local) ──
-function toISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+// ── Datas (local) ── (ymd vem de format.ts — dedup do antigo toISO, MESMA saída local)
 function isoPlus(days: number): string {
   const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + days)
-  return toISO(d)
+  return ymd(d)
 }
 function fmtDate(iso?: string | null): string {
   if (!iso) return ''
@@ -141,7 +139,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
     return m
   }, [linkOptions])
 
-  const today = toISO(new Date()), tomorrow = isoPlus(1), weekEnd = isoPlus(7)
+  const today = ymd(new Date()), tomorrow = isoPlus(1), weekEnd = isoPlus(7)
 
   const visibleTasks = useMemo(
     () => respFilter === 'todos' ? tasks : tasks.filter(t => t.responsavel_id === respFilter),
@@ -208,7 +206,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
       const res = await fetch('/api/tasks/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, today: toISO(now), todayLabel }),
+        body: JSON.stringify({ text, today: ymd(now), todayLabel }),
       })
       const data = await res.json().catch(() => null)
       const p = (data?.task ?? null) as ParsedTask | null
