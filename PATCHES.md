@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 fix+refactor(hall): Agenda no fuso de Brasília + HallClient quebrado.
+- **fix:** o bucketing de dia da Agenda usava `toISOString()` (**UTC**) → à noite (após ~21h BRT) tarefa/evento caía no **dia seguinte**. Agora usa o dia de **Brasília** (`America/Sao_Paulo`). *(mudança de comportamento de propósito)*
+- **refactor (sem mudança de comportamento):** `HallClient.tsx` 1246 → ~577 linhas. Extraídos pra arquivos próprios (verbatim): **Calendar** (Agenda + EventDetailModal interno), **EventModal**, **DayDetailModal**.
+- Helpers de data consolidados num **util único de Brasília** `dateBR.ts` (`dayBR`) — substitui `toDateStr` + `saoPauloDay` (eram idênticos). `calendarShared.ts` reúne tipos/consts/helpers (`CalendarEvent`, `getWeekDays/getMonthDays/getHourSlots`, `useEscape`, `EVENT_TYPE_LABELS`, `MONTH_*`, `bentoInput`).
+- HallClient mantém Mural, Notícias, KPIs, host do AgentChat e a fiação (props/estado) **idêntica**.
+
+---
+
 🔄 Limpeza de código (refactor SEM mudança de comportamento).
 - **Datas:** `TarefasClient` usa `ymd` (format.ts) no lugar do `toISO` duplicado (saída local **idêntica**). ⚠️ `HallClient.toDateStr` **NÃO** foi trocado — usa `toISOString()` (**UTC**), diferente de `ymd` (local); manter pra não alterar o bucketing da agenda.
 - **Período:** `RelatorioComercial` importa `rangeFor`/`MODES` de `lib/period` (janelas **idênticas**: semana seg→dom) — removida a cópia inline.
