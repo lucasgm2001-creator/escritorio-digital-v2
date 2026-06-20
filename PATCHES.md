@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🔄 Limpeza de código (refactor SEM mudança de comportamento).
+- **Datas:** `TarefasClient` usa `ymd` (format.ts) no lugar do `toISO` duplicado (saída local **idêntica**). ⚠️ `HallClient.toDateStr` **NÃO** foi trocado — usa `toISOString()` (**UTC**), diferente de `ymd` (local); manter pra não alterar o bucketing da agenda.
+- **Período:** `RelatorioComercial` importa `rangeFor`/`MODES` de `lib/period` (janelas **idênticas**: semana seg→dom) — removida a cópia inline.
+- **Erros:** `handleRunAuto` (ClientesClient) ganhou `catch`; `alert()` cru → **toast** em ClientesClient + FasesTab (`window.confirm` mantido).
+- **Removido** o barrel `src/components/bento/index.ts` (0 importadores).
+
+---
+
 ✨ "Data de chegada" do lead (received_at) — separa chegada de cadastro.
 - **Banco:** coluna `leads.received_at` (date, default hoje) já em prod; `037_lead_received_at.sql` só pra paridade do repo.
 - **Form:** campo "Data de chegada" no **topo** do criar (LeadModal, default hoje) e **editável** no detalhe (LeadDiary). Caminho do **agente** segue default hoje (sem campo).
