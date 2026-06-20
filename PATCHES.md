@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Comercial: aba "Contatos" (lista unificada leads + clientes).
+- Nova aba **Contatos** (ao lado do Funil): lista única **deduplicada** por telefone/email (**cliente prevalece** sobre lead). Cada linha: nome, empresa, telefone, badge de **fase** (label do funil ou "Cliente"), **nicho**, **fuso**, **data de chegada** (`received_at` / `start_date`). Contador no topo.
+- **Busca** (nome/empresa/telefone/email) + **3 filtros multi-seleção** (Fase, Nicho, Fuso + "Sem fuso") — E entre filtros, OU dentro. Responsivo (linhas, sem scroll horizontal).
+- **Clique abre o perfil existente:** lead → `LeadDiary` (mesmo do Funil); cliente → aba Clientes com o cliente **expandido/rolado** (`focusClientId`). Componentes reaproveitados.
+- Tipos: `Lead.fuso` + `Client.fuso`/`Client.nicho` + `FUSO_LABELS`/`FUSO_OPTIONS` (compartilhados). **Dinheiro intocado.** (Campos de fuso/nicho nos formulários vêm no commit seguinte.)
+
+---
+
 ✨ Briefing do lead (IA) — botão no detalhe do funil.
 - **`POST /api/leads/briefing`** ({leadId}): lê `leads.notes` + histórico (`lead_interactions` exceto briefing/sistema), pede à IA (modelo do agente, `claude-sonnet-4-6`) um JSON com **resumo / pontos-chave / próximo passo / status sugerido / justificativa**, e **salva** como interação `type='briefing'` (`created_by_name='Briefing IA'`). Sem dados úteis → não chama IA. Auth por sessão + rate-limit; service-role pro banco.
 - **UI (LeadDiary):** botão **"Gerar briefing"** (ícone Sparkles) → card em destaque com o briefing; **status é só SUGESTÃO** ("não muda o status sozinho") — **não move o lead**. O briefing aparece também na timeline (re-fetch após gerar; gerar de novo = append).

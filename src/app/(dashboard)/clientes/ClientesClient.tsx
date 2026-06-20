@@ -20,6 +20,8 @@ export interface Client {
   start_date?: string
   end_date?: string
   assigned_name?: string
+  nicho?: string
+  fuso?: 'leste' | 'central' | 'montanha' | 'pacifico' | null
   jobs?: string[]
   created_at: string
 }
@@ -38,6 +40,8 @@ interface Activity {
 interface Props {
   initialClients: Client[]
   currentUser: { id: string; name: string }
+  focusClientId?: string | null   // vindo da aba Contatos: expande/rola até este cliente
+  onFocusHandled?: () => void
 }
 
 // Tokens bento, theme-aware (não usar #hex/roxo hardcoded).
@@ -89,7 +93,7 @@ function ClientRow({
   const payBusy = payBusyId === client.id
   let nextUnpaid = 1; { const s = new Set(paidNums); while (s.has(nextUnpaid)) nextUnpaid++ }
   return (
-    <div className={`bento-fx transition-colors duration-150 ${inactive ? 'opacity-60' : 'hover:border-lime/40'}`}>
+    <div id={`cli-row-${client.id}`} className={`bento-fx transition-colors duration-150 ${inactive ? 'opacity-60' : 'hover:border-lime/40'}`}>
       {/* Main row */}
       <div className="flex items-center gap-3 p-3.5">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${inactive ? 'bg-bento-bg' : 'bg-lime/15 border border-lime/30'}`}>
@@ -266,7 +270,7 @@ function ClientRow({
   )
 }
 
-export function ClientesClient({ initialClients, currentUser }: Props) {
+export function ClientesClient({ initialClients, currentUser, focusClientId, onFocusHandled }: Props) {
   const [clients, setClients] = useState<Client[]>(initialClients)
   // Reflete dados frescos do servidor após router.refresh() (revalidação ao focar a aba).
   useEffect(() => { setClients(initialClients) }, [initialClients])
@@ -539,6 +543,15 @@ export function ClientesClient({ initialClients, currentUser }: Props) {
     setActivities(data ?? [])
     setLoadingActivities(false)
   }
+
+  // Foco vindo da aba Contatos: expande o cliente + rola até ele (loadActivities não colapsa se ainda fechado).
+  useEffect(() => {
+    if (!focusClientId) return
+    if (expandedId !== focusClientId) loadActivities(focusClientId)
+    requestAnimationFrame(() => document.getElementById(`cli-row-${focusClientId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    onFocusHandled?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusClientId])
 
   // Handlers passados ao ClientRow (escopo de módulo).
   const openEdit = (client: Client) => {

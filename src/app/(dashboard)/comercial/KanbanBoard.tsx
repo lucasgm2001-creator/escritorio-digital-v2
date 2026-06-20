@@ -19,13 +19,14 @@ import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
 import { usdCompact as fmtUSDc } from '@/lib/format'
 import { MetricasTab } from './tabs/MetricasTab'
 import { VendedoresTab } from './tabs/VendedoresTab'
+import { ContatosTab } from './tabs/ContatosTab'
 import { ClientesClient, type Client as ClienteRow } from '../clientes/ClientesClient'
 import type { Lead, LeadStatus } from './types'
 import { columnsFromStages, tiersFromColumns, wonSlug, type FunnelStage } from '@/lib/funnelStages'
 import { WonPlanModal } from './WonPlanModal'
 export type { LeadStatus, Lead, ColumnConfig } from './types'
 
-type Tab = 'funil' | 'clientes' | 'metricas' | 'vendedores'
+type Tab = 'funil' | 'contatos' | 'clientes' | 'metricas' | 'vendedores'
 
 interface CurrentUser { id: string; name: string }
 
@@ -76,6 +77,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   const [activeId, setActiveId] = useState<string | null>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [focusClient, setFocusClient] = useState<string | null>(null)   // Contatos → abre cliente na aba Clientes
   const [pendingWon, setPendingWon] = useState<Lead | null>(null)   // lead aguardando escolha de plano (fechamento)
   const [tab, setTab] = useState<Tab>('funil')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -105,7 +107,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const tabParam = params.get('tab')
-    if (tabParam && ['funil', 'clientes', 'metricas', 'vendedores'].includes(tabParam)) setTab(tabParam as Tab)
+    if (tabParam && ['funil', 'contatos', 'clientes', 'metricas', 'vendedores'].includes(tabParam)) setTab(tabParam as Tab)
     const leadId = params.get('lead')
     if (leadId) {
       const lead = leads.find(l => l.id === leadId)
@@ -116,6 +118,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'funil',        label: 'Funil' },
+    { key: 'contatos',     label: 'Contatos' },
     { key: 'clientes',     label: 'Clientes' },
     { key: 'metricas',     label: 'Métricas' },
     { key: 'vendedores',   label: 'Equipe e Comissões' },
@@ -279,7 +282,8 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
           </div>
         )}
 
-        {tab === 'clientes'     && <div className="h-full overflow-auto bg-bento-bg"><ClientesClient initialClients={initialClients} currentUser={currentUser} /></div>}
+        {tab === 'contatos'     && <ContatosTab leads={leads} clients={initialClients} onOpenLead={setSelectedLead} onOpenClient={(id) => { setFocusClient(id); setTab('clientes') }} />}
+        {tab === 'clientes'     && <div className="h-full overflow-auto bg-bento-bg"><ClientesClient initialClients={initialClients} currentUser={currentUser} focusClientId={focusClient} onFocusHandled={() => setFocusClient(null)} /></div>}
         {tab === 'metricas'     && <MetricasTab leads={filteredLeads} />}
         {tab === 'vendedores'   && <VendedoresTab />}
       </div>

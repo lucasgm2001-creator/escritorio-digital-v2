@@ -24,7 +24,19 @@ export interface Lead {
   updated_at?: string
   created_at: string
   received_at?: string        // data de CHEGADA do lead ('YYYY-MM-DD'); default hoje. Separa de created_at (cadastro).
+  fuso?: 'leste' | 'central' | 'montanha' | 'pacifico' | null   // fuso horário (EUA)
 }
+
+// Fuso horário (EUA) — valor interno → label exibido. Compartilhado (Contatos + formulários de lead/cliente).
+export const FUSO_LABELS: Record<string, string> = {
+  leste: 'Leste (ET)', central: 'Central (CT)', montanha: 'Montanha (MT)', pacifico: 'Pacífico (PT)',
+}
+export const FUSO_OPTIONS: { value: string; label: string }[] = [
+  { value: 'leste', label: 'Leste (ET)' },
+  { value: 'central', label: 'Central (CT)' },
+  { value: 'montanha', label: 'Montanha (MT)' },
+  { value: 'pacifico', label: 'Pacífico (PT)' },
+]
 
 // `tone` governa cor da fase: meio do funil = neutro; só ganho/perda têm cor.
 export type ColumnTone = 'neutral' | 'win' | 'loss'
