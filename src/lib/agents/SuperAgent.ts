@@ -72,7 +72,7 @@ function buildMoverLeadTool(slugs: string[]) {
   return tool({
     description:
       'Move um lead para outro estágio do funil comercial. Use quando o usuário pedir para mover, avançar ou mudar um lead de fase (ex: "move o Sandro pra reunião", "o João fechou").',
-    inputSchema: jsonSchema<{ lead_name: string; destino: string }>({
+    inputSchema: jsonSchema<{ lead_name: string; destino: string; plano?: string }>({
       type: 'object',
       properties: {
         lead_name: { type: 'string', description: 'Nome do lead a mover.' },
@@ -81,6 +81,7 @@ function buildMoverLeadTool(slugs: string[]) {
           enum: slugs,
           description: 'Estágio de destino (slug). Mapeie a linguagem natural para o slug: "reunião agendada"→reuniao; "no show"→no_show; "reagendar"→reagendamento; "proposta"→proposta; "venda fechada"/"fechou"/"ganhou"→fechado; "perdido"→perdido; "lixo"/"descartar"→lixeira; "não interagiu"→nao_interagiu; "novo"→novo.',
         },
+        plano: { type: 'string', description: 'APENAS para "Venda Fechada": nome do plano/contrato do cliente (um dos planos do contexto, campo "plans"). Se o usuário não disse o plano, deixe vazio — o sistema pergunta.' },
       },
       required: ['lead_name', 'destino'],
       additionalProperties: false,
@@ -297,6 +298,7 @@ export class SuperAgent {
       'Você é o assistente do Escritório Digital DR Growth. Responda em português, de forma concisa e prática.',
       `Hoje é ${opts.todayLabel} (${opts.today}). Resolva datas relativas (hoje, amanhã, depois de amanhã, sexta, segunda, semana que vem) para datas absolutas no formato YYYY-MM-DD a partir de hoje. Se o dia da semana já passou nesta semana, use a próxima ocorrência.`,
       'Você PODE executar ações pelas ferramentas: create_lead (criar lead), create_task (criar tarefa), complete_task (marcar uma tarefa como concluída), mover_lead (mover lead de estágio), editar_cliente (editar dados de um cliente — NUNCA excluir), registrar_pagamento (registrar o pagamento da próxima semana de uma venda JÁ existente) e registrar_reuniao (registrar reunião, US$ 15 padrão). Use a ferramenta quando o usuário pedir a ação correspondente. IMPORTANTE: NÃO existe ferramenta de criar venda/deal — registrar uma venda nova = mover o lead para "Venda Fechada" (mover_lead). Para perguntas, consultas e análises, responda em texto, sem ferramenta.',
+      'Fechar venda = mover_lead para "Venda Fechada". Inclua o parâmetro `plano` com o nome do plano/contrato que o usuário escolher (veja os planos no campo "plans" do contexto). Se ele não disse qual plano, NÃO invente — deixe `plano` vazio que o sistema pergunta.',
       'Nunca diga que já criou algo: ao chamar uma ferramenta, o aplicativo ainda vai pedir a confirmação do usuário antes de gravar.',
       'Se faltar um dado obrigatório (nome do lead, ou título da tarefa), peça-o em texto antes de usar a ferramenta.',
       'MRR: use SEMPRE o número já calculado no campo "mrrUsd" do contexto. Ao explicar, descreva como "clientes ativos × valor semanal × 4 (quatro semanas)" — a MESMA base da tela de Clientes. NUNCA invente multiplicadores como "4,33 semanas/mês", "× 4,3" ou "média mensal", nem converta para mês: é sempre × 4. A explicação TEM que bater com o número (não recalcule).',
@@ -322,6 +324,11 @@ export class SuperAgent {
       if (call.toolName === 'editar_cliente') return this.prepEditClient(params)
       if (call.toolName === 'registrar_pagamento') return this.prepPayWeek(params)
       if (call.toolName === 'registrar_reuniao') return this.prepMeeting(params)
+      // Fechar venda (mover→is_won) exige o PLANO (comissão Fase 2A). Demais fases caem no fluxo direto.
+      if (call.toolName === 'mover_lead') {
+        const r = await this.prepMoverLead(params, won)
+        if (r) return r
+      }
       // Ações de preview estático (resolução acontece na execução):
       return { type: 'action', tool: call.toolName, params, requiresConfirm: needsConfirm(call.toolName, params, won), resposta: buildActionPreview(call.toolName, params) }
     }
@@ -332,6 +339,29 @@ export class SuperAgent {
 
   // Editar cliente: localiza por nome; monta o patch só com campos informados e
   // diferentes (de→para). Pergunta se ambíguo/não achar. NUNCA exclui.
+  // Fechar venda pelo agente: pede o PLANO (se faltar) e mapeia nome→planoId, pra fechar pelo % do
+  // plano (Fase 2A) em vez do legado. Retorna null pras outras fases (seguem o fluxo direto de hoje).
+  // NÃO calcula dinheiro: só FORNECE o planoId pro mesmo runWonFlow(planoId) que o modal do funil usa.
+  private async prepMoverLead(params: Record<string, unknown>, won: string): Promise<AgentTurn | null> {
+    if (String(params.destino ?? '') !== won) return null   // não-won: comportamento atual (direto)
+    const { data } = await this.supabase.from('plans').select('id, nome, valor_semanal').eq('ativo', true).order('ordem')
+    const planos = (data ?? []) as { id: string; nome: string; valor_semanal: number }[]
+    const lead = String(params.lead_name ?? 'lead')
+    const planoNome = String(params.plano ?? '').trim()
+    if (!planoNome) {
+      const opts = planos.length ? ` Planos: ${planos.map(p => `${p.nome} (${usd(Number(p.valor_semanal))}/sem)`).join(' · ')}.` : ''
+      return { type: 'text', resposta: `Pra fechar a venda do ${lead}, qual o plano/contrato?${opts}` }
+    }
+    const plano = planos.find(p => p.nome.toLowerCase() === planoNome.toLowerCase())
+      ?? planos.find(p => p.nome.toLowerCase().includes(planoNome.toLowerCase()))
+    if (!plano) return { type: 'text', resposta: `Não achei o plano "${planoNome}". Planos disponíveis: ${planos.map(p => p.nome).join(', ') || '(nenhum)'}.` }
+    return {
+      type: 'action', tool: 'mover_lead', requiresConfirm: true,
+      params: { ...params, planoId: plano.id, planoNome: plano.nome },
+      resposta: `Vou fechar a venda do **${lead}** com o plano **${plano.nome}** (${usd(Number(plano.valor_semanal))}/sem) e registrar a comissão pelo % do plano. Confirma?`,
+    }
+  }
+
   private async prepEditClient(params: Record<string, unknown>): Promise<AgentTurn> {
     const name = String(params.client_name ?? '').trim()
     if (!name) return { type: 'text', resposta: 'Qual cliente você quer editar?' }

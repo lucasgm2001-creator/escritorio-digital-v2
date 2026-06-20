@@ -6,6 +6,13 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+🐛 Agente (Fase 1): fechar venda usa o plano escolhido (comissão Fase 2A, não legado).
+- **Antes:** mover lead pra "Venda Fechada" pelo agente chamava `moveLead` **sem `planoId`** → `runWonFlow` caía no **legado** (US$100 / US$25-sem), furando a comissão por % do plano.
+- **Agora:** ao fechar, o agente **pergunta o plano** (lista os planos do contexto — nome + valor semanal), mapeia nome→`planoId` e fecha com `runWonFlow(planoId)` — **mesmo caminho do modal do funil**. Continua exigindo **confirmação**. Fases não-won seguem diretas (sem mudança).
+- **Dinheiro:** **não** mudou `runWonFlow`/`payWeek`/`calc.ts` — só **fornece** o `planoId` (parâmetro que já existia). `prepMoverLead` apenas **lê** os planos (id/nome/valor) pra mapear o nome → nenhum cálculo novo.
+
+---
+
 ✨ Agente (Fase 1): tool "marcar tarefa concluída".
 - Nova tool **`complete_task`**: o agente marca uma tarefa **pendente** como concluída — mesmo `update({done:true, completed_at})` do TarefasClient. Acha por título (`ilike`, trata ambíguo/não-achei) entre as tarefas pendentes (agora no **contexto** do agente). **Confirma antes** de executar. **Sem dinheiro.**
 
