@@ -91,8 +91,10 @@ function computeGreeting(): string {
   return 'Boa noite'
 }
 
+// Dia (YYYY-MM-DD) no fuso de BRASÍLIA — bucketing da Agenda. Antes era toISOString() (UTC), que
+// à noite (após ~21h BRT) já virava o dia seguinte → tarefa/evento caía no dia errado. Mesma lógica do saoPauloDay.
 function toDateStr(d: Date): string {
-  return d.toISOString().split('T')[0]
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
 // Dia (YYYY-MM-DD) no fuso de Brasília — pra contar "hoje" certo, zerando 00:00 BRT.
