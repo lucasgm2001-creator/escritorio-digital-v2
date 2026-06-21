@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
@@ -127,11 +127,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
-  // Mobile: segurar-e-arrastar (delay) p/ o toque não brigar com scroll/tap; ponteiro como reserva.
-  const mobileSensors = useSensors(
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  )
+  // Mobile NÃO usa drag (rolar não pode agarrar card): mover é pelo seletor de fase no LeadDiary.
 
   const filteredLeads = leads   // sem segmentação Brasil/EUA
 
@@ -280,16 +276,12 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
           </DndContext>
         )}
 
-        {/* Funil — MOBILE: seletor de fases (chips) + leads da fase escolhida; drag+tap iguais ao desktop */}
+        {/* Funil — MOBILE: seletor de fase (dropdown) + cards da fase escolhida. SEM drag: tocar no
+            card abre o LeadDiary, que move pela MESMA função (e dispara a comissão igual ao desktop). */}
         {tab === 'funil' && !isDesktop && (
-          <DndContext sensors={mobileSensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="h-full overflow-auto p-3 bg-bento-bg">
-              <PhaseSelectorMobile columns={cols} leads={filteredLeads} onOpenDiary={setSelectedLead} />
-            </div>
-            <DragOverlay>
-              {activeLead ? <LeadCard lead={activeLead} isDragging /> : null}
-            </DragOverlay>
-          </DndContext>
+          <div className="h-full overflow-auto p-3 bg-bento-bg">
+            <PhaseSelectorMobile columns={cols} leads={filteredLeads} onOpenDiary={setSelectedLead} />
+          </div>
         )}
 
         {tab === 'contatos'     && <ContatosTab leads={leads} clients={initialClients} onOpenLead={setSelectedLead} onOpenClient={(id) => { setFocusClient(id); setTab('clientes') }} />}

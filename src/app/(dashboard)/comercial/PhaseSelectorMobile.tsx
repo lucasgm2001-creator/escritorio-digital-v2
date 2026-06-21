@@ -1,45 +1,17 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useDroppable } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { LeadCard } from './LeadCard'
+import { StaticLeadCard } from './LeadCard'
 import { type ColumnConfig, type Lead } from './types'
 
 /**
- * Funil no MOBILE: as fases viram um SELETOR de chips compactos (grid, sem rolagem
- * horizontal apertada). Uma fase por vez: tocar num chip mostra os leads daquela fase
- * abaixo. Cada card é arrastável (mesmo DndContext/handler do desktop — arraste até um
- * chip pra mover) e tocar abre o LeadDiary. Desktop continua com as colunas (KanbanColumn).
+ * Funil no MOBILE (<1024px): seletor de fase LIMPO (dropdown com a fase atual + contagem) e os cards
+ * da fase escolhida empilhados, largura cheia. SEM arrastar no mobile — rolar a lista nunca agarra um
+ * card. Para mover, toca-se no card → abre o LeadDiary, que tem o seletor de fase (MESMA função de
+ * mover, MESMO disparo de comissão). Desktop continua com as colunas + arrastar (KanbanColumn/dnd).
  */
-
-// Chip de fase: clicável (seleciona) + droppable (id = col.key, igual à coluna do desktop,
-// então o handleDragEnd existente resolve o move sem mudar nada).
-function PhaseChip({ col, count, active, onSelect }: {
-  col: ColumnConfig; count: number; active: boolean; onSelect: () => void
-}) {
-  const { isOver, setNodeRef } = useDroppable({ id: col.key })
-  return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      onClick={onSelect}
-      title={col.label}
-      aria-pressed={active}
-      className={cn(
-        'flex items-center gap-2 rounded-btn border px-2.5 py-2 min-h-[44px] text-left transition-colors',
-        active ? 'border-lime/60 bg-lime/10' : 'border-bento-border bg-bento-panel hover:border-lime/40',
-        isOver && 'border-dashed border-lime/70 bg-lime/5',
-      )}
-    >
-      <span className={cn('w-[7px] h-[7px] rounded-full flex-none', col.dotColor)} />
-      <span className={cn('text-xs font-semibold flex-1 min-w-0 truncate', active ? 'text-lime-fg' : 'text-bento-text')}>{col.label}</span>
-      <span className="font-display text-sm font-bold tabular-nums text-bento-text flex-none">{count}</span>
-    </button>
-  )
-}
-
 export function PhaseSelectorMobile({ columns, leads, onOpenDiary }: {
   columns: ColumnConfig[]
   leads: Lead[]
@@ -55,9 +27,10 @@ export function PhaseSelectorMobile({ columns, leads, onOpenDiary }: {
   // Default: primeira fase COM leads (senão a primeira). Só no mount.
   const firstWithLeads = columns.find(c => counts[c.key] > 0)?.key ?? columns[0]?.key ?? ''
   const [selected, setSelected] = useState<string>(firstWithLeads)
+  const [open, setOpen] = useState(false)
 
-  // Se a fase selecionada deixar de existir (configuração mudou), reescolhe — sem
-  // sobrescrever a escolha do usuário em refresh de dados.
+  // Se a fase selecionada deixar de existir (configuração mudou), reescolhe — sem sobrescrever a
+  // escolha do usuário em refresh de dados.
   useEffect(() => {
     if (!columns.some(c => c.key === selected)) setSelected(firstWithLeads)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,40 +40,50 @@ export function PhaseSelectorMobile({ columns, leads, onOpenDiary }: {
   const phaseLeads = leads.filter(l => l.status === selected)
 
   return (
-    <div className="space-y-3">
-      {/* Seletor de fases — chips compactos (cabem na tela, sem rolagem horizontal) */}
-      <div className="grid grid-cols-2 gap-1.5">
-        {columns.map(col => (
-          <PhaseChip
-            key={col.key}
-            col={col}
-            count={counts[col.key] ?? 0}
-            active={col.key === selected}
-            onSelect={() => setSelected(col.key)}
-          />
-        ))}
+    <div className="space-y-3 max-w-2xl mx-auto">
+      {/* Seletor de fase (dropdown): fase atual + contagem → abre a lista de fases pra escolher. */}
+      <div className="relative">
+        <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+          className="w-full flex items-center gap-2.5 rounded-btn border border-bento-border bg-bento-panel px-3 min-h-[48px] text-left hover:border-lime/40 transition-colors">
+          <span className={cn('w-2 h-2 rounded-full flex-none', selectedCol?.dotColor ?? 'bg-bento-muted')} />
+          <span className="font-display font-bold text-bento-text text-sm flex-1 min-w-0 truncate">{selectedCol?.label ?? 'Fase'}</span>
+          <span className="font-tech text-xs text-bento-muted tabular-nums flex-none">({phaseLeads.length})</span>
+          <ChevronDown className={cn('w-4 h-4 text-bento-muted flex-none transition-transform', open && 'rotate-180')} />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+            <div className="absolute z-30 mt-1 left-0 right-0 max-h-[60vh] overflow-y-auto bg-bento-panel border border-bento-border rounded-btn shadow-card-hover p-1">
+              {columns.map(col => {
+                const active = col.key === selected
+                return (
+                  <button key={col.key} type="button"
+                    onClick={() => { setSelected(col.key); setOpen(false) }}
+                    className={cn('w-full flex items-center gap-2.5 px-2.5 min-h-[44px] rounded-md text-left transition-colors',
+                      active ? 'bg-lime/10' : 'hover:bg-bento-bg')}>
+                    <span className={cn('w-2 h-2 rounded-full flex-none', col.dotColor)} />
+                    <span className={cn('text-sm flex-1 min-w-0 truncate', active ? 'text-lime-fg font-semibold' : 'text-bento-text')}>{col.label}</span>
+                    <span className="font-tech text-xs text-bento-muted tabular-nums flex-none">{counts[col.key] ?? 0}</span>
+                    {active && <Check className="w-3.5 h-3.5 text-lime-fg flex-none" />}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Leads da fase selecionada (uma por vez) */}
-      <div className="bento-fx p-2.5">
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className={cn('w-[7px] h-[7px] rounded-full flex-none', selectedCol?.dotColor ?? 'bg-bento-muted')} />
-          <span className="text-sm font-semibold text-bento-text flex-1 min-w-0 truncate">{selectedCol?.label ?? 'Fase'}</span>
-          <span className="font-tech text-[10px] text-bento-muted tabular-nums">{phaseLeads.length} {phaseLeads.length === 1 ? 'lead' : 'leads'}</span>
+      {/* Cards da fase selecionada — empilhados, largura cheia, SEM arrastar (StaticLeadCard). */}
+      {phaseLeads.length === 0 ? (
+        <p className="text-center text-xs text-bento-muted/60 py-8 font-tech">Nenhum lead nesta fase.</p>
+      ) : (
+        <div className="space-y-2">
+          {phaseLeads.map(l => <StaticLeadCard key={l.id} lead={l} onClick={() => onOpenDiary(l)} />)}
         </div>
-        <SortableContext items={phaseLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {phaseLeads.length === 0 ? (
-            <p className="text-center text-xs text-bento-muted/60 py-6 font-tech">Nenhum lead nesta fase.</p>
-          ) : (
-            <div className="space-y-2">
-              {phaseLeads.map(l => <LeadCard key={l.id} lead={l} onClick={() => onOpenDiary(l)} />)}
-            </div>
-          )}
-        </SortableContext>
-      </div>
+      )}
 
       <p className="font-tech text-[10px] text-bento-muted/70 text-center px-2">
-        Toque num card para abrir · segure e arraste até uma fase para mover
+        Toque num card para abrir e mover de fase
       </p>
     </div>
   )
