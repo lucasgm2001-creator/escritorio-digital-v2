@@ -183,8 +183,6 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
   useEffect(() => { setActivities(initialActivities); setNotices(initialNotices) }, [initialActivities, initialNotices])
   const [greeting, setGreeting]       = useState('')
   const [today, setToday]             = useState('')
-  const [onlineUsers, setOnlineUsers] = useState<{ id: string; name: string }[]>([{ id: userId, name: userName }])
-  const [onlineOpen, setOnlineOpen] = useState(false)
   const [history, setHistory] = useState<null | 'activities' | 'notices'>(null)
   const [showNoticeForm, setShowNoticeForm] = useState(false)
   const [noticeForm, setNoticeForm]   = useState({ title: '', content: '', priority: 'info' as 'info' | 'warning' | 'urgent' })
@@ -239,24 +237,8 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
         p => setNotices(prev => prev.filter(n => n.id !== (p.old as { id?: string }).id)))
       .subscribe()
 
-    const presenceChannel = supabase.channel('hall-presence', { config: { presence: { key: userId } } })
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState() as Record<string, Array<{ user_id?: string; name?: string }>>
-        const seen = new Map<string, string>()
-        for (const arr of Object.values(state)) for (const p of arr) {
-          if (p.user_id) seen.set(p.user_id, p.name || 'Usuário')
-        }
-        const list = Array.from(seen, ([id, name]) => ({ id, name }))
-        setOnlineUsers(list.length ? list : [{ id: userId, name: userName }])
-      })
-      .subscribe(async status => {
-        if (status === 'SUBSCRIBED') await presenceChannel.track({ user_id: userId, name: userName })
-      })
-
     return () => {
       dataChannel.unsubscribe().then(() => supabase.removeChannel(dataChannel))
-      presenceChannel.unsubscribe().then(() => supabase.removeChannel(presenceChannel))
     }
   }, [userId, userName])
 
@@ -335,30 +317,6 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
             {greeting ? `${greeting}, ${userName}` : userName}
           </h1>
           <p className="text-bento-muted mt-0.5 capitalize text-sm">{today}</p>
-        </div>
-        <div className="relative">
-          <button onClick={() => setOnlineOpen(o => !o)}
-            className="flex items-center gap-2 rounded-full border border-bento-border bg-bento-panel px-3 py-1.5 hover:border-lime transition-colors">
-            <LiveDot />
-            <span className="font-tech text-xs font-medium text-lime-fg tabular-nums">{onlineUsers.length} online</span>
-          </button>
-          {onlineOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setOnlineOpen(false)} />
-              <div className="absolute right-0 top-10 z-40 w-52 bg-bento-panel border border-bento-border rounded-bento shadow-card-hover py-1.5">
-                <p className="px-3 py-1 font-tech text-[10px] uppercase tracking-wide text-bento-muted">Online agora</p>
-                {onlineUsers.map(u => (
-                  <div key={u.id} className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-lime flex-none" />
-                    <span className="text-sm text-bento-text truncate">{u.name}{u.id === userId ? ' (você)' : ''}</span>
-                  </div>
-                ))}
-                {/* TODO(presença): vem do Supabase Realtime e conta só quem está com o
-                    Hall aberto — não reflete quem está logado em outras telas. Evoluir
-                    com last_seen/heartbeat se precisar de presença global. */}
-              </div>
-            </>
-          )}
         </div>
       </div>
 
