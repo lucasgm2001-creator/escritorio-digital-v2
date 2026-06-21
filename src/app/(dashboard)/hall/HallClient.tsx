@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { cn, timeAgo } from '@/lib/utils'
 import { Panel } from '@/components/bento/Panel'
@@ -26,6 +28,7 @@ interface Props {
   linkOptions: LinkOption[]
   userName: string
   userId: string
+  avatarUrl?: string | null
 }
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
@@ -174,7 +177,7 @@ function HistoryModal({ kind, initial, onClose }: {
 
 // ─── Main HallClient ──────────────────────────────────────────────────────────
 
-export function HallClient({ initialActivities, initialNotices, initialTasks, linkOptions, userName, userId }: Props) {
+export function HallClient({ initialActivities, initialNotices, initialTasks, linkOptions, userName, userId, avatarUrl }: Props) {
   const [activeTab, setActiveTab]     = useState<Tab>('activities')
   const [activities, setActivities]   = useState<Activity[]>(initialActivities)
   const [notices, setNotices]         = useState<Notice[]>(initialNotices)
@@ -329,12 +332,21 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 animate-fade-in font-body">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-bento-text tracking-tight">
-            {greeting ? `${greeting}, ${userName}` : userName}
-          </h1>
-          <p className="text-bento-muted mt-0.5 capitalize text-sm">{today}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Avatar do usuário (foto = profiles.avatar_url; sem foto = inicial). Toca → /perfil. */}
+          <Link href="/perfil" aria-label="Meu perfil"
+            className="shrink-0 w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-lime shadow-glow-sm">
+            {avatarUrl
+              ? <Image src={avatarUrl} alt="Avatar" width={40} height={40} className="w-full h-full object-cover" />
+              : <span className="text-base font-bold text-lime-ink">{userName[0]?.toUpperCase() ?? 'U'}</span>}
+          </Link>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-bento-text tracking-tight truncate">
+              {greeting ? `${greeting}, ${userName}` : userName}
+            </h1>
+            <p className="text-bento-muted mt-0.5 capitalize text-sm">{today}</p>
+          </div>
         </div>
         <div className="relative">
           <button onClick={() => setOnlineOpen(o => !o)}
