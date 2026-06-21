@@ -310,6 +310,7 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
           }}
           onDeleted={(id) => { setLeads(prev => prev.filter(l => l.id !== id)); setSelectedLead(null) }}
           currentUser={currentUser}
+          stages={initialStages}
         />
       )}
 

@@ -7,6 +7,8 @@ import { getScoreInfo } from '@/lib/utils/score'
 import { markMilestones } from '@/lib/leadMilestones'
 import { cn, timeAgo } from '@/lib/utils'
 import { ALL_COLUMNS, FUSO_OPTIONS, type Lead, type LeadStatus, type ColumnTone } from './types'
+import { type FunnelStage } from '@/lib/funnelStages'
+import { usdCompact } from '@/lib/format'
 import { LeadTasks } from './LeadTasks'
 import { Sparkles } from 'lucide-react'
 
@@ -29,6 +31,8 @@ interface Props {
   /** Remove o lead do funil após exclusão definitiva. */
   onDeleted?: (id: string) => void
   currentUser: { id: string; name: string }
+  /** Fases do funil — usadas p/ liberar o campo "valor" só DEPOIS de Reunião (por posicao). */
+  stages?: FunnelStage[]
 }
 
 // Cor do ponto da fase por tom (neutro / ganho / perda) — alinhado ao funil.
@@ -66,7 +70,7 @@ const INTERACTION_LABEL: Record<string, string> = {
   briefing: 'Briefing IA', sistema: 'Sistema',
 }
 
-export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, currentUser }: Props) {
+export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, currentUser, stages }: Props) {
   const [interactions, setInteractions] = useState<Interaction[]>([])
   const [currentLead, setCurrentLead] = useState<Lead>(lead)
   const [noteText, setNoteText] = useState('')
@@ -83,11 +87,23 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
   const [deleting, setDeleting] = useState(false)
   const [briefing, setBriefing] = useState<BriefingResult | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
+  const [valueDraft, setValueDraft] = useState(String(lead.value || ''))
 
   const supabase = createClient()
   const { toast } = useToast()
   const scoreInfo = getScoreInfo(currentLead.score)
   const currentPhase = ALL_COLUMNS.find(c => c.key === currentLead.status)
+
+  // Valor (leads.value) editável só DEPOIS de "Reunião Agendada" — comparando POSICAO da fase atual
+  // com a da fase slug 'reuniao' (NÃO hardcode o 4; sobrevive a reordenações). Fallback: ordem de ALL_COLUMNS.
+  const posOf = (slug: string) => {
+    const st = stages?.find(s => s.slug === slug)
+    if (st) return st.posicao
+    const idx = ALL_COLUMNS.findIndex(c => c.key === slug)
+    return idx >= 0 ? idx : -1
+  }
+  const reuniaoPos = posOf('reuniao')
+  const valueEditable = reuniaoPos >= 0 && posOf(currentLead.status) > reuniaoPos
 
   // Move o lead de fase pelo seletor: otimista no painel; delega persistência ao
   // board (onMoveStage = mesmo fluxo do arrastar, inclui "ganhou"); rollback se falhar.
@@ -154,6 +170,25 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
     } else {
       onUpdated(updated)
       toast({ type: 'success', message: 'Fuso atualizado.' })
+    }
+  }
+
+  // Salva o valor do plano (leads.value). NÃO muda como é salvo/usado em cálculo — só um update do
+  // número. Otimista + rollback. Só é chamado quando o campo está liberado (valueEditable).
+  const changeValue = async () => {
+    const num = parseFloat(valueDraft)
+    const next = Number.isFinite(num) && num > 0 ? num : 0
+    if (next === (currentLead.value || 0)) return
+    const prev = currentLead.value
+    const updated = { ...currentLead, value: next }
+    setCurrentLead(updated)
+    const { error } = await supabase.from('leads').update({ value: next }).eq('id', lead.id)
+    if (error) {
+      setCurrentLead(c => ({ ...c, value: prev }))
+      toast({ type: 'error', message: `Não foi possível salvar o valor: ${error.message}` })
+    } else {
+      onUpdated(updated)
+      toast({ type: 'success', message: 'Valor atualizado.' })
     }
   }
 
@@ -395,6 +430,22 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
             <option value="">Sem fuso</option>
             {FUSO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+        </div>
+
+        {/* Valor do plano (leads.value) — editável SÓ depois de "Reunião Agendada" (por posicao).
+            Fases bloqueadas: input some; se já houver valor salvo, mostra só leitura (NUNCA apaga). */}
+        <div className="px-5 py-3 border-b border-border">
+          <span className="text-xs text-muted-foreground">Valor do plano</span>
+          {valueEditable ? (
+            <input type="number" min="0" step="1" inputMode="decimal"
+              value={valueDraft} onChange={e => setValueDraft(e.target.value)} onBlur={changeValue}
+              placeholder="0"
+              className="mt-1 w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime min-h-[44px]" />
+          ) : (currentLead.value || 0) > 0 ? (
+            <p className="mt-1 font-tech text-sm text-bento-text tabular-nums">{usdCompact(currentLead.value || 0)} <span className="text-[10px] text-bento-muted">· somente leitura</span></p>
+          ) : (
+            <p className="mt-1 text-xs text-bento-muted/70">Disponível após Reunião Agendada</p>
+          )}
         </div>
 
         {/* Score */}
