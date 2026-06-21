@@ -6,6 +6,14 @@ Categorias: 🐛 Fix · 🔄 Mudança · ✨ Novidade
 
 ---
 
+✨ Contatos: botão **"Excluir de vez"** (exclusão permanente) — SÓ para leads.
+- Aparece só em linha de **lead** (`r.origem === 'lead'`); cliente nunca mostra (continua só desativar).
+- Modal de confirmação destrutivo (nome + aviso "apaga o lead e todo o histórico PARA SEMPRE"); botões Cancelar + "Excluir de vez" (vermelho, separado).
+- Apaga o lead da linha **+ leads duplicados** (mesmo telefone/email normalizado, mesmo dedup da lista). **GUARDA anti-cliente roda ANTES do delete:** se casar com cliente, aborta ("desative em vez de excluir").
+- Escreve **só** em `leads` (`delete().in('id', …)`); histórico (`lead_interactions`/`lead_milestones`) some por ON DELETE CASCADE. **Nada financeiro tocado** (clients/client_payments/weekly_payments/deals/meetings/presentations intactos). Remoção otimista + toast.
+
+---
+
 ✨ Funil: nova fase **"Negócio Futuro"** (`negocio_futuro`) — entre "Venda Perdida" e "Lixeira".
 - Fase de "guardar pra depois": cor **neutra (zinc/cinza)**, tom `neutral`. Coluna aparece sozinha (funil é DB-driven via `funnel_stages`).
 - Suporte ao slug no frontend: união `LeadStatus` + `ALL_COLUMNS` (comercial/types.ts), `Lead.status` legado (`@/types`), `STATIC_SLUGS` + mapa de linguagem natural do agente (SuperAgent), `VALID_STATUS` do briefing.

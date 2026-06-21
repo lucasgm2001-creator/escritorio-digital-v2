@@ -1,8 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Search, ChevronDown, Check } from 'lucide-react'
+import { Search, ChevronDown, Check, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/toast'
 import { ALL_COLUMNS, FUSO_LABELS, type Lead } from '../types'
 import type { Client } from '../../clientes/ClientesClient'
 
@@ -82,6 +84,11 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
   const [faseSel, setFaseSel] = useState<Set<string>>(new Set())
   const [nichoSel, setNichoSel] = useState<Set<string>>(new Set())
   const [fusoSel, setFusoSel] = useState<Set<string>>(new Set())
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())   // exclusão otimista (ids de lead apagados)
+  const [confirm, setConfirm] = useState<Row | null>(null)               // linha aguardando confirmação de exclusão
+  const [deleting, setDeleting] = useState(false)
+  const { toast } = useToast()
+  const supabase = createClient()
 
   const toggle = (set: Set<string>, setSet: (s: Set<string>) => void) => (v: string) => {
     const next = new Set(set)
@@ -116,8 +123,10 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
         nicho: (l.nicho ?? '').trim(), fuso: (l.fuso ?? '') || '', chegada: l.received_at ?? '',
       })
     }
-    return out.sort((a, b) => (b.chegada || '').localeCompare(a.chegada || ''))
-  }, [leads, clients])
+    return out
+      .filter(r => !removedIds.has(r.id))
+      .sort((a, b) => (b.chegada || '').localeCompare(a.chegada || ''))
+  }, [leads, clients, removedIds])
 
   // Opções dos filtros.
   const faseOptions = useMemo(() => [
@@ -142,6 +151,46 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
   const open = (r: Row) => {
     if (r.origem === 'lead') { const l = leads.find(x => x.id === r.id); if (l) onOpenLead(l) }
     else onOpenClient(r.id)
+  }
+
+  // Exclusão PERMANENTE — só leads. Junta o lead da linha + duplicados (mesmo phone/email
+  // normalizado). GUARDA anti-cliente roda ANTES do delete (mesmo se a UI falhar). O banco tem
+  // ON DELETE CASCADE em lead_interactions/lead_milestones → o histórico some junto. NÃO toca em
+  // nenhuma tabela de cliente/dinheiro (clients/client_payments/weekly_payments/deals/meetings/presentations).
+  const doDelete = async (r: Row) => {
+    const p = onlyDigits(r.phone), e = lower(r.email)
+
+    // GUARDA: reconfirma que o contato NÃO casa com nenhum cliente (mesmo phone/email normalizado).
+    const clientKeys = new Set<string>()
+    for (const c of clients) {
+      const cp = onlyDigits(c.phone); if (cp) clientKeys.add('p:' + cp)
+      const ce = lower(c.email); if (ce) clientKeys.add('e:' + ce)
+    }
+    if ((p && clientKeys.has('p:' + p)) || (e && clientKeys.has('e:' + e))) {
+      toast({ type: 'error', message: 'Esse contato é cliente — desative em vez de excluir.' })
+      setConfirm(null)
+      return
+    }
+
+    // Ids a apagar: o da linha + leads duplicados (mesmo phone/email). Sem contato → só o da linha.
+    const ids = new Set<string>([r.id])
+    if (p || e) {
+      for (const l of leads) {
+        if ((p && onlyDigits(l.phone) === p) || (e && lower(l.email) === e)) ids.add(l.id)
+      }
+    }
+    const idArr = Array.from(ids)
+
+    setDeleting(true)
+    const { error } = await supabase.from('leads').delete().in('id', idArr)
+    setDeleting(false)
+    if (error) {
+      toast({ type: 'error', message: `Não foi possível excluir: ${error.message}` })
+      return
+    }
+    setRemovedIds(prev => { const n = new Set(prev); for (const id of idArr) n.add(id); return n })   // otimista: somem da lista
+    setConfirm(null)
+    toast({ type: 'success', message: 'Contato excluído' })
   }
 
   return (
@@ -171,14 +220,27 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
         ) : (
           <div className="space-y-1.5">
             {visible.map(r => (
-              <button key={`${r.origem}-${r.id}`} onClick={() => open(r)}
-                className="w-full text-left bento-fx p-3 hover:border-lime/40 transition-colors">
+              <div key={`${r.origem}-${r.id}`}
+                onClick={() => open(r)}
+                role="button" tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r) } }}
+                className="w-full text-left bento-fx p-3 hover:border-lime/40 transition-colors cursor-pointer">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-bento-text truncate">{r.name || 'Sem nome'}</p>
                     {r.company && <p className="text-xs text-bento-muted truncate">{r.company}</p>}
                   </div>
-                  {r.chegada && <span className="font-tech text-[10px] text-bento-muted shrink-0 tabular-nums">{fmtChegada(r.chegada)}</span>}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {r.chegada && <span className="font-tech text-[10px] text-bento-muted tabular-nums">{fmtChegada(r.chegada)}</span>}
+                    {/* Excluir de vez — SÓ leads. Cliente nunca é excluído (só desativado). */}
+                    {r.origem === 'lead' && (
+                      <button type="button" aria-label="Excluir de vez" title="Excluir de vez"
+                        onClick={e => { e.stopPropagation(); setConfirm(r) }}
+                        className="p-1 -mr-1 rounded-md text-bento-muted/50 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-bento-border text-bento-dim font-semibold">
@@ -188,11 +250,48 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
                   {r.fuso && <span className="font-tech text-[10px] px-2 py-0.5 rounded-full bg-bento-bg border border-bento-border text-bento-muted">{FUSO_LABELS[r.fuso] ?? r.fuso}</span>}
                   {r.phone && <span className="font-tech text-[11px] text-bento-muted ml-auto tabular-nums">{r.phone}</span>}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Confirmação de exclusão PERMANENTE — só leads */}
+      {confirm && (
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (!deleting) setConfirm(null) }} />
+          <div className="relative bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-full bg-red-500/15 flex items-center justify-center flex-none">
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="font-display font-bold text-bento-text leading-tight">Excluir de vez</h2>
+                  <p className="text-sm text-bento-dim truncate">{confirm.name || 'Sem nome'}</p>
+                </div>
+              </div>
+
+              <div className="rounded-btn border border-red-800/50 bg-red-900/20 p-3">
+                <p className="text-sm text-red-200">
+                  Isso apaga o lead e todo o histórico dele (transcrições, briefings, notas) <span className="font-bold">PARA SEMPRE</span>. Não dá pra desfazer.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <button type="button" onClick={() => setConfirm(null)} disabled={deleting}
+                  className="w-full border border-bento-border text-bento-dim py-2.5 rounded-btn text-sm font-medium hover:border-lime hover:text-bento-text transition-colors disabled:opacity-50 min-h-[44px]">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => doDelete(confirm)} disabled={deleting}
+                  className="w-full mt-1 bg-red-600 text-white py-2.5 rounded-btn text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 min-h-[44px]">
+                  {deleting ? 'Excluindo...' : 'Excluir de vez'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
