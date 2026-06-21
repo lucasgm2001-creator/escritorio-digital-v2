@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, type LucideIcon } from 'lucide-react'
+import { X, Plus, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -27,23 +27,38 @@ export function CollapsibleSection({ title, icon: Icon, defaultOpen = false, bad
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className={cn('lg:contents', className)}>
-      {/* Cabeçalho — só mobile */}
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
+      {/* Cabeçalho — só mobile. Clicar ABRE; quando aberto, o X (canto direito) é quem FECHA. */}
+      <div
         className={cn(
-          'lg:hidden w-full flex items-center gap-2.5 px-4 py-3 min-h-[44px] text-left rounded-bento border border-bento-border bg-bento-panel transition-colors',
+          'lg:hidden flex items-center rounded-bento border border-bento-border bg-bento-panel transition-colors',
           open && 'rounded-b-none',
         )}
       >
-        {Icon && <Icon className="w-4 h-4 text-lime-fg flex-none" />}
-        <span className="font-display font-bold text-bento-text text-sm flex-1 min-w-0 truncate">{title}</span>
-        {badge != null && <span className="font-tech text-[10px] text-bento-muted tabular-nums flex-none">{badge}</span>}
-        <ChevronDown className={cn('w-4 h-4 text-bento-muted flex-none transition-transform', open && 'rotate-180')} />
-      </button>
+        <button
+          type="button"
+          onClick={() => { if (!open) setOpen(true) }}
+          aria-expanded={open}
+          tabIndex={open ? -1 : 0}
+          className="flex-1 min-w-0 flex items-center gap-2.5 px-4 py-3 min-h-[44px] text-left"
+        >
+          {Icon && <Icon className="w-4 h-4 text-lime-fg flex-none" />}
+          <span className="font-display font-bold text-bento-text text-sm flex-1 min-w-0 truncate">{title}</span>
+          {badge != null && <span className="font-tech text-[10px] text-bento-muted tabular-nums flex-none">{badge}</span>}
+          {!open && <Plus className="w-4 h-4 text-bento-muted flex-none" />}
+        </button>
+        {open && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Fechar"
+            className="flex-none w-11 h-11 mr-1 flex items-center justify-center rounded-md text-bento-muted hover:text-bento-text transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
-      {/* Conteúdo — instância única. Desktop: `lg:contents` (renderiza no lugar, sem chrome). */}
+      {/* Conteúdo — instância única, SEMPRE no DOM (desktop usa lg:contents → renderiza no lugar). */}
       <div
         className={cn(
           'lg:contents',
