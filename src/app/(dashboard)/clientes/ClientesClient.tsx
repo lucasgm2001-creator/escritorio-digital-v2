@@ -598,8 +598,8 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Contratos Ativos',   value: clients.filter(c => c.status === 'ativo').length, color: 'text-green-400', accent: 'before:bg-green-500' },
           { label: 'MRR Total',          value: formatCurrency(mrr, 'en-US', 'USD'),              color: 'text-lime-fg',   accent: 'before:bg-lime' },
+          { label: 'Contratos Ativos',   value: clients.filter(c => c.status === 'ativo').length, color: 'text-green-400', accent: 'before:bg-green-500' },
           { label: 'Contratos Inativos', value: clients.filter(c => c.status === 'inativo').length, color: 'text-bento-muted', accent: 'before:bg-slate-500' },
         ].map(s => (
           <div key={s.label} className={`stat-card ${s.accent}`}>
