@@ -74,25 +74,26 @@ export function Sidebar({ open, onToggle, mobileClose }: SidebarProps) {
         isMobileDrawer ? 'w-56' : open ? 'w-56' : 'w-[60px]'
       )}
     >
-      {/* Marca do app — logo REAL DR Growth (estática, public/logo-full.png), a MESMA do cabeçalho
-          mobile. Expandida = selo completo; recolhida (rail estreito) = monograma "DR" (icon-192). */}
+      {/* Marca do app — logo REAL DR Growth (azul, fundo transparente), a MESMA do cabeçalho mobile.
+          Expandida = selo completo (logo-full); recolhida (rail estreito) = monograma "DR" (logo-mark).
+          Sem bg/caixa/borda/rounded atrás: a imagem transparente senta limpa no fundo (claro e escuro). */}
       <div className="flex items-center h-14 px-3 border-b border-sidebar-border/10 overflow-hidden gap-2.5">
         {(open || isMobileDrawer) ? (
           <Image
             src="/logo-full.png"
             alt="DR Growth — Escritório Digital"
-            width={923}
-            height={308}
+            width={1417}
+            height={384}
             priority
             className="h-8 w-auto max-w-full object-contain object-left shrink-0"
           />
         ) : (
           <Image
-            src="/icon-192.png"
+            src="/logo-mark.png"
             alt="DR Growth"
-            width={28}
-            height={28}
-            className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
+            width={378}
+            height={250}
+            className="w-7 h-7 object-contain shrink-0 mx-auto"
           />
         )}
         {isMobileDrawer && (

@@ -85,10 +85,10 @@ export function Topbar({ onMenuToggle, userName = 'Usuário', userInitial = 'U',
       <Image
         src="/logo-full.png"
         alt="DR Growth — Escritório Digital"
-        width={923}
-        height={308}
+        width={1417}
+        height={384}
         priority
-        className="h-7 w-auto max-w-[44vw] object-contain object-left shrink-0 lg:hidden"
+        className="h-8 w-auto max-w-[44vw] object-contain object-left shrink-0 lg:hidden"
       />
 
       {/* Título da seção REMOVIDO daqui — cada página já tem seu próprio título de conteúdo (evita
