@@ -52,7 +52,7 @@ function UserAvatar({ avatarUrl, userInitial }: { avatarUrl?: string | null; use
   )
 }
 
-export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial = 'U', avatarUrl }: TopbarProps) {
+export function Topbar({ onMenuToggle, userName = 'Usuário', userInitial = 'U', avatarUrl }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const router = useRouter()
@@ -80,8 +80,8 @@ export function Topbar({ title, onMenuToggle, userName = 'Usuário', userInitial
         </svg>
       </button>
 
-      <h1 className="font-semibold text-foreground text-sm tracking-tight truncate min-w-0">{title}</h1>
-
+      {/* Título da seção REMOVIDO daqui — cada página já tem seu próprio título de conteúdo (evita
+          nome duplicado). O Topbar mantém só relógios + avatar; a seção ativa fica na Sidebar. */}
       <div className="ml-auto flex items-center gap-3 sm:gap-4 min-w-0">
         {/* Fusos sempre visíveis (Brasília lime + EUA Leste/Montanha/Oeste). Mobile (<1024): grade 2x2
             compacta, cabe sem overflow; desktop (lg+): uma linha, igual a hoje. */}
