@@ -1,7 +1,7 @@
 import { ddmm } from '@/lib/format'
 
 // Seletor de período compartilhado (mesma lógica do Relatório de Atividades).
-export type Mode = 'dia' | 'semana' | 'mes' | 'semestre' | 'ano'
+export type Mode = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'ano' | 'tudo'
 export interface Range { mode: string; start: Date; end: Date; label: string }
 
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
@@ -21,6 +21,15 @@ export function rangeFor(mode: Mode, now = new Date()): Range {
     const start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1))
     const end = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0))
     return { mode, start, end, label: `${MONTHS[now.getMonth()]} de ${now.getFullYear()}` }
+  }
+  if (mode === 'trimestre') {
+    const q = Math.floor(now.getMonth() / 3)
+    const start = startOfDay(new Date(now.getFullYear(), q * 3, 1))
+    const end = endOfDay(new Date(now.getFullYear(), q * 3 + 3, 0))
+    return { mode, start, end, label: `${q + 1}º trimestre de ${now.getFullYear()}` }
+  }
+  if (mode === 'tudo') {
+    return { mode, start: new Date(2000, 0, 1), end: endOfDay(now), label: 'Tudo' }
   }
   if (mode === 'semestre') {
     const h1 = now.getMonth() < 6

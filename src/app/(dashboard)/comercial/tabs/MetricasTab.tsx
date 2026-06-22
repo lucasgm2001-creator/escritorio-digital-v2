@@ -7,7 +7,10 @@ import { cn } from '@/lib/utils'
 import type { Lead } from '../types'
 import { ALL_COLUMNS } from '../types'
 import { usdCompact as fmt, ymd } from '@/lib/format'
-import { rangeFor, MODES, type Range } from '@/lib/period'
+import { rangeFor, type Mode, type Range } from '@/lib/period'
+
+// Períodos da Métricas (default = Este mês). 'tudo' usa janela ampla (pega tudo).
+const METRICAS_MODES: [Mode, string][] = [['semana', 'Esta semana'], ['mes', 'Este mês'], ['trimestre', 'Este trimestre'], ['tudo', 'Tudo']]
 
 interface Props { leads: Lead[] }
 
@@ -17,7 +20,7 @@ const isTerminal = (s: string) => s === 'fechado' || s === 'perdido' || s === 'l
 const card = 'bento-fx p-5'
 
 export function MetricasTab({ leads }: Props) {
-  const [range, setRange] = useState<Range>(() => rangeFor('semana'))
+  const [range, setRange] = useState<Range>(() => rangeFor('mes'))
 
   // Marcos do ciclo (lead_milestones) com a DATA do marco — fonte das métricas por período.
   const [milestones, setMilestones] = useState<Milestone[] | null>(null)
@@ -89,12 +92,12 @@ export function MetricasTab({ leads }: Props) {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 overflow-auto h-full bg-background">
-      {/* Seletor de período (espelha o Relatório de Atividades). Padrão = Semana atual. */}
+      {/* Seletor de período. Padrão = Este mês. Filtra os números pelo período (created_at/received_at + marcos). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1">
-          {MODES.map(([mode, label]) => (
+        <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {METRICAS_MODES.map(([mode, label]) => (
             <button key={mode} onClick={() => setRange(rangeFor(mode))}
-              className={cn('px-3 py-1.5 rounded-[8px] text-xs font-medium transition-colors',
+              className={cn('px-3 py-1.5 rounded-[8px] text-xs font-medium shrink-0 whitespace-nowrap transition-colors',
                 range.mode === mode ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
               {label}
             </button>
