@@ -13,11 +13,10 @@ interface DashboardShellProps {
   userName: string
   userId: string
   avatarUrl: string | null
-  logoUrl: string | null
   pageTitles: Record<string, string>
 }
 
-export function DashboardShell({ children, userName, userId, avatarUrl, logoUrl, pageTitles }: DashboardShellProps) {
+export function DashboardShell({ children, userName, userId, avatarUrl, pageTitles }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen]   = useState(false)
   const [isMobile, setIsMobile]       = useState(false)
@@ -62,7 +61,6 @@ export function DashboardShell({ children, userName, userId, avatarUrl, logoUrl,
         <Sidebar
           open={sidebarOpen}
           onToggle={() => setSidebarOpen(o => !o)}
-          logoUrl={logoUrl}
         />
       )}
 
@@ -77,7 +75,6 @@ export function DashboardShell({ children, userName, userId, avatarUrl, logoUrl,
             <Sidebar
               open={true}
               onToggle={() => setMobileOpen(false)}
-              logoUrl={logoUrl}
               mobileClose={() => setMobileOpen(false)}
             />
           </div>

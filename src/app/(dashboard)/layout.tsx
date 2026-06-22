@@ -1,9 +1,7 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { ToastProvider } from '@/components/ui/toast'
 import { capitalizeName } from '@/lib/utils'
-import { getSystemLogoUrl } from '@/lib/logo'
 import { getSessionUser, getProfile } from '@/lib/supabase/session'
 import { CommissionLockProvider } from '@/components/commission/CommissionLock'
 
@@ -24,11 +22,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  // profile (name + avatar numa query só, cacheada por request) + logo em PARALELO.
-  const [profile, logoUrl] = await Promise.all([
-    getProfile(user.id),
-    getSystemLogoUrl(createClient()),
-  ])
+  // profile (name + avatar numa query só, cacheada por request). A marca do app é estática
+  // (public/logo-full.png na Sidebar/cabeçalho) — não depende mais do logo do Storage.
+  const profile = await getProfile(user.id)
   const avatarUrl = profile?.avatar_url ?? null
 
   return (
@@ -36,7 +32,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userName={capitalizeName(profile?.name ?? user.email?.split('@')[0] ?? 'Usuário')}
       userId={user.id}
       avatarUrl={avatarUrl}
-      logoUrl={logoUrl}
       pageTitles={PAGE_TITLES}
     >
       <ToastProvider><CommissionLockProvider>{children}</CommissionLockProvider></ToastProvider>

@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Presentation } from 'lucide-react'
 
@@ -56,16 +55,12 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   open: boolean
   onToggle: () => void
-  logoUrl?: string | null
   mobileClose?: () => void
 }
 
-export function Sidebar({ open, onToggle, logoUrl, mobileClose }: SidebarProps) {
+export function Sidebar({ open, onToggle, mobileClose }: SidebarProps) {
   const pathname = usePathname()
   const isMobileDrawer = !!mobileClose
-  // Se a logo customizada não existir/falhar (404 no bucket), caímos no ícone padrão.
-  const [logoFailed, setLogoFailed] = useState(false)
-  const showCustomLogo = !!logoUrl && !logoFailed
 
   // App pessoal de usuário único: sem papéis, todos os itens são visíveis.
   const mainItems   = NAV_ITEMS.filter(i => i.group === 'main')
@@ -79,54 +74,26 @@ export function Sidebar({ open, onToggle, logoUrl, mobileClose }: SidebarProps) 
         isMobileDrawer ? 'w-56' : open ? 'w-56' : 'w-[60px]'
       )}
     >
-      {/* Marca do app — logo REAL DR Growth (estática, em public/). Expandido = selo completo;
-          recolhido = monograma "DR". logoUrl (system_logo de Configurações) é override opcional. */}
+      {/* Marca do app — logo REAL DR Growth (estática, public/logo-full.png), a MESMA do cabeçalho
+          mobile. Expandida = selo completo; recolhida (rail estreito) = monograma "DR" (icon-192). */}
       <div className="flex items-center h-14 px-3 border-b border-sidebar-border/10 overflow-hidden gap-2.5">
         {(open || isMobileDrawer) ? (
-          showCustomLogo ? (
-            <>
-              <Image
-                src={logoUrl}
-                alt="Logo"
-                width={28}
-                height={28}
-                onError={() => setLogoFailed(true)}
-                className="w-7 h-7 rounded-lg object-contain shrink-0"
-              />
-              <div className="overflow-hidden flex-1 min-w-0">
-                <span className="font-bold text-sidebar-foreground text-sm tracking-tight whitespace-nowrap block truncate">DR Growth</span>
-                <p className="text-[10px] text-sidebar-muted whitespace-nowrap leading-none mt-0.5">Escritório Digital</p>
-              </div>
-            </>
-          ) : (
-            <Image
-              src="/logo-full.png"
-              alt="DR Growth — Escritório Digital"
-              width={923}
-              height={308}
-              priority
-              className="h-8 w-auto max-w-full object-contain object-left shrink-0"
-            />
-          )
+          <Image
+            src="/logo-full.png"
+            alt="DR Growth — Escritório Digital"
+            width={923}
+            height={308}
+            priority
+            className="h-8 w-auto max-w-full object-contain object-left shrink-0"
+          />
         ) : (
-          showCustomLogo ? (
-            <Image
-              src={logoUrl}
-              alt="Logo"
-              width={28}
-              height={28}
-              onError={() => setLogoFailed(true)}
-              className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
-            />
-          ) : (
-            <Image
-              src="/icon-192.png"
-              alt="DR Growth"
-              width={28}
-              height={28}
-              className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
-            />
-          )
+          <Image
+            src="/icon-192.png"
+            alt="DR Growth"
+            width={28}
+            height={28}
+            className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
+          />
         )}
         {isMobileDrawer && (
           <button onClick={mobileClose}
