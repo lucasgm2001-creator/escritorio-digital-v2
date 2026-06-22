@@ -294,10 +294,17 @@ export class SuperAgent {
     const STATIC_SLUGS = ['novo', 'interagiu', 'nao_interagiu', 'reuniao', 'no_show', 'reagendamento', 'proposta', 'fechado', 'perdido', 'negocio_futuro', 'lixeira']
     const slugs = stages.length ? stages.filter(s => !s.arquivada).map(s => s.slug) : STATIC_SLUGS
     const won = wonSlug(stages)
+    // FASE 1 do agente: só as 4 ações seguras. As 3 sensíveis (editar_cliente, registrar_pagamento,
+    // registrar_reuniao) ficam ESCONDIDAS por esta flag — NÃO vão pro modelo nem executam. Trocar
+    // para false reativa (o código delas continua intacto).
+    const AGENT_PHASE1_ONLY = true
+    const acoesPrompt = AGENT_PHASE1_ONLY
+      ? 'Você PODE executar SÓ estas ações pelas ferramentas: create_lead (criar lead — entra na fase Novo), create_task (criar tarefa), complete_task (marcar uma tarefa como concluída) e mover_lead (mover lead de estágio). Para perguntas, consultas e análises, responda em texto, sem ferramenta. Você AINDA NÃO executa: registrar venda/pagamento de comissão, registrar reunião, criar/editar cliente, editar o valor de um lead, nem qualquer exclusão — se pedirem, explique que ainda não faz isso e sugira fazer manualmente na tela correspondente.'
+      : 'Você PODE executar ações pelas ferramentas: create_lead (criar lead), create_task (criar tarefa), complete_task (marcar uma tarefa como concluída), mover_lead (mover lead de estágio), editar_cliente (editar dados de um cliente — NUNCA excluir), registrar_pagamento (registrar o pagamento da próxima semana de uma venda JÁ existente) e registrar_reuniao (registrar reunião, US$ 15 padrão). Use a ferramenta quando o usuário pedir a ação correspondente. IMPORTANTE: NÃO existe ferramenta de criar venda/deal — registrar uma venda nova = mover o lead para "Venda Fechada" (mover_lead). Para perguntas, consultas e análises, responda em texto, sem ferramenta.'
     const system = [
       'Você é o assistente do Escritório Digital DR Growth. Responda em português, de forma concisa e prática.',
       `Hoje é ${opts.todayLabel} (${opts.today}). Resolva datas relativas (hoje, amanhã, depois de amanhã, sexta, segunda, semana que vem) para datas absolutas no formato YYYY-MM-DD a partir de hoje. Se o dia da semana já passou nesta semana, use a próxima ocorrência.`,
-      'Você PODE executar ações pelas ferramentas: create_lead (criar lead), create_task (criar tarefa), complete_task (marcar uma tarefa como concluída), mover_lead (mover lead de estágio), editar_cliente (editar dados de um cliente — NUNCA excluir), registrar_pagamento (registrar o pagamento da próxima semana de uma venda JÁ existente) e registrar_reuniao (registrar reunião, US$ 15 padrão). Use a ferramenta quando o usuário pedir a ação correspondente. IMPORTANTE: NÃO existe ferramenta de criar venda/deal — registrar uma venda nova = mover o lead para "Venda Fechada" (mover_lead). Para perguntas, consultas e análises, responda em texto, sem ferramenta.',
+      acoesPrompt,
       'Fechar venda = mover_lead para "Venda Fechada". Inclua o parâmetro `plano` com o nome do plano/contrato que o usuário escolher (veja os planos no campo "plans" do contexto). Se ele não disse qual plano, NÃO invente — deixe `plano` vazio que o sistema pergunta.',
       'Nunca diga que já criou algo: ao chamar uma ferramenta, o aplicativo ainda vai pedir a confirmação do usuário antes de gravar.',
       'Se faltar um dado obrigatório (nome do lead, ou título da tarefa), peça-o em texto antes de usar a ferramenta.',
@@ -312,7 +319,8 @@ export class SuperAgent {
       messages,
       tools: {
         create_lead: createLeadTool, create_task: createTaskTool, complete_task: completeTaskTool, mover_lead: buildMoverLeadTool(slugs),
-        editar_cliente: editarClienteTool, registrar_pagamento: registrarPagamentoTool, registrar_reuniao: registrarReuniaoTool,
+        // Ações sensíveis (dinheiro/cliente) — só quando a Fase 1 estiver desligada. Escondidas do modelo nesta fase.
+        ...(AGENT_PHASE1_ONLY ? {} : { editar_cliente: editarClienteTool, registrar_pagamento: registrarPagamentoTool, registrar_reuniao: registrarReuniaoTool }),
       },
       maxOutputTokens: 600,
     })

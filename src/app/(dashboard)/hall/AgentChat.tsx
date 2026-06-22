@@ -37,6 +37,10 @@ async function getFxRate(): Promise<number> {
   return 5.40
 }
 
+// FASE 1: ações sensíveis (dinheiro/cliente) ficam escondidas do modelo (ver SuperAgent). Este set é
+// só um guard de segurança no cliente — se sobrar uma ação pendente antiga, NÃO executa.
+const PHASE1_DISABLED = new Set(['editar_cliente', 'registrar_pagamento', 'registrar_reuniao'])
+
 export function AgentChat({ userId, userName }: { userId: string; userName: string }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -61,6 +65,9 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
   // Grava no banco SÓ depois da confirmação. Escrita client-side (mesma sessão/RLS
   // do resto do app), espelhando os inserts de LeadModal/TaskModal.
   const executeAction = async (action: PendingAction): Promise<string> => {
+    if (PHASE1_DISABLED.has(action.tool)) {
+      return 'Essa ação ainda não está disponível no agente nesta fase. Faça manualmente na tela correspondente.'
+    }
     const p = action.params
     if (action.tool === 'create_lead') {
       const name = String(p.name ?? '').trim()
