@@ -100,26 +100,31 @@ function MuralTaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
 
 // Modal "ver histórico": abre com os itens já em memória (view maior) e, no botão
 // "Ver histórico", busca o histórico PERSISTIDO inteiro da tabela (activities/notices).
-function HistoryModal({ kind, initial, onClose }: {
+function HistoryModal({ kind, onClose }: {
   kind: 'activities' | 'notices'
-  initial: (Activity | Notice)[]
   onClose: () => void
 }) {
-  const [items, setItems] = useState<(Activity | Notice)[]>(initial)
-  const [full, setFull] = useState(false)
+  const PAGE = 200
+  const [items, setItems] = useState<(Activity | Notice)[]>([])
   const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
 
-  const loadFull = async () => {
+  // Pagina do banco do mais recente pro mais antigo (lotes de 200, via .range). Só leitura.
+  const loadMore = async () => {
+    if (loading) return
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from(kind).select('*').order('created_at', { ascending: false }).limit(200)
-    if (data) setItems(data as (Activity | Notice)[])
-    setFull(true)
+    const from = items.length
+    const { data } = await supabase.from(kind).select('*')
+      .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
+    const rows = (data ?? []) as (Activity | Notice)[]
+    setItems(prev => [...prev, ...rows])
+    setHasMore(rows.length === PAGE)
     setLoading(false)
   }
-  // Abre já mostrando TODO o histórico salvo (carrega na montagem). Só leitura.
+  // Carrega o 1º lote ao abrir; "Carregar mais" busca os próximos.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadFull() }, [])
+  useEffect(() => { loadMore() }, [])
 
   const title = kind === 'activities' ? 'Atividade Recente' : 'Mural de Avisos'
 
@@ -162,7 +167,18 @@ function HistoryModal({ kind, initial, onClose }: {
               ))}
             </div>
           )}
-          {full && <p className="font-tech text-[10px] text-bento-muted text-center pt-3">Histórico completo · {items.length} {items.length === 1 ? 'registro' : 'registros'}</p>}
+          {items.length > 0 && (
+            <div className="pt-3 text-center">
+              {hasMore ? (
+                <button onClick={loadMore} disabled={loading}
+                  className="font-tech text-[11px] uppercase tracking-wide text-lime-fg hover:text-lime transition-colors font-semibold disabled:opacity-50 min-h-[36px]">
+                  {loading ? 'Carregando…' : 'Carregar mais'}
+                </button>
+              ) : (
+                <p className="font-tech text-[10px] text-bento-muted">Fim do histórico · {items.length} {items.length === 1 ? 'registro' : 'registros'}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -587,7 +603,7 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
       </div>
 
       {history && (
-        <HistoryModal kind={history} initial={history === 'activities' ? activities : notices} onClose={() => setHistory(null)} />
+        <HistoryModal kind={history} onClose={() => setHistory(null)} />
       )}
     </div>
   )
