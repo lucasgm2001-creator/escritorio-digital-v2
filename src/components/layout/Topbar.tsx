@@ -80,6 +80,17 @@ export function Topbar({ onMenuToggle, userName = 'Usuário', userInitial = 'U',
         </svg>
       </button>
 
+      {/* Marca do app no cabeçalho MOBILE (logo real DR Growth). Desktop usa a Sidebar; aqui some (lg:hidden).
+          O hambúrguer é hidden lg:flex, então no mobile a logo ocupa a esquerda sem empurrar nada. */}
+      <Image
+        src="/logo-full.png"
+        alt="DR Growth — Escritório Digital"
+        width={923}
+        height={308}
+        priority
+        className="h-7 w-auto max-w-[44vw] object-contain object-left shrink-0 lg:hidden"
+      />
+
       {/* Título da seção REMOVIDO daqui — cada página já tem seu próprio título de conteúdo (evita
           nome duplicado). O Topbar mantém só relógios + avatar; a seção ativa fica na Sidebar. */}
       <div className="ml-auto flex items-center gap-3 sm:gap-4 min-w-0">

@@ -79,29 +79,54 @@ export function Sidebar({ open, onToggle, logoUrl, mobileClose }: SidebarProps) 
         isMobileDrawer ? 'w-56' : open ? 'w-56' : 'w-[60px]'
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center h-14 px-3.5 border-b border-sidebar-border/10 overflow-hidden">
-        {showCustomLogo ? (
-          <Image
-            src={logoUrl}
-            alt="Logo"
-            width={28}
-            height={28}
-            onError={() => setLogoFailed(true)}
-            className="w-7 h-7 rounded-lg object-contain shrink-0"
-          />
+      {/* Marca do app — logo REAL DR Growth (estática, em public/). Expandido = selo completo;
+          recolhido = monograma "DR". logoUrl (system_logo de Configurações) é override opcional. */}
+      <div className="flex items-center h-14 px-3 border-b border-sidebar-border/10 overflow-hidden gap-2.5">
+        {(open || isMobileDrawer) ? (
+          showCustomLogo ? (
+            <>
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={28}
+                height={28}
+                onError={() => setLogoFailed(true)}
+                className="w-7 h-7 rounded-lg object-contain shrink-0"
+              />
+              <div className="overflow-hidden flex-1 min-w-0">
+                <span className="font-bold text-sidebar-foreground text-sm tracking-tight whitespace-nowrap block truncate">DR Growth</span>
+                <p className="text-[10px] text-sidebar-muted whitespace-nowrap leading-none mt-0.5">Escritório Digital</p>
+              </div>
+            </>
+          ) : (
+            <Image
+              src="/logo-full.png"
+              alt="DR Growth — Escritório Digital"
+              width={923}
+              height={308}
+              priority
+              className="h-8 w-auto max-w-full object-contain object-left shrink-0"
+            />
+          )
         ) : (
-          <div className="w-7 h-7 rounded-lg bg-lime flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-lime-ink" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-        )}
-        {(open || isMobileDrawer) && (
-          <div className="ml-2.5 overflow-hidden flex-1">
-            <span className="font-bold text-sidebar-foreground text-sm tracking-tight whitespace-nowrap">DR Growth</span>
-            <p className="text-[10px] text-sidebar-muted whitespace-nowrap leading-none mt-0.5">Escritório Digital</p>
-          </div>
+          showCustomLogo ? (
+            <Image
+              src={logoUrl}
+              alt="Logo"
+              width={28}
+              height={28}
+              onError={() => setLogoFailed(true)}
+              className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
+            />
+          ) : (
+            <Image
+              src="/icon-192.png"
+              alt="DR Growth"
+              width={28}
+              height={28}
+              className="w-7 h-7 rounded-lg object-contain shrink-0 mx-auto"
+            />
+          )
         )}
         {isMobileDrawer && (
           <button onClick={mobileClose}
