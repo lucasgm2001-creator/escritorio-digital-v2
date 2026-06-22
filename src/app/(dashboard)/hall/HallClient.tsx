@@ -9,7 +9,7 @@ import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
-import { Maximize2, X, Trash2, Check, Clock, LayoutGrid, CalendarDays, Activity as ActivityIcon, Megaphone, Newspaper, Plus } from 'lucide-react'
+import { X, Trash2, Check, Clock, LayoutGrid, CalendarDays, Activity as ActivityIcon, Megaphone, Newspaper, Plus } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
 import { TarefasClient } from '../tarefas/TarefasClient'
@@ -112,32 +112,29 @@ function HistoryModal({ kind, initial, onClose }: {
   const loadFull = async () => {
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from(kind).select('*').order('created_at', { ascending: false }).limit(500)
+    const { data } = await supabase.from(kind).select('*').order('created_at', { ascending: false }).limit(200)
     if (data) setItems(data as (Activity | Notice)[])
     setFull(true)
     setLoading(false)
   }
+  // Abre já mostrando TODO o histórico salvo (carrega na montagem). Só leitura.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadFull() }, [])
 
   const title = kind === 'activities' ? 'Atividade Recente' : 'Mural de Avisos'
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-[90] flex items-stretch sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[82vh] bg-bento-panel border border-bento-border rounded-bento shadow-card-hover flex flex-col overflow-hidden">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[82vh] bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-bento-border shrink-0">
-          <h3 className="font-display font-bold text-bento-text">{title}</h3>
-          <div className="flex items-center gap-2">
-            {!full && (
-              <button onClick={loadFull} disabled={loading}
-                className="font-tech text-[11px] uppercase tracking-wide text-lime-fg hover:text-lime transition-colors font-semibold disabled:opacity-50">
-                {loading ? 'Carregando…' : 'Ver histórico'}
-              </button>
-            )}
-            <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-bento-muted hover:text-bento-text hover:bg-bento-bg transition-colors"><X className="w-4 h-4" /></button>
-          </div>
+          <h3 className="font-display font-bold text-bento-text">{title} — Histórico</h3>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-bento-muted hover:text-bento-text hover:bg-bento-bg transition-colors"><X className="w-4 h-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          {items.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <p className="text-sm text-bento-muted text-center py-10">Carregando histórico…</p>
+          ) : items.length === 0 ? (
             <p className="text-sm text-bento-muted text-center py-10">Nada {kind === 'activities' ? 'registrado' : 'no mural'} ainda.</p>
           ) : kind === 'activities' ? (
             <div className="divide-y divide-bento-border/60">
@@ -363,13 +360,7 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
             {/* ATIVIDADES RECENTES + MURAL — lado a lado, mesma altura */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
               <CollapsibleSection title="Atividades Recentes" icon={ActivityIcon}>
-                <Panel className="h-full max-lg:p-3" headerClassName="max-lg:hidden" label="Atividades Recentes" action={
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setHistory('activities')} aria-label="Ampliar e ver histórico"
-                      className="text-bento-muted hover:text-lime-fg transition-colors"><Maximize2 className="w-3.5 h-3.5" /></button>
-                    <LiveDot />
-                  </div>
-                }>
+                <Panel className="h-full max-lg:p-3" headerClassName="max-lg:hidden" label="Atividades Recentes" action={<LiveDot />}>
                 {/* Resumo por tipo — barras de proporção */}
                 {typeCounts.length > 0 && (
                   <div className="space-y-2 mb-4 pb-4 border-b border-bento-border/60">
@@ -421,6 +412,10 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
                     {activitiesExpanded ? 'Ver menos' : `Ver mais (${activities.length - 3})`}
                   </button>
                 )}
+                <button type="button" onClick={() => setHistory('activities')}
+                  className="mt-3 pt-3 border-t border-bento-border/60 w-full text-center font-tech text-[11px] uppercase tracking-wide text-bento-muted hover:text-lime-fg transition-colors">
+                  Ver histórico
+                </button>
                 </Panel>
               </CollapsibleSection>
 
@@ -440,8 +435,6 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
                         Postar
                       </button>
                     )}
-                    <button onClick={() => setHistory('notices')} aria-label="Ampliar e ver histórico"
-                      className="text-bento-muted hover:text-lime-fg transition-colors"><Maximize2 className="w-3.5 h-3.5" /></button>
                   </div>
                 }
               >
@@ -525,6 +518,10 @@ export function HallClient({ initialActivities, initialNotices, initialTasks, li
                     ))}
                     </>
                   }
+                  <button type="button" onClick={() => setHistory('notices')}
+                    className="mt-1 pt-3 border-t border-bento-border/60 w-full text-center font-tech text-[11px] uppercase tracking-wide text-bento-muted hover:text-lime-fg transition-colors">
+                    Ver histórico
+                  </button>
                 </div>
                 </Panel>
               </CollapsibleSection>
