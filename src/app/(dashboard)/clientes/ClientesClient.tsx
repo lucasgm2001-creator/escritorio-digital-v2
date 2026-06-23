@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
-import { updateClient, payDueWeeks, voidClientWeek } from '@/lib/commission/actions'
+import { payDueWeeks, voidClientWeek } from '@/lib/commission/actions'
+import { ClienteModal } from './ClienteModal'
 import { createClient } from '@/lib/supabase/client'
 import { useSave } from '@/lib/useSave'
 import { formatCurrency, formatDate, timeAgo } from '@/lib/utils'
@@ -285,7 +286,6 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
   const [newOpen, setNewOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '', fuso: '', nicho: '', city: '', state: '', area_code: '' })
-  const [editForm, setEditForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '', fuso: '', nicho: '', city: '', state: '', area_code: '' })
   const [plans, setPlans] = useState<Plan[]>([])
   const [payments, setPayments] = useState<Record<string, ClientPayment[]>>({})
   const [payOpenId, setPayOpenId] = useState<string | null>(null)
@@ -452,47 +452,6 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
     setLoading(false)
   }
 
-  const handleSaveEdit = async () => {
-    if (!editClient) return
-    const target = editClient
-    setLoading(true)
-    const editPlan = plans.find(p => p.id === editForm.plano_id)
-    const patch = {
-      name: editForm.name || target.name,
-      company: editForm.company || undefined,
-      email: editForm.email || undefined,
-      phone: editForm.phone || undefined,
-      plano_id: editForm.plano_id || target.plano_id || null,
-      plan_weekly: editPlan?.valor_semanal ?? target.plan_weekly,
-      nicho: editForm.nicho.trim() || null,
-      fuso: editForm.fuso || null,
-      city: editForm.city.trim() || null,
-      state: editForm.state || null,
-      area_code: editForm.area_code || null,
-    }
-    const { ok } = await save({
-      optimistic: () => setClients(prev => prev.map(c => c.id === target.id ? ({ ...c, ...patch } as Client) : c)),
-      run: () => updateClient(supabase, target.id, {
-        name: patch.name,
-        company: editForm.company || null,
-        email: editForm.email || null,
-        phone: editForm.phone || null,
-        plano_id: patch.plano_id,
-        plan_weekly: patch.plan_weekly,
-        nicho: patch.nicho,
-        fuso: patch.fuso,
-        city: patch.city,
-        state: patch.state,
-        area_code: patch.area_code,
-      }),
-      rollback: () => setClients(prev => prev.map(c => c.id === target.id ? target : c)),
-      success: 'Cliente atualizado.',
-      error: 'Não foi possível salvar o cliente',
-    })
-    if (ok) setEditClient(null)
-    setLoading(false)
-  }
-
   const handleAddJob = async (client: Client) => {
     const job = jobInput.trim()
     if (!job) return
@@ -574,10 +533,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
   }, [focusClientId])
 
   // Handlers passados ao ClientRow (escopo de módulo).
-  const openEdit = (client: Client) => {
-    setEditClient(client)
-    setEditForm({ name: client.name, company: client.company ?? '', email: client.email ?? '', phone: client.phone ?? '', plano_id: client.plano_id ?? '', fuso: client.fuso ?? '', nicho: client.nicho ?? '', city: client.city ?? '', state: client.state ?? '', area_code: client.area_code ?? '' })
-  }
+  const openEdit = (client: Client) => setEditClient(client)
   const toggleJobs = (id: string) => { setEditingJobsId(editingJobsId === id ? null : id); setJobInput('') }
 
   const rowProps = {
@@ -736,83 +692,13 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
         </div>
       )}
 
-      {/* Modal edição inline */}
+      {/* Edição de cliente — modal compartilhado (mesmo usado na aba Contatos) */}
       {editClient && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
-            <div className="flex items-center justify-between p-5 border-b border-bento-border">
-              <h2 className="font-display font-bold text-bento-text">Editar Cliente</h2>
-              <button onClick={() => setEditClient(null)} className="text-bento-muted hover:text-bento-text transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-5 space-y-3">
-              {[
-                { k: 'name',    label: 'Nome',    ph: editClient.name },
-                { k: 'company', label: 'Empresa', ph: editClient.company ?? '' },
-                { k: 'email',   label: 'Email',   ph: editClient.email ?? '' },
-                { k: 'phone',   label: 'Telefone',ph: editClient.phone ?? '' },
-              ].map(f => (
-                <div key={f.k}>
-                  <label className="block text-xs font-medium text-bento-dim mb-1">{f.label}</label>
-                  <input
-                    value={editForm[f.k as keyof typeof editForm]}
-                    onChange={e => setEditForm(p => ({ ...p, [f.k]: e.target.value }))}
-                    placeholder={f.ph}
-                    className={inputCls}
-                  />
-                </div>
-              ))}
-              <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Plano</label>
-                <select value={editForm.plano_id} onChange={e => setEditForm(prev => ({ ...prev, plano_id: e.target.value }))} className={inputCls}>
-                  {plans.map(p => <option key={p.id} value={p.id}>{p.nome} — ${p.valor_semanal}/sem</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Nicho</label>
-                <input value={editForm.nicho} onChange={e => setEditForm(p => ({ ...p, nicho: e.target.value }))} placeholder="Ex: Roofing, HVAC..." className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Fuso horário</label>
-                <select value={editForm.fuso} onChange={e => setEditForm(p => ({ ...p, fuso: e.target.value }))} className={inputCls}>
-                  <option value="">Sem fuso</option>
-                  {FUSO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              {/* Localização (EUA) — opcional; alimenta o Mapa de Clientes (city/state/area_code) */}
-              <div>
-                <label className="block text-xs font-medium text-bento-dim mb-1">Cidade (EUA)</label>
-                <input value={editForm.city} onChange={e => setEditForm(p => ({ ...p, city: e.target.value }))} placeholder={editClient.city ?? 'Ex.: New York City'} className={inputCls} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-bento-dim mb-1">Estado</label>
-                  <select value={editForm.state} onChange={e => setEditForm(p => ({ ...p, state: e.target.value }))} className={inputCls}>
-                    <option value="">Selecione...</option>
-                    {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-bento-dim mb-1">DDD (area code)</label>
-                  <input inputMode="numeric" maxLength={3} value={editForm.area_code} onChange={e => setEditForm(p => ({ ...p, area_code: sanitizeAreaCode(e.target.value) }))} placeholder="Ex.: 212" className={inputCls} />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setEditClient(null)}
-                  className="flex-1 border border-bento-border text-bento-dim py-2.5 rounded-btn text-sm hover:border-lime hover:text-bento-text transition-colors">
-                  Cancelar
-                </button>
-                <button onClick={handleSaveEdit} disabled={loading}
-                  className="bento-btn flex-1 py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50">
-                  {loading ? 'Salvando...' : 'Salvar'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ClienteModal
+          client={editClient}
+          onClose={() => setEditClient(null)}
+          onSaved={u => setClients(prev => prev.map(c => c.id === u.id ? u : c))}
+        />
       )}
     </div>
   )

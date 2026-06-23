@@ -10,6 +10,7 @@ import { PeriodChips } from '../PeriodChips'
 import { rangeFor, inPeriodByActivity, type Range } from '@/lib/period'
 import { ALL_COLUMNS, FUSO_LABELS, type Lead } from '../types'
 import type { Client } from '../../clientes/ClientesClient'
+import { ClienteModal } from '../../clientes/ClienteModal'
 
 // Lista UNIFICADA de contatos (leads + clientes), deduplicada por telefone/email. Cliente prevalece.
 // Só leitura/navegação — clicar abre o perfil existente (LeadDiary p/ lead, aba Clientes p/ cliente).
@@ -18,7 +19,7 @@ interface Props {
   leads: Lead[]
   clients: Client[]
   onOpenLead: (lead: Lead) => void
-  onOpenClient: (id: string) => void
+  onClientUpdated: (c: Client) => void   // clique em cliente abre o ClienteModal aqui mesmo; salva e reflete no mapa
 }
 
 type Row = {
@@ -82,8 +83,9 @@ function FilterDropdown({ label, options, selected, onToggle }: {
   )
 }
 
-export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props) {
+export function ContatosTab({ leads, clients, onOpenLead, onClientUpdated }: Props) {
   const [search, setSearch] = useState('')
+  const [editClient, setEditClient] = useState<Client | null>(null)
   const [range, setRange] = useState<Range>(() => rangeFor('tudo'))   // período (em memória; reload = "Tudo")
   const [faseSel, setFaseSel] = useState<Set<string>>(new Set())
   const [nichoSel, setNichoSel] = useState<Set<string>>(new Set())
@@ -175,7 +177,7 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
 
   const open = (r: Row) => {
     if (r.origem === 'lead') { const l = leads.find(x => x.id === r.id); if (l) onOpenLead(l) }
-    else onOpenClient(r.id)
+    else { const c = clients.find(x => x.id === r.id); if (c) setEditClient(c) }   // cliente → modal editável
   }
 
   // Exclusão PERMANENTE — só leads. Junta o lead da linha + duplicados (mesmo phone/email
@@ -345,6 +347,15 @@ export function ContatosTab({ leads, clients, onOpenLead, onOpenClient }: Props)
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edição de cliente na própria aba Contatos (modal compartilhado). Salva e reflete no mapa. */}
+      {editClient && (
+        <ClienteModal
+          client={editClient}
+          onClose={() => setEditClient(null)}
+          onSaved={onClientUpdated}
+        />
       )}
     </div>
   )

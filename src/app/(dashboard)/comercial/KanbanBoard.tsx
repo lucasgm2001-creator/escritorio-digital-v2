@@ -81,6 +81,11 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
   useEffect(() => { setLeads(initialLeads) }, [initialLeads])
   // Tempo real: criar/mover/excluir lead reflete ao vivo (merge por id; reconcilia o eco).
   useRealtimeRows<Lead>('leads', setLeads)
+  // Clientes em estado (p/ o Mapa e a edição via Contatos refletirem na hora). Sincroniza com o
+  // servidor e ouve realtime (edição na aba Clientes também reflete aqui).
+  const [clients, setClients] = useState<ClienteRow[]>(initialClients)
+  useEffect(() => { setClients(initialClients) }, [initialClients])
+  useRealtimeRows<ClienteRow>('clients', setClients)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -309,11 +314,11 @@ export function KanbanBoard({ initialLeads, initialStages, initialClients, curre
           </div>
         )}
 
-        {tab === 'contatos'     && <ContatosTab leads={leads} clients={initialClients} onOpenLead={setSelectedLead} onOpenClient={(id) => { setFocusClient(id); setTab('clientes') }} />}
+        {tab === 'contatos'     && <ContatosTab leads={leads} clients={clients} onOpenLead={setSelectedLead} onClientUpdated={c => setClients(prev => prev.map(x => x.id === c.id ? c : x))} />}
         {tab === 'clientes'     && <div className="h-full overflow-auto bg-bento-bg"><ClientesClient initialClients={initialClients} currentUser={currentUser} focusClientId={focusClient} onFocusHandled={() => setFocusClient(null)} /></div>}
         {tab === 'metricas'     && <MetricasTab leads={leads} />}
         {tab === 'vendedores'   && <VendedoresTab />}
-        {tab === 'mapa'         && <ErrorBoundary><MapaTab leads={leads} clients={initialClients} /></ErrorBoundary>}
+        {tab === 'mapa'         && <ErrorBoundary><MapaTab leads={leads} clients={clients} /></ErrorBoundary>}
       </div>
 
       {/* Modals */}
