@@ -288,7 +288,7 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
       } else if (data?.reason === 'sem_dados') {
         toast({ type: 'error', message: 'Sem ligações ou notas suficientes para gerar briefing.' })
       } else {
-        toast({ type: 'error', message: 'Não foi possível gerar o briefing. Tente de novo.' })
+        toast({ type: 'error', message: data?.message || 'Não foi possível gerar o briefing. Tente de novo.' })
       }
     } catch {
       toast({ type: 'error', message: 'Não foi possível gerar o briefing. Tente de novo.' })
@@ -305,8 +305,11 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lead: currentLead, interactions: interactions.slice(0, 10) }),
       })
-      if (!res.ok) throw new Error('falha')
-      const data = await res.json()
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data) {
+        toast({ type: 'error', message: data?.error || 'A IA demorou para responder. Tente a análise novamente.' })
+        return
+      }
       setAiSuggestion(data.suggestion ?? '')
     } catch {
       toast({ type: 'error', message: 'A IA demorou para responder. Tente a análise novamente.' })

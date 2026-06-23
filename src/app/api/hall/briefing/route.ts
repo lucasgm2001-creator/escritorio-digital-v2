@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/require-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
+import { aiErrorMessage } from '@/lib/aiError'
 
 // Briefing matinal do Hall (resumo do dia). SÓ LEITURA: lê tarefas/leads/reuniões/atividades já
 // salvos e pede à IA (mesmo cliente/modelo do /api/leads/briefing) um resumo curto. NÃO recalcula
@@ -105,8 +106,9 @@ export async function POST() {
 
     return NextResponse.json({ ok: true, briefing: str(text) || 'Não consegui gerar o briefing agora.' })
   } catch (e) {
-    console.error('[hall/briefing] erro:', e instanceof Error ? e.message : String(e))
-    // Fallback amigável (status 200) — nunca quebra o Hall.
-    return NextResponse.json({ ok: true, briefing: 'Não consegui gerar o briefing agora — tente novamente em instantes.' })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[hall/briefing] erro:', msg)
+    // Fallback amigável (status 200) — nunca quebra o Hall; mostra o MOTIVO real.
+    return NextResponse.json({ ok: true, briefing: `Não consegui gerar o briefing agora: ${aiErrorMessage(msg)}` })
   }
 }

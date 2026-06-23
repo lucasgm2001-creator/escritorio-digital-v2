@@ -3,6 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/require-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { aiErrorMessage } from '@/lib/aiError'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -71,11 +72,12 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ suggestion: text })
-  } catch {
-    console.error('[lead-analysis] Failed to generate analysis')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[lead-analysis] falhou:', msg)
     return NextResponse.json(
-      { error: 'Não foi possível gerar análise no momento.' },
-      { status: 500 }
+      { error: aiErrorMessage(msg) },
+      { status: 502 }
     )
   }
 }

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/require-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
+import { aiErrorMessage } from '@/lib/aiError'
 
 // Briefing do lead: lê notas (leads.notes) + histórico (lead_interactions), pede um resumo à IA
 // (mesmo modelo do SuperAgent) e SALVA como interação type='briefing'. SÓ LEITURA dos dados +
@@ -80,12 +81,20 @@ export async function POST(req: Request) {
       `Lead: ${str(lead.name) || 'Sem nome'}${lead.company ? ` (${str(lead.company)})` : ''} | Status atual: ${str(lead.status)}\n\n` +
       `Histórico (mais antigo → mais recente):\n${linhas.join('\n')}`
 
-    const { text } = await generateText({
-      model: anthropic(MODEL),
-      system,
-      messages: [{ role: 'user', content: userContent }],
-      maxOutputTokens: 1024,
-    })
+    let text: string
+    try {
+      const res = await generateText({
+        model: anthropic(MODEL),
+        system,
+        messages: [{ role: 'user', content: userContent }],
+        maxOutputTokens: 1024,
+      })
+      text = res.text
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('[leads/briefing] IA falhou:', msg)
+      return NextResponse.json({ ok: false, reason: 'ia', message: aiErrorMessage(msg) }, { status: 502 })
+    }
 
     // Parse seguro (limpa cercas ```json e pega o 1º bloco {...}).
     const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim()
