@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FUSO_OPTIONS, type Lead } from './types'
 import { US_STATES, sanitizeAreaCode } from '@/lib/usStates'
+import { logStageEvent } from '@/lib/stageEvents'
 import { useToast } from '@/components/ui/toast'
 import { ymd } from '@/lib/format'
 
@@ -148,6 +149,13 @@ export function LeadModal({ onClose, onCreated, currentUser }: Props) {
       setLoading(false)
       return
     }
+
+    // Histórico de movimentação: entrada no funil (fromStage=null → toStage='novo'). ADITIVO/best-effort.
+    await logStageEvent(supabase, {
+      leadId: data.id, leadName: data.name,
+      fromStage: null, toStage: data.status ?? 'novo',
+      sellerId: data.assigned_to ?? null, sellerName: data.assigned_name ?? null,
+    })
 
     // Registrar atividade é best-effort: não bloqueia o sucesso do lead.
     await supabase.from('activities').insert({

@@ -7,6 +7,7 @@ import { markMilestones } from '@/lib/leadMilestones'
 import { wonSlug, marcosForSlug, type FunnelStage } from '@/lib/funnelStages'
 import { resolveClientPlan } from '@/lib/commission/actions'
 import { weeklyCommissionUsd, hasCommissionPct, LEGACY_VPS_USD, DEFAULT_TETO_SEMANAS } from '@/lib/commission/planCommission'
+import { logStageEvent } from '@/lib/stageEvents'
 
 type SupaClient = ReturnType<typeof createClient>
 
@@ -145,6 +146,14 @@ export async function moveLead(
   const { error } = await supabase
     .from('leads').update({ status: newStatus, stage_changed_at: nowIso, updated_at: nowIso }).eq('id', lead.id)
   if (error) return { ok: false, error: error.message, notes: [] }
+  // Histórico de movimentação do funil (ADITIVO, best-effort). Cobre TODO move que passa por aqui:
+  // arrastar, botões, diário, restaurar da lixeira e o fechamento (toStage='fechado') — SEM tocar
+  // em runWonFlow. fromStage = status anterior (já garantido ≠ newStatus pelo guard acima).
+  await logStageEvent(supabase, {
+    leadId: lead.id, leadName: lead.name,
+    fromStage: lead.status, toStage: newStatus,
+    sellerId: lead.assigned_to ?? null, sellerName: lead.assigned_name ?? null,
+  })
   // Marcos do ciclo (relatório) — significado lido de funnel_stages. Idempotente, NÃO mexe em comissão.
   await markMilestones(supabase, lead.id, marcosForSlug(stages, newStatus))
   // Won-flow (DINHEIRO) dispara pela FLAG is_won da fase (não por slug fixo). Comportamento idêntico.

@@ -8,6 +8,7 @@ import { type LeadStatus } from '../comercial/types'
 import { loadStages } from '@/lib/funnelStages'
 import { payWeek, payWeekMessage, registerMeeting, updateClient } from '@/lib/commission/actions'
 import { markMilestones } from '@/lib/leadMilestones'
+import { logStageEvent } from '@/lib/stageEvents'
 import { ymd } from '@/lib/format'
 
 interface Message {
@@ -72,7 +73,7 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
     if (action.tool === 'create_lead') {
       const name = String(p.name ?? '').trim()
       if (!name) return 'Não consegui criar: faltou o nome do lead.'
-      const { error } = await supabase.from('leads').insert({
+      const { data, error } = await supabase.from('leads').insert({
         name,
         company: p.company ? String(p.company) : null,
         phone: p.phone ? String(p.phone) : null,
@@ -82,8 +83,14 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
         status: 'novo',
         assigned_to: userId,
         assigned_name: userName,
+      }).select('id').single()
+      if (error || !data) return `Não consegui criar o lead: ${error?.message ?? 'erro'}`
+      // Histórico de movimentação: entrada no funil (ADITIVO/best-effort).
+      await logStageEvent(supabase, {
+        leadId: data.id, leadName: name,
+        fromStage: null, toStage: 'novo',
+        sellerId: userId, sellerName: userName,
       })
-      if (error) return `Não consegui criar o lead: ${error.message}`
       return `Pronto! Lead "${name}" criado no funil (status Novo).`
     }
     if (action.tool === 'create_task') {

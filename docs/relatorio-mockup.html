@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Relatório — Movimentação do Funil</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root{--sans:'Space Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+body.light{--bg1:#f6f8fb;--bg2:#eef2f7;--text:#1c2530;--muted:#647284;--muted2:#9aa7b6;--card:#ffffff;--cardBorder:rgba(30,50,80,.10);--chip:#eef2f7;--chipOn:#1c2530;--chipOnT:#fff;--lime:#9bc91f;--rail:rgba(30,50,80,.07)}
+body.dark{--bg1:#0c1410;--bg2:#0a0f0c;--text:#e9f0ea;--muted:#8aa093;--muted2:#566b5d;--card:#111a14;--cardBorder:rgba(140,200,160,.12);--chip:#16211a;--chipOn:#c2f73a;--chipOnT:#0a0f0c;--lime:#c2f73a;--rail:rgba(140,200,160,.08)}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 20px 50px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.h-l .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--muted2);text-transform:uppercase}
+.h-l h1{font-size:23px;font-weight:700;letter-spacing:-.01em;margin:6px 0 0}
+.h-r{display:flex;gap:8px;align-items:center}
+.theme{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);background:var(--chip);border:1px solid var(--cardBorder);border-radius:8px;padding:7px 11px;cursor:pointer;text-transform:uppercase}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 0 18px}
+.period{display:flex;gap:5px;background:var(--card);border:1px solid var(--cardBorder);border-radius:11px;padding:4px}
+.period button{font-family:var(--mono);font-size:12px;letter-spacing:.03em;color:var(--muted);background:transparent;border:0;padding:8px 15px;border-radius:8px;cursor:pointer;transition:.14s}
+.period button:hover{color:var(--text)}
+.period button.on{background:var(--chipOn);color:var(--chipOnT)}
+.range{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:10px}
+.range .seller{color:var(--text);border:1px solid var(--cardBorder);background:var(--card);padding:6px 10px;border-radius:8px}
+
+/* conversion */
+.conv{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:18px 20px;margin-bottom:14px}
+.conv .ct{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--muted2);text-transform:uppercase;margin-bottom:16px}
+.steps{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.step{flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px;padding:0 6px}
+.step .num{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.step .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.step .bar{height:5px;border-radius:3px;background:var(--rail);margin-top:9px;overflow:hidden}
+.step .bar i{display:block;height:100%;background:var(--lime);border-radius:3px}
+.arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;min-width:54px}
+.arrow .pct{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text)}
+.arrow .cap{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase}
+.rates{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px dashed var(--cardBorder)}
+.rate{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--cardBorder);border-radius:9px;padding:8px 12px;display:flex;gap:8px;align-items:baseline}
+.rate b{font-size:15px;font-weight:700;color:var(--text)}
+.rate.bad b{color:#ef4444}.rate.good b{color:#22c55e}
+
+/* sections grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sec{background:var(--card);border:1px solid var(--cardBorder);border-radius:14px;padding:14px 15px;border-left:3px solid var(--ac,#9aa7b6)}
+.sec h3{font-size:14px;font-weight:600;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sec h3 .c{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ac,#647284);background:color-mix(in srgb,var(--ac,#647284) 12%,transparent);border-radius:20px;padding:2px 9px}
+.rows{margin-top:11px;display:flex;flex-direction:column}
+.r{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--cardBorder)}
+.r:last-child{border-bottom:none}
+.r .who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.r .nm{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .co{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.r .meta{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap;text-align:right}
+.more{font-family:var(--mono);font-size:10.5px;color:var(--muted2);padding-top:9px;letter-spacing:.04em}
+.empty{font-family:var(--mono);font-size:11px;color:var(--muted2);padding:6px 0}
+.foot{font-family:var(--mono);font-size:10.5px;color:var(--muted2);margin-top:16px;text-align:center;letter-spacing:.04em}
+@media (max-width:720px){.grid{grid-template-columns:1fr}.step .num{font-size:24px}.steps{gap:4px}}
+</style>
+</head>
+<body class="light">
+<div class="wrap">
+  <div class="head">
+    <div class="h-l"><div class="eyebrow">DR Growth · Comercial</div><h1>Relatório — Movimentação do Funil</h1></div>
+    <div class="h-r"><button class="theme" id="theme">Tema: Claro</button></div>
+  </div>
+
+  <div class="controls">
+    <div class="period" id="period">
+      <button data-p="semana" class="on">Semana</button>
+      <button data-p="mes">Mês</button>
+      <button data-p="semestre">Semestre</button>
+      <button data-p="ano">Ano</button>
+    </div>
+    <div class="range"><span id="rangeLbl"></span><span class="seller">Vendedor: Lucas</span></div>
+  </div>
+
+  <div class="conv">
+    <div class="ct">Conversão no período</div>
+    <div class="steps" id="steps"></div>
+    <div class="rates" id="rates"></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="foot">Leads de teste e da Lixeira não entram no relatório.</div>
+</div>
+
+<script>
+const SECTIONS=[
+  {key:'entrou', t:'Entraram (Novos)', ac:'#64748b'},
+  {key:'interagiu', t:'Interagiram', ac:'#9bc91f'},
+  {key:'naoint', t:'Não interagiram', ac:'#94a3b8'},
+  {key:'reuniao', t:'Reunião marcada', ac:'#3b82f6'},
+  {key:'noshow', t:'No-show', ac:'#ef4444'},
+  {key:'reag', t:'Reagendamento', ac:'#f59e0b'},
+  {key:'proposta', t:'Proposta em análise', ac:'#8b5cf6'},
+  {key:'futuro', t:'Negócio futuro', ac:'#14b8a6'},
+  {key:'fechou', t:'Fechou (Venda Concluída)', ac:'#22c55e'},
+  {key:'perdido', t:'Não fechou (Venda Perdida)', ac:'#ef4444'},
+];
+const L=(nm,co,d)=>({nm,co,d});
+const SEMANA={
+  range:'Semana de 16–22 jun 2026',
+  funnel:[['Entraram',8],['Interagiram',6],['Reunião',4],['Proposta',2],['Fechou',2]],
+  rates:[['Taxa de reunião','50%',''],['Taxa de fechamento','50%','good'],['No-show','25%','bad']],
+  data:{
+    entrou:[L('Iara Portilho','Color Trends','16/jun'),L('Katia Lima','—','19/jun'),L('Sirlene Oliveira','—','19/jun'),L('Ricardo','—','19/jun'),L('Diego Souza','—','16/jun'),L('Joaquim','—','15/jun'),L('Thais Lima','—','14/jun'),L('Maycon Ferreira','—','14/jun')],
+    interagiu:[L('Iara Portilho','Color Trends','16/jun'),L('Emerson Fuentes','Fuentes Co','16/jun'),L('Matheus Silva','Silva Imports','19/jun'),L('Joaquim','—','17/jun'),L('Thais Lima','—','18/jun'),L('Maycon Ferreira','—','18/jun')],
+    naoint:[L('marcia dias','—','22/jun'),L('Katia Lima','—','20/jun')],
+    reuniao:[L('Iara Portilho','Color Trends','22/jun'),L('Emerson Fuentes','Fuentes Co','17/jun'),L('Joaquim','—','18/jun'),L('Thais Lima','—','19/jun')],
+    noshow:[L('Sirlene Oliveira','—','22/jun')],
+    reag:[L('Maycon Ferreira','—','20/jun')],
+    proposta:[L('Emerson Fuentes','Fuentes Co','19/jun'),L('Joaquim','—','21/jun')],
+    futuro:[L('Thais Lima','—','21/jun')],
+    fechou:[L('Matheus Silva','Silva Imports','20/jun'),L('Emerson Fuentes','Fuentes Co','22/jun')],
+    perdido:[L('Diego Souza','—','21/jun')],
+  }
+};
+// counts for bigger periods (lists truncated com "+N mais")
+function scale(range, mult){
+  const f=SEMANA.funnel.map(([n,v])=>[n,Math.round(v*mult)]);
+  const data={};
+  for(const s of SECTIONS){const base=SEMANA.data[s.key]; const total=Math.max(base.length, Math.round(base.length*mult)); data[s.key]={items:base, total};}
+  return {range, funnel:f, rates:SEMANA.rates, data, trunc:true};
+}
+const PERIODS={
+  semana:SEMANA,
+  mes:scale('Junho 2026', 3.6),
+  semestre:scale('Jan–Jun 2026', 19),
+  ano:scale('Ano de 2026', 34),
+};
+
+function render(pKey){
+  const P=PERIODS[pKey];
+  document.getElementById('rangeLbl').textContent=P.range;
+  // funnel
+  const maxV=P.funnel[0][1]||1;
+  const steps=document.getElementById('steps'); steps.innerHTML='';
+  P.funnel.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='step';
+    d.innerHTML='<div class="num">'+s[1]+'</div><div class="lbl">'+s[0]+'</div><div class="bar"><i style="width:'+Math.round(s[1]/maxV*100)+'%"></i></div>';
+    steps.appendChild(d);
+    if(i<P.funnel.length-1){const a=document.createElement('div');a.className='arrow';const pct=Math.round(P.funnel[i+1][1]/(s[1]||1)*100);a.innerHTML='<div class="pct">'+pct+'%</div><div class="cap">conv.</div>';steps.appendChild(a);}
+  });
+  // rates
+  const rates=document.getElementById('rates');rates.innerHTML='';
+  P.rates.forEach(r=>{const e=document.createElement('div');e.className='rate '+(r[2]||'');e.innerHTML='<b>'+r[1]+'</b>'+r[0];rates.appendChild(e);});
+  // sections
+  const grid=document.getElementById('grid');grid.innerHTML='';
+  SECTIONS.forEach(s=>{
+    const raw=P.data[s.key];
+    const items = Array.isArray(raw)?raw:raw.items;
+    const total = Array.isArray(raw)?raw.length:raw.total;
+    const card=document.createElement('div');card.className='sec';card.style.setProperty('--ac',s.ac);
+    let rows = items.length? items.map(it=>'<div class="r"><div class="who"><span class="nm">'+it.nm+'</span><span class="co">'+it.co+'</span></div><span class="meta">'+it.d+'</span></div>').join('') : '<div class="empty">Ninguém no período</div>';
+    let more = total>items.length? '<div class="more">+'+(total-items.length)+' mais</div>':'';
+    card.innerHTML='<h3>'+s.t+'<span class="c">'+total+'</span></h3><div class="rows">'+rows+more+'</div>';
+    grid.appendChild(card);
+  });
+}
+document.getElementById('period').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');render(b.dataset.p);});
+document.getElementById('theme').addEventListener('click',e=>{const l=document.body.classList.toggle('light');document.body.classList.toggle('dark',!l);e.target.textContent='Tema: '+(l?'Claro':'Escuro');});
+render('semana');
+</script>
+</body>
+</html>

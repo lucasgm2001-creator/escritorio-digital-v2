@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createHash, timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import { stateToFuso } from '@/lib/fuso'
+import { logStageEvent } from '@/lib/stageEvents'
 
 // Webhook PÚBLICO — o Magnetic (GoHighLevel) chama a cada lead novo e nós inserimos no funil
 // (tabela `leads`), com os MESMOS defaults de um lead criado à mão. Sem sessão de usuário → usamos
@@ -141,6 +142,13 @@ export async function POST(req: Request) {
       console.error('[leads/inbound] insert failed:', error?.message)
       return NextResponse.json({ ok: false, error: 'insert_failed' }, { status: 500 })
     }
+
+    // Histórico de movimentação: entrada no funil (ADITIVO/best-effort).
+    await logStageEvent(supabase, {
+      leadId: data.id, leadName: name || 'Sem nome',
+      fromStage: null, toStage: 'novo',
+      sellerId: null, sellerName: 'Lucas',
+    })
 
     return NextResponse.json({ ok: true, leadId: data.id })
   } catch (e) {

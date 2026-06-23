@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskModal, type TaskPrefill } from './TaskModal'
 import { RelatorioComercial } from './RelatorioComercial'
+import { ErrorBoundary } from '@/components/system/ErrorBoundary'
 import { ymd } from '@/lib/format'
 import type { Task, LinkOption, ParsedTask } from './types'
 import { useToast } from '@/components/ui/toast'
@@ -480,7 +481,9 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
       {view === 'relatorio' && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
-          <RelatorioComercial />
+          <ErrorBoundary>
+            <RelatorioComercial />
+          </ErrorBoundary>
         </div>
       )}
 
