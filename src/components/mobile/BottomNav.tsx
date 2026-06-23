@@ -24,7 +24,7 @@ const ITEMS: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname()
   return (
-    <nav className="lg:hidden shrink-0 border-t border-bento-border bg-bento-panel pb-[env(safe-area-inset-bottom)]">
+    <nav className="lg:hidden shrink-0 border-t border-bento-border bg-bento-panel pb-safe">
       <div className="flex items-stretch">
         {ITEMS.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')

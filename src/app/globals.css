@@ -485,6 +485,9 @@ html.a11y-reduce-motion *, html.a11y-reduce-motion *::before, html.a11y-reduce-m
 html.ui-compact .p-5 { padding: 0.85rem; }
 html.ui-compact .p-4 { padding: 0.65rem; }
 
+/* Respiro da barra inferior no MOBILE: safe-area do iPhone (home indicator) com mínimo de 8px. */
+.pb-safe { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+
 /* Shake curto do PIN da Comissão (erro) */
 @keyframes ed-shake { 0%, 100% { transform: translateX(0) } 20%, 60% { transform: translateX(-6px) } 40%, 80% { transform: translateX(6px) } }
 .animate-ed-shake { animation: ed-shake 0.4s ease-in-out; }
