@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Briefcase, Settings, type LucideIcon } from 'lucide-react'
+import { Home, Briefcase, Presentation, Settings, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -13,11 +13,12 @@ import { cn } from '@/lib/utils'
  */
 interface NavItem { href: string; label: string; Icon: LucideIcon }
 
-// Studio fica FORA da barra mobile (só faz sentido no desktop; ver StudioGate). A Sidebar do
-// desktop continua com Studio normalmente.
+// Espelha os itens da Sidebar do desktop (inclui o Studio — agora funciona no celular: Materiais +
+// Apresentar em tela cheia; ver StudioGate/ApresentacaoTab).
 const ITEMS: NavItem[] = [
   { href: '/hall',          label: 'Hall',      Icon: Home },
   { href: '/comercial',     label: 'Comercial', Icon: Briefcase },
+  { href: '/studio',        label: 'Studio',    Icon: Presentation },
   { href: '/configuracoes', label: 'Config',    Icon: Settings },
 ]
 
