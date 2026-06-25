@@ -31,6 +31,7 @@ export interface Client {
   area_code?: string | null   // DDD (area code) — Mapa de Clientes
   jobs?: string[]
   created_at: string
+  dossie?: { folder_url?: string; sections?: Record<string, string> } | null   // links do Drive (read-only)
 }
 
 interface Plan { id: string; nome: string; valor_semanal: number }
@@ -76,6 +77,7 @@ interface ClientRowProps {
   activities: Activity[]
   loadingActivities: boolean
   onEdit: (client: Client) => void
+  onDossie: (client: Client) => void
   onToggleJobs: (id: string) => void
   setJobInput: (v: string) => void
   onAddJob: (client: Client) => void
@@ -88,7 +90,7 @@ interface ClientRowProps {
 function ClientRow({
   client, plans, payments, payOpenId, payBusyId, onTogglePay, onMarkWeek, onPayMonth, onVoidWeek, onRunAuto,
   inactive, editingJobsId, jobInput, expandedId, activities, loadingActivities,
-  onEdit, onToggleJobs, setJobInput, onAddJob, onRemoveJob, onToggleActivities, onReativar, onInativar,
+  onEdit, onDossie, onToggleJobs, setJobInput, onAddJob, onRemoveJob, onToggleActivities, onReativar, onInativar,
 }: ClientRowProps) {
   // Plano do banco manda; plan_weekly é só fallback legado.
   const plan = plans.find(p => p.id === client.plano_id)
@@ -135,6 +137,15 @@ function ClientRow({
               </svg>
             </button>
           )}
+          <button
+            onClick={() => onDossie(client)}
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-bento-muted hover:text-lime-fg hover:bg-bento-bg rounded-lg transition-colors"
+            aria-label="Dossiê do cliente" title="Dossiê"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.93a2 2 0 011.66.89L12.4 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+            </svg>
+          </button>
           <button
             onClick={() => onToggleJobs(client.id)}
             className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-bento-muted hover:text-bento-text hover:bg-bento-bg rounded-lg transition-colors"
@@ -286,6 +297,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
   const [search, setSearch] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
+  const [editTab, setEditTab] = useState<'editar' | 'dossie'>('editar')   // aba inicial do modal do cliente
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '', fuso: '', nicho: '', city: '', state: '', area_code: '' })
   const [plans, setPlans] = useState<Plan[]>([])
   const [payments, setPayments] = useState<Record<string, ClientPayment[]>>({})
@@ -534,7 +546,8 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
   }, [focusClientId])
 
   // Handlers passados ao ClientRow (escopo de módulo).
-  const openEdit = (client: Client) => setEditClient(client)
+  const openEdit = (client: Client) => { setEditTab('editar'); setEditClient(client) }
+  const openDossie = (client: Client) => { setEditTab('dossie'); setEditClient(client) }
   const toggleJobs = (id: string) => { setEditingJobsId(editingJobsId === id ? null : id); setJobInput('') }
 
   const rowProps = {
@@ -543,7 +556,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
     onTogglePay: togglePay, onMarkWeek: handleMarkWeek, onPayMonth: handlePayMonth,
     onVoidWeek: handleVoidWeek, onRunAuto: handleRunAuto,
     editingJobsId, jobInput, expandedId, activities, loadingActivities,
-    onEdit: openEdit, onToggleJobs: toggleJobs, setJobInput,
+    onEdit: openEdit, onDossie: openDossie, onToggleJobs: toggleJobs, setJobInput,
     onAddJob: handleAddJob, onRemoveJob: handleRemoveJob,
     onToggleActivities: loadActivities, onReativar: handleReativar, onInativar: handleInativar,
   }
@@ -697,6 +710,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
       {editClient && (
         <ClienteModal
           client={editClient}
+          initialTab={editTab}
           onClose={() => setEditClient(null)}
           onSaved={u => setClients(prev => prev.map(c => c.id === u.id ? u : c))}
         />

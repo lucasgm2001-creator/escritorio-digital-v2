@@ -6,6 +6,8 @@ import { updateClient } from '@/lib/commission/actions'
 import { useSave } from '@/lib/useSave'
 import { FUSO_OPTIONS } from '../comercial/types'
 import { US_STATES, sanitizeAreaCode } from '@/lib/usStates'
+import { cn } from '@/lib/utils'
+import { DossieTab } from './DossieTab'
 import type { Client } from './ClientesClient'
 
 interface Plan { id: string; nome: string; valor_semanal: number }
@@ -14,13 +16,15 @@ const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3
 // Modal de edição de cliente — COMPARTILHADO entre a aba Clientes e a aba Contatos. Salva na
 // tabela clients pelo MESMO caminho (updateClient). O telefone auto-preenche DDD/estado/cidade
 // pela MESMA regra do mapa (src/data/us-map.json > areaCodes), carregado sob demanda (lazy).
-export function ClienteModal({ client, onClose, onSaved }: {
+export function ClienteModal({ client, onClose, onSaved, initialTab }: {
   client: Client
   onClose: () => void
   onSaved: (updated: Client) => void
+  initialTab?: 'editar' | 'dossie'   // abre direto numa aba (default: Editar)
 }) {
   const supabase = createClient()
   const save = useSave()
+  const [view, setView] = useState<'editar' | 'dossie'>(initialTab ?? 'editar')
   const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -79,12 +83,24 @@ export function ClienteModal({ client, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
       <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
-        <div className="flex items-center justify-between p-5 border-b border-bento-border">
-          <h2 className="font-display font-bold text-bento-text">Editar Cliente</h2>
-          <button onClick={onClose} className="text-bento-muted hover:text-bento-text transition-colors">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h2 className="font-display font-bold text-bento-text truncate">{client.name}</h2>
+          <button onClick={onClose} aria-label="Fechar" className="text-bento-muted hover:text-bento-text transition-colors shrink-0">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
+        {/* Abas — rolam na horizontal no celular, sem quebrar linha. */}
+        <div className="flex flex-nowrap gap-1 px-5 border-b border-bento-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {([['editar', 'Editar'], ['dossie', 'Dossiê']] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setView(v)}
+              className={cn('px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors shrink-0 whitespace-nowrap',
+                view === v ? 'border-lime text-lime-fg' : 'border-transparent text-bento-muted hover:text-bento-text')}>{l}</button>
+          ))}
+        </div>
+
+        {view === 'dossie' && <div className="p-5"><DossieTab client={client} onSaved={onSaved} /></div>}
+
+        {view === 'editar' && (
         <div className="p-5 space-y-3">
           <div>
             <label className="block text-xs font-medium text-bento-dim mb-1">Nome</label>
@@ -144,6 +160,7 @@ export function ClienteModal({ client, onClose, onSaved }: {
             <button onClick={handleSave} disabled={loading} className="bento-btn flex-1 py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50">{loading ? 'Salvando...' : 'Salvar'}</button>
           </div>
         </div>
+        )}
       </div>
     </div>
   )
