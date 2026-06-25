@@ -6,8 +6,6 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskModal, type TaskPrefill } from './TaskModal'
-import { RelatorioComercial } from './RelatorioComercial'
-import { ErrorBoundary } from '@/components/system/ErrorBoundary'
 import { ymd } from '@/lib/format'
 import type { Task, LinkOption, ParsedTask } from './types'
 import { useToast } from '@/components/ui/toast'
@@ -105,7 +103,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
   // Tempo real: criar/editar/concluir/excluir tarefa reflete ao vivo (merge por id).
   useRealtimeRows<Task>('tasks', setTasks)
-  const [view, setView] = useState<'tarefas' | 'relatorio'>('tarefas')
+  const view = 'tarefas' as const   // Relatório virou item próprio do menu do Hall (ao lado de Tarefas)
   const { toast } = useToast()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
@@ -438,16 +436,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap px-4 sm:px-6 pt-5 pb-3 sticky top-0 bg-bento-bg/95 backdrop-blur z-10 border-b border-bento-border">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1">
-            {(['tarefas', 'relatorio'] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={cn('px-3 py-1.5 rounded-[8px] text-sm font-medium transition-colors',
-                  view === v ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
-                {v === 'tarefas' ? 'Tarefas' : 'Relatório'}
-              </button>
-            ))}
-          </div>
-          {view === 'tarefas' && <span className="font-tech text-xs text-bento-muted tabular-nums">{pendingCount} pendentes</span>}
+          <span className="font-tech text-xs text-bento-muted tabular-nums">{pendingCount} pendentes</span>
           {view === 'tarefas' && sellers.length > 0 && (
             <label className="hidden lg:flex items-center gap-1.5 font-tech text-[10px] uppercase tracking-wide text-bento-muted">
               Responsável
@@ -478,14 +467,6 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
           </div>
         )}
       </div>
-
-      {view === 'relatorio' && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
-          <ErrorBoundary>
-            <RelatorioComercial />
-          </ErrorBoundary>
-        </div>
-      )}
 
       {/* ── MOBILE (<1024): Tarefas em caixas por tempo. Desktop usa o bloco abaixo (inalterado). ── */}
       {view === 'tarefas' && (
