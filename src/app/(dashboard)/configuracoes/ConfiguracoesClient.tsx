@@ -5,7 +5,7 @@ import Image from 'next/image'
 import {
   Sun, Moon, Monitor, Home, Briefcase, ListChecks, Projector, Users,
   Palette, Accessibility, Image as ImageIcon, User, LayoutGrid, Database, Plug, Info,
-  Download, RefreshCw, ExternalLink, BadgePercent, Workflow, ChevronDown, ChevronRight, ChevronLeft,
+  Download, RefreshCw, ExternalLink, BadgePercent, Workflow, ChevronRight, ChevronLeft,
   Map as MapIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -332,10 +332,12 @@ const FLOOR_META: Record<string, { route: string; section: string; desc: string 
   'andar-clientes':  { route: '/clientes',  section: 'clientes',  desc: 'Carteira de clientes.' },
 }
 
-function AndarSection({ keyId, label }: { keyId: string; label: string }) {
+// Linha de navegação (abre uma tela própria, NÃO sanfona pra baixo) — chevron pra direita.
+const navRowCls = 'w-full flex items-center gap-2 px-3 min-h-[48px] rounded-btn bg-bento-bg border border-bento-border text-sm text-bento-text hover:border-lime transition-colors'
+
+function AndarSection({ keyId, label, onOpenSub }: { keyId: string; label: string; onOpenSub: (sub: string) => void }) {
   const meta = FLOOR_META[keyId]
   const [done, setDone] = useState(false)
-  const [showFases, setShowFases] = useState(false)
   const resetTabs = () => {
     if (meta) { try { localStorage.removeItem(`dashboard-tabs-order-${meta.section}`) } catch { /* ignore */ } }
     setDone(true); setTimeout(() => setDone(false), 2500)
@@ -350,15 +352,10 @@ function AndarSection({ keyId, label }: { keyId: string; label: string }) {
           <button onClick={resetTabs} className={actionBtnCls}><RefreshCw className="w-4 h-4" />{done ? 'Ordem restaurada' : 'Restaurar ordem das abas'}</button>
         </div>
         {isComercial ? (
-          /* Config do andar Comercial num lugar só: editor de "Fases do funil" mora AQUI dentro
-             (antes ficava num grupo "COMERCIAL" separado). Mesma funcionalidade, só mudou o acesso. */
-          <div className="border-t border-bento-border/60 pt-4 space-y-3">
-            <button onClick={() => setShowFases(v => !v)} className={actionBtnCls} aria-expanded={showFases}>
-              <Workflow className="w-4 h-4" />Fases do funil
-              <ChevronDown className={cn('w-4 h-4 transition-transform', showFases && 'rotate-180')} />
-            </button>
-            {showFases && <div className="pt-1"><FasesTab /></div>}
-            <MapSettingsSection />
+          /* Cada item abre em TELA PRÓPRIA (sub-view dedicada), não em sanfona pra baixo. */
+          <div className="border-t border-bento-border/60 pt-4 space-y-2">
+            <button onClick={() => onOpenSub('fases')} className={navRowCls}><Workflow className="w-4 h-4 text-bento-muted flex-none" />Fases do funil<ChevronRight className="w-4 h-4 text-bento-muted ml-auto flex-none" /></button>
+            <button onClick={() => onOpenSub('mapa')} className={navRowCls}><MapIcon className="w-4 h-4 text-bento-muted flex-none" />Mapa<ChevronRight className="w-4 h-4 text-bento-muted ml-auto flex-none" /></button>
           </div>
         ) : (
           <p className="font-tech text-[11px] text-bento-muted/70 border-t border-bento-border/60 pt-3">Preferências específicas deste andar: em breve (TODO).</p>
@@ -368,9 +365,9 @@ function AndarSection({ keyId, label }: { keyId: string; label: string }) {
   )
 }
 
-// ─── Comercial · Mapa (estilo + separação das placas; persiste em localStorage) ──────────
-function MapSettingsSection() {
-  const [open, setOpen] = useState(false)   // FECHADO por padrão (acordeão, igual "Fases do funil")
+// ─── Comercial · Mapa (estilo + separação + agrupamento; persiste em localStorage). Conteúdo FLAT
+//     (sem acordeão) — renderizado numa tela própria de Configurações. ──────────
+function MapSettingsContent() {
   const [skin, setSkinState] = useState<MapSkin>('blue')
   const [sep, setSepState] = useState<number>(4)
   const [grouping, setGroupingState] = useState<MapGrouping>('cidade')
@@ -381,40 +378,34 @@ function MapSettingsSection() {
   const seg = 'flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1'
   const btn = (on: boolean) => cn('px-3 py-1.5 rounded-[8px] text-xs font-medium transition-colors', on ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')
   return (
-    <div className="border-t border-bento-border/60 pt-4 space-y-3">
-      <button onClick={() => setOpen(v => !v)} className={actionBtnCls} aria-expanded={open}>
-        <MapIcon className="w-4 h-4" />Mapa
-        <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="pt-1 space-y-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div><p className="text-sm text-bento-text">Estilo do mapa</p><p className="font-tech text-[11px] text-bento-muted">Aparência do terreno</p></div>
-            <div className={seg}>
-              {([['blue', 'Blueprint'], ['holo', 'Holograma'], ['relevo', 'Relevo']] as [MapSkin, string][]).map(([v, l]) => (
-                <button key={v} onClick={() => pickSkin(v)} className={btn(skin === v)}>{l}</button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div><p className="text-sm text-bento-text">Separação das placas</p><p className="font-tech text-[11px] text-bento-muted">Espaço entre as 3 regiões</p></div>
-            <div className={seg}>
-              {([[4, 'Justo'], [16, 'Espaçoso']] as [number, string][]).map(([v, l]) => (
-                <button key={v} onClick={() => pickSep(v)} className={btn(sep === v)}>{l}</button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div><p className="text-sm text-bento-text">Leads no mapa</p><p className="font-tech text-[11px] text-bento-muted">Por cidade (1 ponto/lead) ou agrupados por estado</p></div>
-            <div className={seg}>
-              {([['cidade', 'Por cidade'], ['estado', 'Por estado']] as [MapGrouping, string][]).map(([v, l]) => (
-                <button key={v} onClick={() => pickGrouping(v)} className={btn(grouping === v)}>{l}</button>
-              ))}
-            </div>
+    <Panel label="Mapa">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div><p className="text-sm text-bento-text">Estilo do mapa</p><p className="font-tech text-[11px] text-bento-muted">Aparência do terreno</p></div>
+          <div className={seg}>
+            {([['blue', 'Blueprint'], ['holo', 'Holograma'], ['relevo', 'Relevo']] as [MapSkin, string][]).map(([v, l]) => (
+              <button key={v} onClick={() => pickSkin(v)} className={btn(skin === v)}>{l}</button>
+            ))}
           </div>
         </div>
-      )}
-    </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div><p className="text-sm text-bento-text">Separação das placas</p><p className="font-tech text-[11px] text-bento-muted">Espaço entre as 3 regiões</p></div>
+          <div className={seg}>
+            {([[4, 'Justo'], [16, 'Espaçoso']] as [number, string][]).map(([v, l]) => (
+              <button key={v} onClick={() => pickSep(v)} className={btn(sep === v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div><p className="text-sm text-bento-text">Leads no mapa</p><p className="font-tech text-[11px] text-bento-muted">Por cidade (1 ponto/lead) ou agrupados por estado</p></div>
+          <div className={seg}>
+            {([['cidade', 'Por cidade'], ['estado', 'Por estado']] as [MapGrouping, string][]).map(([v, l]) => (
+              <button key={v} onClick={() => pickGrouping(v)} className={btn(grouping === v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Panel>
   )
 }
 
@@ -659,11 +650,16 @@ interface Props { userId: string }
 export function ConfiguracoesClient({ userId }: Props) {
   const [active, setActive] = useState('tema')
   const [mobileOpen, setMobileOpen] = useState(false)   // mobile (<1024): false = lista; true = painel tela cheia
+  const [sub, setSub] = useState<string | null>(null)   // sub-tela dedicada (ex.: 'fases', 'mapa') — não sanfona
+  // Trocar de seção zera a sub-tela (volta pro conteúdo da seção).
+  const selectSection = (k: string) => { setActive(k); setSub(null) }
 
   const content = (() => {
+    if (sub === 'fases') return <FasesTab />
+    if (sub === 'mapa') return <MapSettingsContent />
     if (active.startsWith('andar-')) {
       const label = ANDARES.find(a => a.key === active)?.label ?? 'Andar'
-      return <AndarSection keyId={active} label={label} />
+      return <AndarSection keyId={active} label={label} onOpenSub={setSub} />
     }
     switch (active) {
       case 'tema': return <ThemeSection />
@@ -695,7 +691,7 @@ export function ConfiguracoesClient({ userId }: Props) {
               <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted mb-1.5 px-1">{g.title}</p>
               <div className="bento-fx p-0 overflow-hidden divide-y divide-bento-border/60">
                 {g.items.map(it => (
-                  <button key={it.key} onClick={() => { setActive(it.key); setMobileOpen(true) }}
+                  <button key={it.key} onClick={() => { selectSection(it.key); setMobileOpen(true) }}
                     className="w-full flex items-center gap-3 px-3 min-h-[52px] text-left hover:bg-bento-bg/50 transition-colors">
                     <it.Icon className="w-4 h-4 text-bento-muted flex-none" />
                     <span className="text-sm text-bento-text flex-1 min-w-0 truncate">{it.label}</span>
@@ -709,16 +705,23 @@ export function ConfiguracoesClient({ userId }: Props) {
 
         {/* DESKTOP (>=1024): nav vertical à esquerda — inalterada. */}
         <nav className="hidden lg:block lg:w-56 shrink-0 space-y-4">
-          <NavGroup title="Andares" items={ANDARES} active={active} onSelect={setActive} />
-          <NavGroup title="Sistema" items={SISTEMA} active={active} onSelect={setActive} />
+          <NavGroup title="Andares" items={ANDARES} active={active} onSelect={selectSection} />
+          <NavGroup title="Sistema" items={SISTEMA} active={active} onSelect={selectSection} />
         </nav>
 
         {/* CONTEÚDO: desktop sempre; mobile só quando uma categoria está aberta (tela cheia + voltar). */}
         <div className={cn('flex-1 min-w-0', !mobileOpen && 'hidden lg:block')}>
-          <button type="button" onClick={() => setMobileOpen(false)}
+          <button type="button" onClick={() => { setMobileOpen(false); setSub(null) }}
             className="lg:hidden flex items-center gap-1 -ml-1 mb-4 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
             <ChevronLeft className="w-4 h-4" />Configurações
           </button>
+          {/* "‹ Voltar" da sub-tela (Fases/Mapa) → volta pro conteúdo da seção (desktop e mobile). */}
+          {sub && (
+            <button type="button" onClick={() => setSub(null)}
+              className="flex items-center gap-1 -ml-1 mb-4 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
+              <ChevronLeft className="w-4 h-4" />Voltar
+            </button>
+          )}
           {content}
         </div>
       </div>

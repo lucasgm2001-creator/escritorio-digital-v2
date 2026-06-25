@@ -12,7 +12,7 @@ import { type FunnelStage } from '@/lib/funnelStages'
 import { usdCompact } from '@/lib/format'
 import { waNumber } from '@/lib/phone'
 import { LeadTasks } from './LeadTasks'
-import { Sparkles, MessageCircle, MessageSquare, Copy } from 'lucide-react'
+import { Sparkles, MessageCircle, MessageSquare, Copy, ChevronDown } from 'lucide-react'
 
 // Saudação pré-preenchida do WhatsApp (leads são US → inglês). Editável aqui.
 const WA_GREETING = (first: string) => `Hi ${first}! This is Lucas from DR Growth.`
@@ -79,27 +79,12 @@ const INTERACTION_LABEL: Record<string, string> = {
 const InfoRow = memo(function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   const v = value == null || String(value).trim() === '' ? '' : String(value)
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex items-baseline justify-between gap-3 min-w-0">
       <span className="text-xs text-muted-foreground flex-none">{label}</span>
-      <span className={cn('text-sm text-right break-words', v ? 'text-bento-text' : 'text-bento-muted/50')}>{v || '—'}</span>
+      <span className={cn('text-sm text-right break-all min-w-0', v ? 'text-bento-text' : 'text-bento-muted/50')}>{v || '—'}</span>
     </div>
   )
 })
-
-// Achata o raw_payload (incl. 1 nível aninhado, ex.: customData) em pares [chave, texto] não-vazios.
-function flattenPayload(obj: Record<string, unknown>): [string, string][] {
-  const out: [string, string][] = []
-  const eat = (o: unknown) => {
-    if (!o || typeof o !== 'object' || Array.isArray(o)) return
-    for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
-      if (v && typeof v === 'object' && !Array.isArray(v)) { eat(v); continue }
-      const val = v == null ? '' : Array.isArray(v) ? v.join(', ') : String(v)
-      if (val.trim()) out.push([k, val.trim()])
-    }
-  }
-  eat(obj)
-  return out
-}
 
 // Chaves do raw_payload que JÁ aparecem como campo dedicado → não repetir em "Mais informações".
 const PAYLOAD_SKIP = new Set([
@@ -110,6 +95,46 @@ const PAYLOAD_SKIP = new Set([
   'message', 'mensagem', 'observacao', 'observação', 'obs', 'comentario', 'comentário', 'comments', 'duvida', 'dúvida', 'nota',
   'state', 'estado', 'uf', 'city', 'cidade', 'municipio', 'município',
 ])
+
+// Plumbing do GHL/Magnetic que NÃO é útil pro vendedor (IDs, objetos internos, metadados).
+const NOISE_KEYS = new Set([
+  'id', 'contactid', 'locationid', 'userid', 'companyid', 'accountid', 'calendarid',
+  'location', 'user', 'workflow', 'triggerdata', 'trigger', 'contacttype', 'contactsource',
+  'attributionsource', 'datecreated', 'dateupdated', 'dateadded', 'version', 'webhook', 'webhookid', 'timestamp',
+])
+const normKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, '')
+const isNoiseKey = (k: string) => {
+  const n = normKey(k)
+  return NOISE_KEYS.has(n) || n.endsWith('id') || n.includes('webhook') || n.includes('workflow') || n.includes('trigger')
+}
+// Valor que parece ID/token (UUID ou cadeia longa sem espaço) → ruído.
+const isIdValue = (v: string) => /^[a-f0-9]{8}-[a-f0-9]{4}/i.test(v) || /^[A-Za-z0-9_-]{18,}$/.test(v)
+
+// "Mais informações" = só os campos ÚTEIS do raw_payload. Tira IDs/plumbing e objetos internos
+// (location/user/workflow/triggerData…); de customData/customFields, puxa os campos legíveis.
+function usefulPayloadEntries(raw: Record<string, unknown>): [string, string][] {
+  const out: [string, string][] = []
+  const consider = (k: string, v: unknown) => {
+    if (isNoiseKey(k) || PAYLOAD_SKIP.has(k.toLowerCase())) return
+    let val = ''
+    if (v == null) return
+    if (Array.isArray(v)) val = v.filter(x => typeof x !== 'object').join(', ')   // tags etc.
+    else if (typeof v === 'object') return                                        // objeto interno → fora
+    else val = String(v)
+    val = val.trim()
+    if (!val || val === '[object Object]' || isIdValue(val)) return
+    out.push([k, val])
+  }
+  for (const [k, v] of Object.entries(raw)) {
+    const nk = normKey(k)
+    if ((nk === 'customdata' || nk === 'customfields' || nk === 'customfield') && v && typeof v === 'object' && !Array.isArray(v)) {
+      for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) consider(k2, v2)
+    } else {
+      consider(k, v)
+    }
+  }
+  return out
+}
 
 export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, currentUser, stages }: Props) {
   const [interactions, setInteractions] = useState<Interaction[]>([])
@@ -151,10 +176,11 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
     if (s != null && e.changedTouches[0].clientY - s > 60) onClose()
   }
   const [visibleInteractions, setVisibleInteractions] = useState(15)
+  const [moreOpen, setMoreOpen] = useState(false)   // "Mais informações" FECHADA por padrão
   const shownInteractions = useMemo(() => interactions.slice(0, visibleInteractions), [interactions, visibleInteractions])
   // Extras do raw_payload (sem coluna própria) — calculado fora do corpo do render (só muda com o payload).
   const payloadExtras = useMemo(
-    () => (currentLead.raw_payload ? flattenPayload(currentLead.raw_payload).filter(([k]) => !PAYLOAD_SKIP.has(k.toLowerCase())) : []),
+    () => (currentLead.raw_payload ? usefulPayloadEntries(currentLead.raw_payload) : []),
     [currentLead.raw_payload],
   )
 
@@ -428,7 +454,7 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
         </div>
 
         {/* UM scroll só: todo o perfil rola como UMA coluna (sem caixas internas prendendo no toque). */}
-        <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-safe">
 
         {/* Informações do lead (cadastro/formulário) — somente leitura; campo vazio = "—". */}
         <div className="px-5 py-3 border-b border-border space-y-1.5">
@@ -472,13 +498,19 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
           )
         })()}
 
-        {/* Mais informações — campos EXTRAS do formulário (raw_payload) sem coluna própria. */}
+        {/* Mais informações — campos ÚTEIS do raw_payload (sem IDs/plumbing). Sanfona FECHADA por padrão. */}
         {payloadExtras.length > 0 && (
           <div className="px-5 py-3 border-b border-border">
-            <span className="text-xs text-muted-foreground">Mais informações</span>
-            <div className="mt-1.5 space-y-1.5">
-              {payloadExtras.map(([k, v]) => <InfoRow key={k} label={k} value={v} />)}
-            </div>
+            <button type="button" onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
+              className="w-full flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Mais informações</span>
+              <ChevronDown className={cn('w-4 h-4 text-bento-muted transition-transform flex-none', moreOpen && 'rotate-180')} />
+            </button>
+            {moreOpen && (
+              <div className="mt-2 space-y-1.5">
+                {payloadExtras.map(([k, v]) => <InfoRow key={k} label={k} value={v} />)}
+              </div>
+            )}
           </div>
         )}
 

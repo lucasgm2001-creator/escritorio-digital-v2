@@ -82,7 +82,7 @@ export function ClienteModal({ client, onClose, onSaved, initialTab }: {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
-      <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
+      <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden animate-slide-up">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-display font-bold text-bento-text truncate">{client.name}</h2>
           <button onClick={onClose} aria-label="Fechar" className="text-bento-muted hover:text-bento-text transition-colors shrink-0">
