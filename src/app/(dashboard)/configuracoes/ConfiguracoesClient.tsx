@@ -6,7 +6,6 @@ import {
   Sun, Moon, Monitor, Home, Briefcase, ListChecks, Projector, Users,
   Palette, Accessibility, Image as ImageIcon, User, LayoutGrid, Database, Plug, Info,
   Download, RefreshCw, ExternalLink, BadgePercent, Workflow, ChevronRight, ChevronLeft,
-  Map as MapIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { Panel } from '@/components/bento/Panel'
@@ -361,7 +360,7 @@ function AndarSection({ keyId, label, onOpenSub }: { keyId: string; label: strin
           /* Cada item abre em TELA PRÓPRIA (sub-view dedicada), não em sanfona pra baixo. */
           <div className="border-t border-bento-border/60 pt-4 space-y-2">
             <button onClick={() => onOpenSub('fases')} className={navRowCls}><Workflow className="w-4 h-4 text-bento-muted flex-none" />Fases do funil<ChevronRight className="w-4 h-4 text-bento-muted ml-auto flex-none" /></button>
-            <button onClick={() => onOpenSub('mapa')} className={navRowCls}><MapIcon className="w-4 h-4 text-bento-muted flex-none" />Mapa<ChevronRight className="w-4 h-4 text-bento-muted ml-auto flex-none" /></button>
+            {/* Mapa saiu do Comercial — agora vira aba do Hall; toda a config de mapa está em Andares → Hall. */}
           </div>
         ) : (
           <p className="font-tech text-[11px] text-bento-muted/70 border-t border-bento-border/60 pt-3">Preferências específicas deste andar: em breve (TODO).</p>
@@ -570,11 +569,12 @@ function HallSettingsSection({ userId }: { userId: string }) {
       <div className="flex flex-col lg:flex-row gap-5">
         <div className="flex-1 space-y-5 min-w-0">
           <HallSwitchGroup title="Blocos da Visão Geral">
-            <HallSwitchRow label="Mapa" on={cfg.blocks.mapa} onToggle={() => tB('mapa')} />
+            <HallSwitchRow label="Agenda" on={cfg.blocks.agenda} onToggle={() => tB('agenda')} />
             <HallSwitchRow label="Tarefas de hoje" on={cfg.blocks.tarefas} onToggle={() => tB('tarefas')} />
             <HallSwitchRow label="Atividade recente" on={cfg.blocks.atividade} onToggle={() => tB('atividade')} />
+            <HallSwitchRow label="Notícias" on={cfg.blocks.noticias} onToggle={() => tB('noticias')} />
           </HallSwitchGroup>
-          <HallSwitchGroup title="Métricas">
+          <HallSwitchGroup title="Métricas (aba Mapa)">
             <HallSwitchRow label="Clientes ativos" on={cfg.metrics.clientesAtivos} onToggle={() => tM('clientesAtivos')} />
             <HallSwitchRow label="Leads em aberto" on={cfg.metrics.leadsAbertos} onToggle={() => tM('leadsAbertos')} />
             <HallSwitchRow label="Leads novos" on={cfg.metrics.leadsNovos} onToggle={() => tM('leadsNovos')} />
@@ -585,6 +585,11 @@ function HallSettingsSection({ userId }: { userId: string }) {
             <HallSwitchRow label="Mostrar clientes" on={cfg.map.clients} onToggle={() => tMap('clients')} />
             <HallSwitchRow label="Faixas de fuso" on={cfg.map.fusos} onToggle={() => tMap('fusos')} />
           </HallSwitchGroup>
+          {/* Estilo do mapa (pele, separação, agrupamento) — veio do antigo Comercial → Mapa. */}
+          <div className="space-y-2">
+            <p className="font-tech text-[10px] uppercase tracking-[0.14em] text-bento-muted">Estilo do mapa</p>
+            <MapSettingsContent />
+          </div>
         </div>
 
         {/* Prévia AO VIVO — atualiza conforme liga/desliga os switches. */}
@@ -601,13 +606,14 @@ function HallSettingsSection({ userId }: { userId: string }) {
                 ))}
               </div>
             )}
-            {cfg.blocks.mapa && (
-              <div className="h-[200px] rounded-bento overflow-hidden border border-bento-border">
-                <ErrorBoundary><MapaTabDyn embedded leads={leads} clients={clients} showLeads={cfg.map.leads} showClients={cfg.map.clients} showFusos={cfg.map.fusos} /></ErrorBoundary>
-              </div>
-            )}
+            {/* Mini-mapa: reflete os toggles do Mapa (leads/clientes/fusos) em tempo real. */}
+            <div className="h-[200px] rounded-bento overflow-hidden border border-bento-border">
+              <ErrorBoundary><MapaTabDyn embedded leads={leads} clients={clients} showLeads={cfg.map.leads} showClients={cfg.map.clients} showFusos={cfg.map.fusos} /></ErrorBoundary>
+            </div>
+            {cfg.blocks.agenda && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Agenda</div>}
             {cfg.blocks.tarefas && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Tarefas de hoje</div>}
             {cfg.blocks.atividade && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Atividade recente</div>}
+            {cfg.blocks.noticias && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Notícias</div>}
           </div>
         </div>
       </div>
@@ -758,7 +764,6 @@ export function ConfiguracoesClient({ userId }: Props) {
 
   const content = (() => {
     if (sub === 'fases') return <FasesTab />
-    if (sub === 'mapa') return <MapSettingsContent />
     if (active === 'andar-hall') return <HallSettingsSection userId={userId} />
     if (active.startsWith('andar-')) {
       const label = ANDARES.find(a => a.key === active)?.label ?? 'Andar'

@@ -10,7 +10,7 @@ import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
-import { X, Clock, LayoutGrid, CalendarDays, Activity as ActivityIcon, Newspaper, Maximize2, ChevronLeft } from 'lucide-react'
+import { X, Clock, CalendarDays, Activity as ActivityIcon, Newspaper } from 'lucide-react'
 import type { Activity, Notice } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
 import type { Lead } from '../comercial/types'
@@ -26,7 +26,7 @@ import { getHallSettings, DEFAULT_HALL_SETTINGS, HALL_SETTINGS_EVENT, type HallS
 // Mapa pesado (geografia us-map.json) — só no client, sob demanda.
 const MapaTab = dynamic(() => import('../comercial/tabs/MapaTab').then(m => ({ default: m.MapaTab })), { ssr: false })
 
-type Tab = 'activities' | 'tarefas' | 'relatorio' | 'agent'
+type Tab = 'activities' | 'mapa' | 'tarefas' | 'relatorio' | 'agent'
 
 interface Props {
   initialActivities: Activity[]
@@ -211,13 +211,12 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
   const [mapLeads, setMapLeads]   = useState<Lead[]>([])
   const [mapClients, setMapClients] = useState<Client[]>([])
   const [hallCfg, setHallCfg]     = useState<HallSettings>(DEFAULT_HALL_SETTINGS)
-  const [mapFull, setMapFull]     = useState(false)
   const router = useRouter()
 
   // Deep-link: /hall?tab=tarefas (vindo do redirect de /tarefas) abre a aba certa.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    if (t === 'tarefas' || t === 'agent' || t === 'activities') setActiveTab(t as Tab)
+    if (t === 'tarefas' || t === 'agent' || t === 'activities' || t === 'mapa' || t === 'relatorio') setActiveTab(t as Tab)
   }, [])
 
   useEffect(() => {
@@ -282,6 +281,10 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
     },
     {
+      id: 'mapa' as Tab, label: 'Mapa',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><circle cx="12" cy="11" r="2.5" strokeWidth={1.75} /></svg>,
+    },
+    {
       id: 'tarefas' as Tab, label: 'Tarefas',
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>,
     },
@@ -326,36 +329,15 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
 
         {activeTab === 'activities' && (
           <>
-            {/* (1) Métricas — do banco. Mobile: LADO A LADO só Clientes ativos + Leads em aberto. */}
-            {METRICS.some(m => hallCfg.metrics[m.key]) && (
-              <CollapsibleSection title="Visão Geral" icon={LayoutGrid} defaultOpen>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {METRICS.filter(m => hallCfg.metrics[m.key]).map(m => (
-                    <div key={m.key} className={cn('bento-fx px-3 py-2.5 flex flex-col gap-1', !m.mobile && 'hidden lg:flex')}>
-                      <span className="font-tech text-[10px] uppercase tracking-wide text-bento-muted truncate">{m.label}</span>
-                      <span className="font-display text-2xl font-bold text-bento-text tabular-nums leading-none">{m.value}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* (a) AGENDA SEMANAL — topo, largura cheia. No mobile rola na horizontal (dentro do Calendar). */}
+            {hallCfg.blocks.agenda && (
+              <CollapsibleSection title="Agenda" icon={CalendarDays} defaultOpen>
+                <Calendar userId={userId} events={calEvents} tasks={initialTasks} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
               </CollapsibleSection>
             )}
 
-            {/* (2) MAPA em DESTAQUE — largura cheia (máx ~1000px centralizado) e bem alto. */}
-            {hallCfg.blocks.mapa && (
-              <CollapsibleSection title="Mapa de Clientes e Leads" icon={LayoutGrid} defaultOpen>
-                <Panel className="max-lg:p-3" headerClassName="max-lg:hidden" label="Mapa de Clientes e Leads"
-                  action={<button onClick={() => setMapFull(true)} className="font-tech text-[11px] uppercase tracking-wide text-bento-muted hover:text-lime-fg flex items-center gap-1" aria-label="Mapa em tela cheia"><Maximize2 className="w-3.5 h-3.5" />Tela cheia</button>}>
-                  <div className="h-[440px] sm:h-[560px] max-w-[1000px] mx-auto">
-                    <ErrorBoundary>
-                      <MapaTab embedded leads={mapLeads} clients={mapClients} showLeads={hallCfg.map.leads} showClients={hallCfg.map.clients} showFusos={hallCfg.map.fusos} />
-                    </ErrorBoundary>
-                  </div>
-                </Panel>
-              </CollapsibleSection>
-            )}
-
-            {/* (3) Tarefas de hoje · Atividade recente · Agenda — lado a lado no desktop, empilha no mobile. */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+            {/* (b) Tarefas de hoje (esq) · Atividade recente (dir). No mobile empilha. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
               {hallCfg.blocks.tarefas && (
                 <CollapsibleSection title="Tarefas de hoje" icon={CalendarDays} defaultOpen>
                   <Panel className="h-full max-lg:p-3" headerClassName="max-lg:hidden" label="Tarefas de hoje">
@@ -431,15 +413,39 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
                 </Panel>
               </CollapsibleSection>
               )}
-              <CollapsibleSection title="Agenda" icon={CalendarDays} defaultOpen>
-                <Calendar userId={userId} events={calEvents} tasks={initialTasks} onEventsChange={setCalEvents} focusEvent={focusEvent} onFocusHandled={() => setFocusEvent(null)} />
-              </CollapsibleSection>
             </div>
 
-            {/* (5) Notícias do Setor — fechada por padrão no mobile */}
-            <CollapsibleSection title="Notícias do Setor" icon={Newspaper}>
-              <NewsSection />
-            </CollapsibleSection>
+            {/* (c) NOTÍCIAS — largura cheia. TODO(feed): a FONTE das notícias é a definir; hoje usa o
+                feed real da tabela `news` (NewsSection). Trocar por outro provedor quando definido. */}
+            {hallCfg.blocks.noticias && (
+              <CollapsibleSection title="Notícias do Setor" icon={Newspaper}>
+                <NewsSection />
+              </CollapsibleSection>
+            )}
+          </>
+        )}
+
+        {activeTab === 'mapa' && (
+          <>
+            {/* 4 cards de métricas (do banco) — todos os habilitados, inclusive no mobile (2×2). */}
+            {METRICS.some(m => hallCfg.metrics[m.key]) && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {METRICS.filter(m => hallCfg.metrics[m.key]).map(m => (
+                  <div key={m.key} className="bento-fx px-3 py-2.5 flex flex-col gap-1">
+                    <span className="font-tech text-[10px] uppercase tracking-wide text-bento-muted truncate">{m.label}</span>
+                    <span className="font-display text-2xl font-bold text-bento-text tabular-nums leading-none">{m.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Mapa CHEIO — largura do conteúdo (máx ~1000px centralizado) e bem alto. Sem botão tela cheia. */}
+            <Panel className="max-lg:p-3" headerClassName="max-lg:hidden" label="Mapa de Clientes e Leads">
+              <div className="h-[440px] sm:h-[560px] max-w-[1000px] mx-auto">
+                <ErrorBoundary>
+                  <MapaTab embedded leads={mapLeads} clients={mapClients} showLeads={hallCfg.map.leads} showClients={hallCfg.map.clients} showFusos={hallCfg.map.fusos} />
+                </ErrorBoundary>
+              </div>
+            </Panel>
           </>
         )}
 
@@ -465,23 +471,6 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
 
       {history && (
         <HistoryModal kind={history} onClose={() => setHistory(null)} />
-      )}
-
-      {/* Mapa em TELA CHEIA (‹ Voltar). Mesmo componente, só maior. */}
-      {mapFull && (
-        <div className="fixed inset-0 z-[80] bg-bento-bg flex flex-col">
-          <div className="shrink-0 flex items-center gap-2 px-4 h-12 border-b border-bento-border pt-[env(safe-area-inset-top)]">
-            <button onClick={() => setMapFull(false)} className="flex items-center gap-1 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
-              <ChevronLeft className="w-4 h-4" />Voltar
-            </button>
-            <span className="font-display font-bold text-bento-text text-sm ml-1">Mapa de Clientes e Leads</span>
-          </div>
-          <div className="flex-1 min-h-0">
-            <ErrorBoundary>
-              <MapaTab embedded leads={mapLeads} clients={mapClients} showLeads={hallCfg.map.leads} showClients={hallCfg.map.clients} showFusos={hallCfg.map.fusos} />
-            </ErrorBoundary>
-          </div>
-        </div>
       )}
     </div>
   )

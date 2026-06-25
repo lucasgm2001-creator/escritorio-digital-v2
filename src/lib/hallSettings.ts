@@ -3,13 +3,14 @@
 // métricas e ligar/desligar leads/clientes/fusos no mapa. Configurações > Andares > Hall escreve.
 
 export interface HallSettings {
-  blocks: { mapa: boolean; tarefas: boolean; atividade: boolean }
+  // Blocos da Visão Geral. (O Mapa agora é uma ABA própria do Hall, não um bloco daqui.)
+  blocks: { agenda: boolean; tarefas: boolean; atividade: boolean; noticias: boolean }
   metrics: { clientesAtivos: boolean; leadsAbertos: boolean; leadsNovos: boolean; conversao: boolean }
   map: { leads: boolean; clients: boolean; fusos: boolean }
 }
 
 export const DEFAULT_HALL_SETTINGS: HallSettings = {
-  blocks: { mapa: true, tarefas: true, atividade: true },
+  blocks: { agenda: true, tarefas: true, atividade: true, noticias: true },
   metrics: { clientesAtivos: true, leadsAbertos: true, leadsNovos: true, conversao: true },
   map: { leads: true, clients: true, fusos: true },
 }
