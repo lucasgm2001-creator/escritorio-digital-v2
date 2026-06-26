@@ -527,6 +527,13 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
             </div>
           )}
 
+          {/* Botão CLARO p/ abrir o formulário completo (Tarefa/Reunião). O "adicionar rápido" fica na barra de baixo. */}
+          <button onClick={openNew}
+            className="bento-btn w-full flex items-center justify-center gap-2 min-h-[48px] rounded-btn text-sm font-semibold">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Nova tarefa
+          </button>
+
           {/* Responsável (minibox) + Resumo do dia */}
           <div className="flex items-center gap-2">
             {sellers.length > 0 && (

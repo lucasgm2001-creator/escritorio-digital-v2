@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -212,12 +212,20 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
   const [mapClients, setMapClients] = useState<Client[]>([])
   const [hallCfg, setHallCfg]     = useState<HallSettings>(DEFAULT_HALL_SETTINGS)
   const router = useRouter()
+  const tabsRef = useRef<HTMLDivElement>(null)   // trilho das abas (rola a aba ativa pra dentro da vista)
 
   // Deep-link: /hall?tab=tarefas (vindo do redirect de /tarefas) abre a aba certa.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
     if (t === 'tarefas' || t === 'agent' || t === 'activities' || t === 'mapa' || t === 'relatorio') setActiveTab(t as Tab)
   }, [])
+
+  // Mobile: ao trocar de aba, rola a barra (só horizontal) pra a aba ATIVA aparecer — "Agente" nunca fica cortada.
+  useEffect(() => {
+    const c = tabsRef.current
+    const el = c?.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
+    if (c && el) c.scrollTo({ left: Math.max(0, el.offsetLeft - (c.clientWidth - el.clientWidth) / 2), behavior: 'smooth' })
+  }, [activeTab])
 
   useEffect(() => {
     setGreeting(computeGreeting())
@@ -329,11 +337,11 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
         </div>
       </div>
 
-      {/* Tabs — rola NA HORIZONTAL no mobile (sem quebrar linha) e fica fixo no topo (segue o scroll). */}
-      <div className="flex flex-nowrap gap-1 border-b border-bento-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sticky top-0 z-20 bg-background">
+      {/* Tabs — rolam NA HORIZONTAL (as 5 cabem; a ativa rola pra dentro da vista). Fixas no topo. */}
+      <div ref={tabsRef} className="flex flex-nowrap gap-1 border-b border-bento-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch] sticky top-0 z-20 bg-background">
         {TABS.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap ${
+          <button key={tab.id} data-tab={tab.id} aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap ${
               activeTab === tab.id ? 'border-lime text-lime-fg' : 'border-transparent text-bento-muted hover:text-bento-text'
             }`}>
             {tab.icon}

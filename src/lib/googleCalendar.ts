@@ -21,6 +21,8 @@ interface TaskRow {
   linked_name?: string | null
   google_event_id?: string | null
   add_call?: boolean | null
+  duration_min?: number | null   // reunião: duração do evento (min). Default 30 quando ausente.
+  timezone?: string | null       // reunião: fuso IANA do start/end. Default America/Sao_Paulo.
 }
 
 // SÓ PRA LOG: extrai mensagem + código do erro (googleapis põe err.code / err.response.status).
@@ -85,11 +87,13 @@ function buildEventBody(task: TaskRow, callLink?: string | null) {
 
   if (task.due_time) {
     const t = task.due_time.slice(0, 5)
-    const end = addMinutes(task.due_date, t, DURATION_MIN)
+    const tz = task.timezone?.trim() || TIMEZONE                 // fuso da reunião (default Brasília)
+    const dur = task.duration_min && task.duration_min > 0 ? task.duration_min : DURATION_MIN   // duração (default 30)
+    const end = addMinutes(task.due_date, t, dur)
     return {
       ...base,
-      start: { dateTime: `${task.due_date}T${t}:00`, timeZone: TIMEZONE },
-      end:   { dateTime: `${end.date}T${end.time}:00`, timeZone: TIMEZONE },
+      start: { dateTime: `${task.due_date}T${t}:00`, timeZone: tz },
+      end:   { dateTime: `${end.date}T${end.time}:00`, timeZone: tz },
     }
   }
   // Dia inteiro: end.date é EXCLUSIVO (dia seguinte).
@@ -145,7 +149,7 @@ export async function syncTaskCalendar(taskId: string): Promise<void> {
     const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('tasks')
-      .select('id, user_id, title, notes, due_date, due_time, linked_name, google_event_id, add_call')
+      .select('id, user_id, title, notes, due_date, due_time, linked_name, google_event_id, add_call, duration_min, timezone')
       .eq('id', taskId)
       .single()
     if (error || !data) return

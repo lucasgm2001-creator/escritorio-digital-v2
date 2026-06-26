@@ -18,6 +18,9 @@ export interface Task {
   responsavel_nome?: string | null   // nome no momento (exibição/relatório)
   google_event_id?: string | null    // id do evento no Google Agenda (sync via conta de serviço)
   add_call?: boolean                  // inclui o link de chamada do usuário (profiles.call_link) no evento
+  is_meeting?: boolean                // modo Reunião (SÓ organização/calendário — NÃO mexe em comissão)
+  duration_min?: number | null        // duração do evento em minutos (reunião)
+  timezone?: string | null            // fuso IANA do evento (reunião)
   created_at: string
   updated_at: string
 }
