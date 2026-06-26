@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -129,6 +130,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
   const [sellers, setSellers] = useState<{ id: string; name: string }[]>([])
 
   const supabase = createClient()
+  const router = useRouter()
 
   // Vendedores p/ o filtro "Responsável" (extensível; hoje só Lucas).
   useEffect(() => {
@@ -184,10 +186,15 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
     if (error) {
       setTasks(prev => prev.map(x => x.id === t.id ? t : x))   // rollback ao original
       setActionError(`Não foi possível ${nowDone ? 'concluir' : 'reabrir'} a tarefa: ${error.message}`)
+    } else {
+      router.refresh()                                          // reconcilia com o server
     }
   }
+  // Criar/editar: update OTIMISTA (aparece na hora) + router.refresh() reconcilia com o server
+  // (re-busca a lista; o efeito [initialTasks] aplica a verdade do banco). Sem reload manual.
   const handleSaved = (t: Task) => {
     setTasks(prev => prev.some(x => x.id === t.id) ? prev.map(x => x.id === t.id ? t : x) : [t, ...prev])
+    router.refresh()
   }
   const handleDelete = async (t: Task) => {
     setConfirmId(null)
@@ -201,11 +208,13 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
       }).catch(() => {})
     }
     const snapshot = tasks
-    setTasks(prev => prev.filter(x => x.id !== t.id))
+    setTasks(prev => prev.filter(x => x.id !== t.id))   // some da lista na hora
     const { error } = await supabase.from('tasks').delete().eq('id', t.id)
     if (error) {
       setTasks(snapshot)                                        // rollback (re-insere)
       setActionError(`Não foi possível excluir a tarefa: ${error.message}`)
+    } else {
+      router.refresh()                                          // reconcilia com o server
     }
   }
   const openNew  = () => { setModalKey(k => k + 1); setEditing(null); setModalPrefill(null); setModalAiFilled(false); setModalOpen(true) }
