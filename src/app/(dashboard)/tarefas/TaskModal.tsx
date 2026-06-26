@@ -154,9 +154,10 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
           </button>
         </div>
 
-        {/* Form: corpo rola; rodapé fixo (abaixo). */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1">
+        {/* Form: corpo com ALTURA do conteúdo; min-h-0 deixa rolar SÓ quando passa do teto (max-h-92dvh).
+            Sem flex-1 (que, num painel de altura auto, colapsaria o corpo e forçaria barra à toa). */}
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <div className="p-5 space-y-4 sm:space-y-3 overflow-y-auto overscroll-contain min-h-0">
           <Field label="Tarefa *">
             <input
               autoFocus
@@ -171,7 +172,7 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              rows={3}
+              rows={2}
               className={`${inputCls} resize-none`}
               placeholder="Resumo da última conversa, pontos a tocar, links..."
             />
