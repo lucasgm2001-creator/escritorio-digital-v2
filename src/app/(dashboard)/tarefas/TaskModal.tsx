@@ -118,14 +118,24 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
     if (editing && task) {
       const { data, error } = await supabase
         .from('tasks').update(payload).eq('id', task.id).select().single()
-      if (!error && data) { onSaved(data as Task); onClose() }
+      if (!error && data) { syncCalendar((data as Task).id); onSaved(data as Task); onClose() }
       else setSaving(false)
     } else {
       const { data, error } = await supabase
         .from('tasks').insert({ ...payload, user_id: currentUser.id, done: false }).select().single()
-      if (!error && data) { onSaved(data as Task); onClose() }
+      if (!error && data) { syncCalendar((data as Task).id); onSaved(data as Task); onClose() }
       else setSaving(false)
     }
+  }
+
+  // Sincroniza a tarefa com o Google Agenda no SERVIDOR (best-effort, fire-and-forget). O servidor
+  // lê a linha fresca e cria/atualiza/remove o evento conforme due_date/due_time. Não bloqueia a UI
+  // nem o salvamento; keepalive garante o envio mesmo fechando o modal. A credencial nunca vem ao client.
+  const syncCalendar = (taskId: string) => {
+    fetch('/api/tasks/calendar-sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId }), keepalive: true,
+    }).catch(() => {})
   }
 
   return (

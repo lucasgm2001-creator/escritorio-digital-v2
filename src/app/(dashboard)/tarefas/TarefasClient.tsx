@@ -193,6 +193,14 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
   const handleDelete = async (t: Task) => {
     setConfirmId(null)
     setActionError('')
+    // Apaga o evento no Google Agenda ANTES de remover a linha (best-effort, fire-and-forget). Usa o
+    // id que já está no estado; o servidor cuida da credencial. Não bloqueia a exclusão.
+    if (t.google_event_id) {
+      fetch('/api/tasks/calendar-sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteEventId: t.google_event_id }), keepalive: true,
+      }).catch(() => {})
+    }
     const snapshot = tasks
     setTasks(prev => prev.filter(x => x.id !== t.id))
     const { error } = await supabase.from('tasks').delete().eq('id', t.id)

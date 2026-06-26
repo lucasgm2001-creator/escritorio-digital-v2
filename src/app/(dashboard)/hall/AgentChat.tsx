@@ -108,10 +108,17 @@ export function AgentChat({ userId, userName }: { userId: string; userName: stri
           .limit(1)
         if (data && data[0]) link = { linked_type: 'lead', linked_id: data[0].id, linked_name: data[0].name }
       }
-      const { error } = await supabase.from('tasks').insert({
+      const { data: created, error } = await supabase.from('tasks').insert({
         user_id: userId, title, due_date: dueDate, due_time: dueTime, done: false, ...(link ?? {}),
-      })
+      }).select('id').single()
       if (error) return `Não consegui criar a tarefa: ${error.message}`
+      // Sincroniza com o Google Agenda (best-effort, fire-and-forget) — só se tiver data.
+      if (created?.id && dueDate) {
+        fetch('/api/tasks/calendar-sync', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: created.id }), keepalive: true,
+        }).catch(() => {})
+      }
       return `Pronto! Tarefa "${title}" criada${link ? ` e vinculada ao lead ${link.linked_name}` : ''}.`
     }
     if (action.tool === 'complete_task') {
