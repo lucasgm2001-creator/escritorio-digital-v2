@@ -84,9 +84,8 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
   const [responsavelId, setResponsavelId] = useState<string>(task?.responsavel_id ?? '')
   const [addCall, setAddCall]     = useState<boolean>(task?.add_call ?? false)   // inclui link de chamada no evento
   const [callLink, setCallLink]   = useState<string>('')                          // link do usuário (só p/ saber se há)
-  // Modo Reunião (is_meeting) — SÓ organização/calendário; NÃO mexe em comissão/registerMeeting.
-  const [isMeeting, setIsMeeting] = useState<boolean>(task?.is_meeting ?? false)
-  const [durationMin, setDurationMin] = useState<number>(task?.duration_min ?? 60)
+  // Duração/Fuso do evento (toda tarefa com data vai pro Google Agenda). NÃO há mais "modo reunião".
+  const [durationMin, setDurationMin] = useState<number>(task?.duration_min ?? 30)
   const [timezone, setTimezone]   = useState<string>(task?.timezone ?? 'America/Sao_Paulo')
 
   const supabase = createClient()
@@ -134,11 +133,11 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
       linked_name: link?.name ?? null,
       responsavel_id:   responsavelId || null,
       responsavel_nome: sellers.find(s => s.id === responsavelId)?.name ?? null,
-      // Reunião = só organização/calendário. add_call/duração/fuso só fazem sentido nesse modo.
-      is_meeting:    isMeeting,
-      add_call:      isMeeting ? addCall : false,
-      duration_min:  isMeeting ? durationMin : null,
-      timezone:      isMeeting ? timezone : null,
+      // Formulário único: toda tarefa pode virar evento. is_meeting aposentado (sempre false, sem lógica).
+      is_meeting:    false,
+      add_call:      addCall,
+      duration_min:  durationMin,
+      timezone:      timezone,
     }
 
     if (editing && task) {
@@ -172,7 +171,7 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
         <div className="flex items-center justify-between px-5 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] border-b border-bento-border shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="font-display font-bold text-bento-text text-base">
-              {editing ? (isMeeting ? 'Editar reunião' : 'Editar tarefa') : (isMeeting ? 'Nova reunião' : 'Nova tarefa')}
+              {editing ? 'Editar tarefa' : 'Nova tarefa'}
             </h2>
             {aiFilled && !editing && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-lime/15 text-lime-fg">
@@ -194,18 +193,7 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
             Sem flex-1 (que, num painel de altura auto, colapsaria o corpo e forçaria barra à toa). */}
         <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
           <div className="p-5 space-y-4 sm:space-y-3 overflow-y-auto overscroll-contain min-h-0">
-          {/* Segmentado: Tarefa | Reunião (grava is_meeting). Reunião = só organização/agenda. */}
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-btn bg-bento-bg border border-bento-border">
-            {([['tarefa', 'Tarefa', false], ['reuniao', 'Reunião', true]] as const).map(([k, label, meeting]) => (
-              <button key={k} type="button" onClick={() => setIsMeeting(meeting)}
-                className={cn('min-h-[40px] rounded-[8px] text-sm font-semibold transition-colors',
-                  isMeeting === meeting ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <Field label={isMeeting ? 'Reunião *' : 'Tarefa *'}>
+          <Field label="Tarefa *">
             <input
               autoFocus
               value={title}
@@ -237,38 +225,34 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
             </Field>
           </div>
 
-          {/* Extras da REUNIÃO (só organização/agenda) — Duração/Fuso lado a lado + Adicionar chamada. */}
-          {isMeeting && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Duração">
-                  <select value={durationMin} onChange={e => setDurationMin(Number(e.target.value))} className={inputCls}>
-                    {DURATIONS.map(d => <option key={d.v} value={d.v}>{d.l}</option>)}
-                  </select>
-                </Field>
-                <Field label="Fuso horário">
-                  <select value={timezone} onChange={e => setTimezone(e.target.value)} className={inputCls}>
-                    {TIMEZONES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
-                  </select>
-                </Field>
+          {/* Evento no Google Agenda — Duração/Fuso + Adicionar chamada (toda tarefa pode virar evento). */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Duração">
+              <select value={durationMin} onChange={e => setDurationMin(Number(e.target.value))} className={inputCls}>
+                {DURATIONS.map(d => <option key={d.v} value={d.v}>{d.l}</option>)}
+              </select>
+            </Field>
+            <Field label="Fuso horário">
+              <select value={timezone} onChange={e => setTimezone(e.target.value)} className={inputCls}>
+                {TIMEZONES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Chamada">
+            <div className="flex items-center justify-between gap-3 bg-bento-bg border border-bento-border rounded-btn px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-bento-text">Adicionar chamada</p>
+                <p className="font-tech text-[10px] text-bento-muted/80">Inclui seu link de videochamada na descrição do evento.</p>
               </div>
-              <Field label="Chamada">
-                <div className="flex items-center justify-between gap-3 bg-bento-bg border border-bento-border rounded-btn px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-bento-text">Adicionar chamada</p>
-                    <p className="font-tech text-[10px] text-bento-muted/80">Inclui seu link de videochamada na descrição do evento.</p>
-                  </div>
-                  <button type="button" role="switch" aria-checked={addCall} onClick={() => setAddCall(v => !v)}
-                    className={cn('relative w-11 h-6 rounded-full flex-none transition-colors', addCall ? 'bg-lime' : 'bg-bento-border')}>
-                    <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', addCall && 'translate-x-5')} />
-                  </button>
-                </div>
-                {addCall && !callLink && (
-                  <p className="font-tech text-[11px] text-amber-400/90 mt-1.5">Configure seu link em Configurações → Conta.</p>
-                )}
-              </Field>
-            </>
-          )}
+              <button type="button" role="switch" aria-checked={addCall} onClick={() => setAddCall(v => !v)}
+                className={cn('relative w-11 h-6 rounded-full flex-none transition-colors', addCall ? 'bg-lime' : 'bg-bento-border')}>
+                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', addCall && 'translate-x-5')} />
+              </button>
+            </div>
+            {addCall && !callLink && (
+              <p className="font-tech text-[11px] text-amber-400/90 mt-1.5">Configure seu link em Configurações → Conta.</p>
+            )}
+          </Field>
 
           <Field label="Prioridade">
             <div className="flex gap-1.5">
@@ -360,7 +344,7 @@ export function TaskModal({ onClose, onSaved, currentUser, linkOptions, task, pr
             </button>
             <button type="submit" disabled={saving || !title.trim()}
               className="bento-btn flex-1 py-2.5 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]">
-              {saving ? 'Salvando...' : editing ? 'Salvar' : (isMeeting ? 'Criar reunião' : 'Criar tarefa')}
+              {saving ? 'Salvando...' : editing ? 'Salvar' : 'Criar tarefa'}
             </button>
           </div>
         </form>

@@ -106,6 +106,10 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
 
   const [eventModal, setEventModal]   = useState<{ date: Date; hour?: number } | null>(null)
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null)
+  // Agenda depende de `new Date()` (hora do servidor ≠ cliente) → renderiza só no CLIENTE p/ zerar o
+  // erro de hidratação (#418/#422) do Hall. Antes do mount, placeholder estável (igual nos dois lados).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // Abre o detalhe (read-only) quando o Mural pede foco num evento; limpa o pedido no pai.
   useEffect(() => {
@@ -358,6 +362,19 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
           )
         })}
       </div>
+    )
+  }
+
+  // Placeholder estável (idêntico no servidor e no 1º render do cliente) — evita o mismatch de datas.
+  if (!mounted) {
+    return (
+      <section className="bento-fx p-5">
+        <div className="flex items-center gap-2 mb-3 max-lg:hidden">
+          <CalendarDays className="w-4 h-4 text-lime-fg" />
+          <h2 className="font-display font-bold text-bento-text text-sm tracking-tight">Agenda</h2>
+        </div>
+        <div className="h-[120px] rounded-bento border border-bento-border/60 bg-bento-bg/40" aria-hidden />
+      </section>
     )
   }
 
