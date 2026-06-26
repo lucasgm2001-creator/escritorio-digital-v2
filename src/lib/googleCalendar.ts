@@ -21,6 +21,14 @@ interface TaskRow {
   google_event_id?: string | null
 }
 
+// SÓ PRA LOG: extrai mensagem + código do erro (googleapis põe err.code / err.response.status).
+function errMsg(e: unknown): string {
+  const err = e as { message?: string; code?: unknown; response?: { status?: unknown } }
+  const code = err?.code ?? err?.response?.status
+  const msg = err?.message ?? String(e)
+  return code !== undefined && code !== null ? `${msg} [code ${code}]` : msg
+}
+
 // Autentica com a conta de serviço (GOOGLE_SERVICE_ACCOUNT_KEY = JSON completo). private_key tem \n —
 // JSON.parse já resolve. Retorna null se faltar env/credencial (→ sync vira no-op silencioso).
 function getCalendarClient() {
@@ -31,11 +39,12 @@ function getCalendarClient() {
   try {
     creds = JSON.parse(raw)
   } catch (e) {
-    console.error('[googleCalendar] GOOGLE_SERVICE_ACCOUNT_KEY não é um JSON válido:', e)
+    console.error('[gcal] JSON parse FAIL:', (e as Error)?.message ?? e)
     return null
   }
+  console.log('[gcal] parsed client_email:', creds.client_email)   // NUNCA logar private_key/chave inteira
   if (!creds.client_email || !creds.private_key) {
-    console.error('[googleCalendar] credencial sem client_email/private_key.')
+    console.error('[gcal] ERROR auth: credencial sem client_email/private_key.')
     return null
   }
   const auth = new google.auth.JWT({ email: creds.client_email, key: creds.private_key, scopes: SCOPES })
@@ -84,19 +93,37 @@ function buildEventBody(task: TaskRow) {
 export async function createEvent(task: TaskRow): Promise<string | null> {
   const ctx = getCalendarClient(); if (!ctx) return null
   const requestBody = buildEventBody(task); if (!requestBody) return null
-  const res = await ctx.calendar.events.insert({ calendarId: ctx.calendarId, requestBody })
-  return res.data.id ?? null
+  try {
+    const res = await ctx.calendar.events.insert({ calendarId: ctx.calendarId, requestBody })
+    console.log('[gcal] event OK id:', res.data.id)
+    return res.data.id ?? null
+  } catch (e) {
+    console.error('[gcal] ERROR create:', errMsg(e))
+    throw e   // re-lança: best-effort segue no chamador (comportamento idêntico ao de antes)
+  }
 }
 
 export async function updateEvent(googleEventId: string, task: TaskRow): Promise<void> {
   const ctx = getCalendarClient(); if (!ctx) return
   const requestBody = buildEventBody(task); if (!requestBody) return
-  await ctx.calendar.events.update({ calendarId: ctx.calendarId, eventId: googleEventId, requestBody })
+  try {
+    await ctx.calendar.events.update({ calendarId: ctx.calendarId, eventId: googleEventId, requestBody })
+    console.log('[gcal] event OK id:', googleEventId, '(updated)')
+  } catch (e) {
+    console.error('[gcal] ERROR update:', errMsg(e))
+    throw e
+  }
 }
 
 export async function deleteEvent(googleEventId: string): Promise<void> {
   const ctx = getCalendarClient(); if (!ctx) return
-  await ctx.calendar.events.delete({ calendarId: ctx.calendarId, eventId: googleEventId })
+  try {
+    await ctx.calendar.events.delete({ calendarId: ctx.calendarId, eventId: googleEventId })
+    console.log('[gcal] event OK id:', googleEventId, '(deleted)')
+  } catch (e) {
+    console.error('[gcal] ERROR delete:', errMsg(e))
+    throw e
+  }
 }
 
 // ── Orquestração (best-effort) ──────────────────────────────────────────────
@@ -105,6 +132,9 @@ export async function deleteEvent(googleEventId: string): Promise<void> {
 //  • com due_date  → tem evento? atualiza. não tem? cria e grava o id.
 export async function syncTaskCalendar(taskId: string): Promise<void> {
   try {
+    console.log('[gcal] env key present:', Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_KEY))
+    console.log('[gcal] env calendarId present:', Boolean(process.env.GOOGLE_CALENDAR_ID))
+    console.log('[gcal] key length:', process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.length ?? 0)
     if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_CALENDAR_ID) return
     const supabase = createServiceClient()
     const { data, error } = await supabase
@@ -114,6 +144,7 @@ export async function syncTaskCalendar(taskId: string): Promise<void> {
       .single()
     if (error || !data) return
     const task = data as TaskRow
+    console.log('[gcal] task', taskId, 'due_date:', task.due_date, 'due_time:', task.due_time, 'existing event:', task.google_event_id)
 
     if (!task.due_date) {
       if (task.google_event_id) {
@@ -129,7 +160,7 @@ export async function syncTaskCalendar(taskId: string): Promise<void> {
       if (eventId) await supabase.from('tasks').update({ google_event_id: eventId }).eq('id', taskId)
     }
   } catch (e) {
-    console.error('[googleCalendar] syncTaskCalendar (best-effort) falhou:', e)
+    console.error('[gcal] ERROR sync:', errMsg(e))
   }
 }
 
@@ -139,6 +170,6 @@ export async function deleteTaskEvent(googleEventId: string): Promise<void> {
     if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_CALENDAR_ID) return
     await deleteEvent(googleEventId)
   } catch (e) {
-    console.error('[googleCalendar] deleteTaskEvent (best-effort) falhou:', e)
+    console.error('[gcal] ERROR delete (best-effort):', errMsg(e))
   }
 }
