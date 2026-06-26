@@ -56,8 +56,9 @@ function fmtDate(iso?: string | null): string {
 }
 
 type SectionId = 'atrasadas' | 'hoje' | 'amanha' | 'semana' | 'depois'
-// Mobile (<1024): chips/caixas por tempo (consolidam as SectionId; desktop segue com SECTIONS).
-type MobileChip = 'todas' | 'hoje' | 'proximas' | 'atrasadas' | 'concluidas'
+// Celular + iPad (<1280, xl): menu HORIZONTAL de abas (Hoje · Próximas · Atrasadas · Concluídas).
+// Computador (≥1280) segue com as SECTIONS (acordeão) abaixo.
+type MobileChip = 'hoje' | 'proximas' | 'atrasadas' | 'concluidas'
 
 const SECTIONS: { id: SectionId; label: string; danger?: boolean }[] = [
   { id: 'atrasadas', label: 'Atrasadas', danger: true },
@@ -161,10 +162,8 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
   const pendingCount = visibleTasks.filter(t => !t.done).length
 
-  // ── Mobile (<1024): chips + caixas por tempo. Desktop usa as SECTIONS acima (inalterado). ──
-  const [mobileChip, setMobileChip] = useState<MobileChip>('todas')
-  const [boxOpen, setBoxOpen] = useState<Set<string>>(() => new Set(['hoje']))   // só "Hoje" aberta por padrão
-  const toggleBox = (k: string) => setBoxOpen(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n })
+  // ── Celular + iPad (<1280): abas horizontais. Computador usa as SECTIONS acima (inalterado). ──
+  const [mobileChip, setMobileChip] = useState<MobileChip>('hoje')
   const proximas = useMemo(() => [...groups.amanha, ...groups.semana, ...groups.depois]
     .sort((a, b) => (a.due_date ?? '9999-99-99') < (b.due_date ?? '9999-99-99') ? -1 : 1), [groups])
   const weekStartISO = useMemo(() => {
@@ -446,7 +445,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
         <div className="flex items-center gap-3 flex-wrap">
           <span className="font-tech text-xs text-bento-muted tabular-nums">{pendingCount} pendentes</span>
           {view === 'tarefas' && sellers.length > 0 && (
-            <label className="hidden lg:flex items-center gap-1.5 font-tech text-[10px] uppercase tracking-wide text-bento-muted">
+            <label className="hidden xl:flex items-center gap-1.5 font-tech text-[10px] uppercase tracking-wide text-bento-muted">
               Responsável
               <select value={respFilter} onChange={e => setRespFilter(e.target.value)}
                 className="bg-bento-bg border border-bento-border rounded-btn px-2 py-1.5 text-xs text-bento-text normal-case focus:outline-none focus:border-lime">
@@ -457,7 +456,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
           )}
         </div>
         {view === 'tarefas' && (
-          <div className="hidden lg:flex items-center gap-2 w-full sm:w-auto">
+          <div className="hidden xl:flex items-center gap-2 w-full sm:w-auto">
             <button onClick={handleSummary} disabled={summaryLoading}
               className="flex items-center justify-center gap-2 px-3 py-2 min-h-[44px] rounded-btn text-sm font-medium border border-bento-border text-bento-dim hover:border-lime hover:text-bento-text transition-colors disabled:opacity-50 flex-1 sm:flex-none">
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -478,7 +477,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
       {/* ── MOBILE (<1024): Tarefas em caixas por tempo. Desktop usa o bloco abaixo (inalterado). ── */}
       {view === 'tarefas' && (
-        <div className="lg:hidden px-4 py-4 space-y-3 pb-4">
+        <div className="xl:hidden px-4 py-4 space-y-3 pb-4">
           {actionError && (
             <div className="flex items-start gap-2 rounded-bento border border-red-800/40 bg-red-900/20 px-3 py-2.5 text-sm text-red-400">
               <span className="flex-1">{actionError}</span>
@@ -519,7 +518,6 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
           {/* Chips com contagem (Hoje = bolinha lima · Atrasadas = bolinha vermelha) */}
           <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4">
             {([
-              { id: 'todas', label: 'Todas', count: groups.hoje.length + proximas.length + groups.atrasadas.length },
               { id: 'hoje', label: 'Hoje', count: groups.hoje.length, dot: 'bg-lime' },
               { id: 'proximas', label: 'Próximas', count: proximas.length },
               { id: 'atrasadas', label: 'Atrasadas', count: groups.atrasadas.length, dot: 'bg-red-500' },
@@ -535,37 +533,9 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
             ))}
           </div>
 
-          {/* Conteúdo: "Todas" = accordion (Hoje aberta); chip específico = lista direta */}
+          {/* Conteúdo: lista direta da aba escolhida (Hoje · Próximas · Atrasadas · Concluídas). */}
           {totalTasks === 0 ? (
             <EmptyAll onNew={openNew} />
-          ) : mobileChip === 'todas' ? (
-            <div className="space-y-2">
-              {([
-                { id: 'hoje', label: 'Hoje', items: groups.hoje, tone: 'text-lime-fg' },
-                { id: 'proximas', label: 'Próximas', items: proximas, tone: 'text-bento-dim' },
-                { id: 'atrasadas', label: 'Atrasadas', items: groups.atrasadas, tone: 'text-red-400' },
-                { id: 'concluidas', label: 'Concluídas da semana', items: doneWeek, tone: 'text-green-400', scroll: true, green: true },
-              ] as { id: string; label: string; items: Task[]; tone: string; scroll?: boolean; green?: boolean }[]).map(box => {
-                const isOpen = boxOpen.has(box.id)
-                return (
-                  <div key={box.id} className={cn('bento-fx overflow-hidden', box.green && 'border-green-800/40')}>
-                    <button type="button" onClick={() => toggleBox(box.id)} aria-expanded={isOpen}
-                      className="w-full flex items-center gap-2 px-3 min-h-[48px] text-left">
-                      <span className={cn('text-xs font-semibold uppercase tracking-wide flex-1', box.tone)}>{box.label}</span>
-                      <span className="font-tech text-[10px] text-bento-muted tabular-nums">{box.items.length}</span>
-                      <svg className={cn('w-4 h-4 text-bento-muted transition-transform', isOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {isOpen && (
-                      box.items.length === 0
-                        ? (box.id === 'hoje'
-                            ? <div className="px-3 pb-3 border-t border-bento-border/60 pt-3"><EmptyToday /></div>
-                            : <p className="px-3 pb-3 border-t border-bento-border/60 pt-3 text-xs text-bento-muted/60 font-tech text-center">Nada aqui.</p>)
-                        : <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t border-bento-border/60', box.scroll && 'max-h-72 overflow-y-auto')}>{box.items.map(renderMobileRow)}</div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
           ) : (() => {
             const items = mobileChip === 'hoje' ? groups.hoje : mobileChip === 'proximas' ? proximas : mobileChip === 'atrasadas' ? groups.atrasadas : doneWeek
             if (items.length === 0) return mobileChip === 'hoje' ? <EmptyToday /> : <p className="text-center text-xs text-bento-muted/60 py-8 font-tech">Nada aqui.</p>
@@ -576,7 +546,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
       {/* Barra fixa do rodapé (mobile): criar por texto (IA) + Nova tarefa. Fica acima da BottomNav. */}
       {view === 'tarefas' && (
-        <div className="lg:hidden sticky bottom-0 z-20 border-t border-bento-border bg-bento-panel/95 backdrop-blur px-3 py-2 flex items-center gap-2">
+        <div className="xl:hidden sticky bottom-0 z-20 border-t border-bento-border bg-bento-panel/95 backdrop-blur px-3 py-2 flex items-center gap-2">
           <input value={aiText} onChange={e => { setAiText(e.target.value); if (aiError) setAiError('') }}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAiCreate() } }} disabled={aiLoading}
             placeholder="Escreva uma tarefa…"
@@ -590,7 +560,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
         </div>
       )}
 
-      <div className={cn('max-w-3xl mx-auto px-4 sm:px-6 py-5 space-y-6 hidden', view === 'tarefas' && 'lg:block')}>
+      <div className={cn('max-w-3xl mx-auto px-4 sm:px-6 py-5 space-y-6 hidden', view === 'tarefas' && 'xl:block')}>
         {/* Erro de ação (concluir/excluir) */}
         {actionError && (
           <div className="flex items-start gap-2 rounded-bento border border-red-800/40 bg-red-900/20 px-3 py-2.5 text-sm text-red-400">
