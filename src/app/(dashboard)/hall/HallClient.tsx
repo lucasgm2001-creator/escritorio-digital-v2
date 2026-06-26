@@ -332,14 +332,20 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
       {/* Tabs — FIXAS: as 5 cabem distribuídas (flex-1), SEM rolagem. overflow-x-hidden + touch-action:pan-y
           → arrastar o dedo na horizontal não move nada. Ficam pinadas no topo (só o conteúdo rola). */}
       <div className="flex border-b border-bento-border overflow-x-hidden touch-pan-y sticky top-0 z-20 bg-background">
-        {TABS.map(tab => (
-          <button key={tab.id} aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}
-            className={cn('flex-1 min-w-0 flex items-center justify-center gap-1.5 px-1 sm:px-3 py-3 text-[11px] sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
-              activeTab === tab.id ? 'border-lime text-lime-fg' : 'border-transparent text-bento-muted hover:text-bento-text')}>
-            <span className="hidden sm:inline-flex shrink-0">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
+        {TABS.map(tab => {
+          const isActive = activeTab === tab.id
+          return (
+            <button key={tab.id} aria-selected={isActive} onClick={() => setActiveTab(tab.id)}
+              className={cn('relative flex-1 min-w-0 flex items-center justify-center gap-1.5 px-1 sm:px-3 py-3 text-[11px] sm:text-sm font-medium whitespace-nowrap transition-colors',
+                isActive ? 'text-lime-fg' : 'text-bento-muted hover:text-bento-text')}>
+              <span className="hidden sm:inline-flex shrink-0">{tab.icon}</span>
+              {tab.label}
+              {/* Realce: sublinhado lima renderizado SÓ na aba ativa (1 fonte de verdade: activeTab) —
+                  impossível ficar preso em outro item. */}
+              {isActive && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-lime" aria-hidden />}
+            </button>
+          )
+        })}
       </div>
 
       {/* Canvas com grade técnica — todos os painéis vivem aqui dentro */}

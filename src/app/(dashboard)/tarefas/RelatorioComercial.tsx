@@ -27,6 +27,21 @@ export function RelatorioComercial() {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [stages, setStages] = useState<StageRow[]>([])
   const [pdfBusy, setPdfBusy] = useState(false)
+  // Janela PERSONALIZADA (de–até). Quando aplicada, vira o período (mode 'custom') — mesma contagem,
+  // só troca o intervalo. O PDF e o cabeçalho leem range.label, então refletem o personalizado também.
+  const [customOpen, setCustomOpen] = useState(false)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const toYmd = (d: Date) => { const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
+  const fmtBR = (ymd: string) => { const [y, m, d] = ymd.split('-'); return `${d}/${m}/${y}` }
+  const selectPreset = (m: Mode) => { setCustomOpen(false); setRange(rangeFor(m)) }
+  const openCustom = () => { setFromDate(toYmd(range.start)); setToDate(toYmd(range.end)); setCustomOpen(true) }
+  const customInvalid = !fromDate || !toDate || fromDate > toDate
+  const applyCustom = () => {
+    if (customInvalid) return
+    // Datas no fuso LOCAL, inclusive nas duas pontas (00:00 do De até 23:59:59.999 do Até).
+    setRange({ mode: 'custom', start: new Date(`${fromDate}T00:00:00`), end: new Date(`${toDate}T23:59:59.999`), label: `de ${fmtBR(fromDate)} a ${fmtBR(toDate)}` })
+  }
 
   useEffect(() => {
     let active = true
@@ -167,18 +182,48 @@ export function RelatorioComercial() {
         </button>
       </div>
 
-      {/* Período */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {REPORT_MODES.map(([m, label]) => (
-            <button key={m} onClick={() => setRange(rangeFor(m))}
+      {/* Período: presets + Personalizado (de–até). O personalizado vira o período (mesma contagem). */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {REPORT_MODES.map(([m, label]) => (
+              <button key={m} onClick={() => selectPreset(m)}
+                className={cn('px-3.5 py-1.5 rounded-[8px] text-xs font-medium shrink-0 whitespace-nowrap transition-colors',
+                  range.mode === m && !customOpen ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
+                {label}
+              </button>
+            ))}
+            <button onClick={openCustom}
               className={cn('px-3.5 py-1.5 rounded-[8px] text-xs font-medium shrink-0 whitespace-nowrap transition-colors',
-                range.mode === m ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
-              {label}
+                (customOpen || range.mode === 'custom') ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
+              Personalizado
             </button>
-          ))}
+          </div>
+          <span className="font-tech text-xs text-bento-muted whitespace-nowrap">{range.label}</span>
         </div>
-        <span className="font-tech text-xs text-bento-muted whitespace-nowrap">{range.label}</span>
+
+        {/* De / Até — empilham no celular. Aplicar só com De ≤ Até. */}
+        {customOpen && (
+          <div className="flex items-end gap-2 flex-wrap bento-fx p-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-tech text-[10px] uppercase tracking-wide text-bento-muted">De</span>
+              <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
+                className="bg-bento-bg border border-bento-border rounded-btn px-2.5 py-1.5 text-xs text-bento-text focus:outline-none focus:border-lime min-h-[40px]" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-tech text-[10px] uppercase tracking-wide text-bento-muted">Até</span>
+              <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
+                className="bg-bento-bg border border-bento-border rounded-btn px-2.5 py-1.5 text-xs text-bento-text focus:outline-none focus:border-lime min-h-[40px]" />
+            </label>
+            <button onClick={applyCustom} disabled={customInvalid}
+              className="bento-btn px-4 py-2 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[40px]">
+              Aplicar
+            </button>
+            {fromDate && toDate && fromDate > toDate && (
+              <span className="font-tech text-[11px] text-amber-400/90 self-center">&quot;De&quot; precisa ser ≤ &quot;Até&quot;.</span>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <div className="bg-amber-900/20 border border-amber-800/40 rounded-btn px-4 py-3 text-xs text-amber-400">{error}</div>}
