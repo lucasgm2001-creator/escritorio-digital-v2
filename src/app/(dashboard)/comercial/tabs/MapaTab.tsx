@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, type MouseEvent } from 'react'
+import { useState, useEffect, useMemo, type MouseEvent } from 'react'
 import usMap from '@/data/us-map.json'
 import { cn } from '@/lib/utils'
 import { getMapSkin, getMapSep, MAP_SETTINGS_EVENT, type MapSkin } from '@/lib/mapSettings'
@@ -41,9 +41,10 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
   const [filter, setFilter] = useState<Filter>('todos')
   const [hot, setHot] = useState<Region | null>(null)
   const [sel, setSel] = useState<{ agg: StateAgg; left: number; top: number; mobile: boolean } | null>(null)
-  const outerRef = useRef<HTMLDivElement>(null)
-  const stageRef = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState({ w: MAP.W, h: MAP.H, scale: 1 })
+  // O SVG escala 100% pelo viewBox (sem medir o container em px). Os pinos são desenhados em unidades
+  // do viewBox e escalam junto com o mapa. MAP_SCALE só calibra o tamanho-base do pino p/ casar com o
+  // visual de desktop (≈ 560px de altura) — em telas menores tudo encolhe proporcionalmente.
+  const MAP_SCALE = 0.9
   const effSep = sep === 4 ? 2 : sep
 
   useEffect(() => {
@@ -53,29 +54,6 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
     window.addEventListener('storage', sync)
     return () => { window.removeEventListener(MAP_SETTINGS_EVENT, sync); window.removeEventListener('storage', sync) }
   }, [])
-
-  // Fit: embutido → cabe no container; tela cheia → mede a altura visível abaixo do palco.
-  useEffect(() => {
-    const PAD = 14, GAP = 40
-    const recompute = () => {
-      const el = stageRef.current, outer = outerRef.current
-      if (!el || !outer) return
-      const availW = el.clientWidth - PAD * 2
-      const availH = embedded
-        ? Math.max(160, outer.clientHeight - el.offsetTop - PAD * 2 - 28)
-        : window.innerHeight - el.getBoundingClientRect().top - PAD * 2 - GAP
-      if (availW <= 0 || availH <= 0) return
-      const scale = Math.min(availW / MAP.W, availH / MAP.H)
-      const w = Math.round(MAP.W * scale), h = Math.round(MAP.H * scale)
-      setBox(prev => (prev.w === w && prev.h === h ? prev : { w, h, scale }))
-    }
-    recompute()
-    const ro = new ResizeObserver(recompute)
-    if (outerRef.current) ro.observe(outerRef.current)
-    window.addEventListener('resize', recompute)
-    const t = setTimeout(recompute, 120)
-    return () => { ro.disconnect(); window.removeEventListener('resize', recompute); clearTimeout(t) }
-  }, [embedded])
 
   useEffect(() => {
     if (!sel) return
@@ -124,7 +102,7 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
   const points = useMemo<Pt[]>(() => {
     const showL = showLeads && filter !== 'clientes'
     const showC = showClients && filter !== 'leads'
-    const off = 7 / box.scale
+    const off = 7 / MAP_SCALE
     const out: Pt[] = []
     for (const m of states) {
       const hasL = showL && m.leads.length > 0
@@ -140,7 +118,7 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
       }
     }
     return out
-  }, [states, showLeads, showClients, filter, effSep, box.scale])
+  }, [states, showLeads, showClients, filter, effSep])
 
   const openPanel = (agg: StateAgg, e: MouseEvent) => {
     const r = (e.currentTarget as Element).getBoundingClientRect()
@@ -156,8 +134,8 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
   }
 
   return (
-    <div ref={outerRef} className={cn('overflow-hidden bg-bento-bg', embedded ? 'h-full p-0' : 'h-full p-4 sm:p-6')}>
-      <div className={cn('ed-map mx-auto', !embedded && 'max-w-[1180px]', 'skin-' + skin, !showFusos && 'flat-fuso')}>
+    <div className={cn('overflow-hidden bg-bento-bg', embedded ? 'h-full p-0' : 'h-full p-4 sm:p-6')}>
+      <div className={cn('ed-map mx-auto', !embedded && 'max-w-[1180px]', embedded && 'h-full flex flex-col', 'skin-' + skin, !showFusos && 'flat-fuso')}>
         {!embedded && (
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -180,10 +158,12 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
           </div>
         )}
 
-        {/* Palco do mapa */}
-        <div className="ed-map-stage" ref={stageRef}>
+        {/* Palco do mapa — embutido: preenche a altura (flex-1); avulso: usa a proporção do mapa. */}
+        <div className={cn('ed-map-stage', embedded ? 'flex-1 min-h-0' : 'aspect-[1000/624]')}>
+          {/* Escala SÓ pelo viewBox: w/h 100% do palco, sem px fixos. preserveAspectRatio centraliza
+              e nunca distorce (letterbox se a caixa não bater 1000/624). */}
           <svg className="ed-map-svg" viewBox={`0 0 ${MAP.W} ${MAP.H}`} preserveAspectRatio="xMidYMid meet"
-            width={box.w} height={box.h} style={{ width: box.w, height: box.h, margin: '0 auto', display: 'block' }}
+            style={{ width: '100%', height: '100%', margin: '0 auto', display: 'block' }}
             xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa dos EUA com clientes e leads">
             <defs>
               {/* Pontos de vidro: leads azul, clientes verde. Halo (blur) + sombra suave (flutuando). */}
@@ -208,7 +188,7 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
 
             <g>
               {points.map(p => (
-                <StatePoint key={p.key} type={p.type} x={p.x} y={p.y} count={p.count} scale={box.scale}
+                <StatePoint key={p.key} type={p.type} x={p.x} y={p.y} count={p.count} scale={MAP_SCALE}
                   selected={sel?.agg.st === p.agg.st} onClick={e => openPanel(p.agg, e)} />
               ))}
             </g>

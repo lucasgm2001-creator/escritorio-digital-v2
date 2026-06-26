@@ -695,6 +695,11 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     const y = refDate.year, mo = refDate.month
     const mp = `${y}-${pad2(mo)}`
     const dealById = new Map(deals.map(d => [d.id, d]))
+    // Quantidades do mês (SÓ EXIBIÇÃO) — mesmo conjunto/filtros que geram os valores:
+    //  · Reuniões: summary.meetingsCount (= meetings com metOn no mês; qtd × US$15 = meetingsUsd)
+    //  · Semanas pagas: summary.weeksCount (= weekly_payments com paidOn no mês; qtd × US$25 = weeksUsd)
+    //  · Vendas no mês: deals com data_fechamento no mês e status de venda fechada/ativa (exclui interrompido).
+    const vendasMes = deals.filter(d => d.dataFechamento.slice(0, 7) === mp && d.status !== 'interrompido').length
     const rows: { sort: string; dia: string; acao: string; cliente: string; usd: number }[] = []
     if (summary.salaryUsd > 0) rows.push({ sort: `${mp}-01`, dia: `01/${pad2(mo)}`, acao: 'Salário fixo', cliente: '—', usd: summary.salaryUsd })
     meetings.filter(m => m.metOn.slice(0, 7) === mp).forEach(m =>
@@ -724,10 +729,13 @@ export function CommissionSection({ sellerId, sellerName }: { sellerId: string; 
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(90, 90, 90)
     doc.text(`${brl(summary.totalBrl)}  (cotação R$ ${rateStr})`, 14, 74)
     doc.setFontSize(10); doc.setTextColor(...dark)
-    doc.text(`Salário fixo: ${usd(summary.salaryUsd)}    Reuniões: ${usd(summary.meetingsUsd)}    Vendas: ${usd(summary.weeksUsd)}`, 14, 82)
+    // Valores COM as quantidades do mês ao lado (qtd × valor unitário = valor exibido).
+    doc.text(`Salário fixo: ${usd(summary.salaryUsd)}    Reuniões (${summary.meetingsCount}): ${usd(summary.meetingsUsd)}    Comissão de venda (${summary.weeksCount} sem.): ${usd(summary.weeksUsd)}`, 14, 82)
+    doc.setTextColor(90, 90, 90)
+    doc.text(`Reuniões no mês: ${summary.meetingsCount} (× US$ 15)    Semanas pagas: ${summary.weeksCount} (× US$ 25)    Vendas no mês: ${vendasMes}`, 14, 88)
 
     autoTable(doc, {
-      startY: 88,
+      startY: 94,
       head: [['Dia', 'Ação', 'Cliente', 'Valor (USD)']],
       body: rows.length ? rows.map(r => [r.dia, r.acao, r.cliente, usd(r.usd)]) : [['—', 'Sem lançamentos no mês', '—', usd(0)]],
       foot: [['', '', 'Total', usd(summary.totalUsd)]],

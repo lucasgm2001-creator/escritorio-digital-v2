@@ -440,7 +440,8 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
             )}
             {/* Mapa CHEIO — largura do conteúdo (máx ~1000px centralizado) e bem alto. Sem botão tela cheia. */}
             <Panel className="max-lg:p-3" headerClassName="max-lg:hidden" label="Mapa de Clientes e Leads">
-              <div className="h-[440px] sm:h-[560px] max-w-[1000px] mx-auto">
+              {/* Mobile: caixa pela PROPORÇÃO do mapa (sem corte/vazio). Desktop: altura fixa ideal. */}
+              <div className="aspect-[1000/624] sm:aspect-auto sm:h-[560px] max-w-[1000px] mx-auto">
                 <ErrorBoundary>
                   <MapaTab embedded leads={mapLeads} clients={mapClients} showLeads={hallCfg.map.leads} showClients={hallCfg.map.clients} showFusos={hallCfg.map.fusos} />
                 </ErrorBoundary>
