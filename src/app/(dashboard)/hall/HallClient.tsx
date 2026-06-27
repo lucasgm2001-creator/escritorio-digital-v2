@@ -244,7 +244,7 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
     if (!force && nowMs - lastMapFetch.current < 30_000) return
     lastMapFetch.current = nowMs
     const supabase = createClient()
-    supabase.from('leads').select('id, name, status, state, area_code, created_at').then(({ data }) => { if (data) setMapLeads(data as unknown as Lead[]) })
+    supabase.from('leads').select('id, name, status, state, area_code, created_at, origem').then(({ data }) => { if (data) setMapLeads(data as unknown as Lead[]) })
     supabase.from('clients').select('id, name, status, state, area_code').then(({ data }) => { if (data) setMapClients(data as unknown as Client[]) })
   }, [])
 
@@ -283,8 +283,8 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
 
   // Métricas da Visão Geral — do banco (leads/clientes). Conversão coerente com o funil.
   const clientesAtivos = mapClients.filter(c => c.status === 'ativo').length
-  const leadsAbertos = mapLeads.filter(l => !['fechado', 'perdido', 'lixeira'].includes(l.status)).length
-  const leadsNovos = mapLeads.filter(l => l.created_at && new Date(l.created_at).getTime() >= Date.now() - 7 * 86400000).length
+  const leadsAbertos = mapLeads.filter(l => l.origem !== 'cliente_existente' && !['fechado', 'perdido', 'lixeira'].includes(l.status)).length
+  const leadsNovos = mapLeads.filter(l => l.origem !== 'cliente_existente' && l.created_at && new Date(l.created_at).getTime() >= Date.now() - 7 * 86400000).length
   // Conversão GERAL — MESMA definição/número do rodapé do Funil (fechados ÷ não-Lixeira), via util.
   const conversao = funnelConversionLabel(mapLeads)
   const METRICS: { key: keyof HallSettings['metrics']; label: string; value: string; mobile: boolean }[] = [

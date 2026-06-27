@@ -580,7 +580,7 @@ function HallSettingsSection({ userId }: { userId: string }) {
   useEffect(() => { setCfg(getHallSettings(userId)) }, [userId])
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('leads').select('id, name, status, state, area_code, created_at').then(({ data }) => { if (data) setLeads(data as unknown as Lead[]) })
+    supabase.from('leads').select('id, name, status, state, area_code, created_at, origem').then(({ data }) => { if (data) setLeads(data as unknown as Lead[]) })
     supabase.from('clients').select('id, name, status, state, area_code').then(({ data }) => { if (data) setClients(data as unknown as Client[]) })
   }, [])
   const apply = (next: HallSettings) => { setCfg(next); setHallSettings(userId, next) }
@@ -589,8 +589,8 @@ function HallSettingsSection({ userId }: { userId: string }) {
   const tMap = (k: keyof HallSettings['map']) => apply({ ...cfg, map: { ...cfg.map, [k]: !cfg.map[k] } })
 
   const clientesAtivos = clients.filter(c => c.status === 'ativo').length
-  const leadsAbertos = leads.filter(l => !['fechado', 'perdido', 'lixeira'].includes(l.status)).length
-  const leadsNovos = leads.filter(l => l.created_at && new Date(l.created_at).getTime() >= Date.now() - 7 * 86400000).length
+  const leadsAbertos = leads.filter(l => l.origem !== 'cliente_existente' && !['fechado', 'perdido', 'lixeira'].includes(l.status)).length
+  const leadsNovos = leads.filter(l => l.origem !== 'cliente_existente' && l.created_at && new Date(l.created_at).getTime() >= Date.now() - 7 * 86400000).length
   const conversao = funnelConversionLabel(leads)   // MESMA definição do Funil/Mapa (fechados ÷ não-Lixeira)
   const pm: { k: keyof HallSettings['metrics']; label: string; value: string }[] = [
     { k: 'clientesAtivos', label: 'Clientes ativos', value: String(clientesAtivos) },
