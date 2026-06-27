@@ -67,9 +67,9 @@ export async function POST(req: Request) {
   const fresh = referencia != null && ageMs < REF_TTL_MS
   let source: 'auto' | 'fallback' = 'auto'
 
-  // 4) Não-fresca (referência vazia OU > ~12h) ou forçada: UMA busca na AwesomeAPI e GRAVA a referência
-  //    (+ updated_at). A trava já foi tratada acima (travada+manual nunca chega aqui) → sempre automática.
-  if (force || !fresh) {
+  // 4) Só busca se NÃO travada E (referência vazia OU > ~12h) — ou forçada. Travada NUNCA bate na API
+  //    (ponto 5). Quando busca e vem valor válido (>0), GRAVA cotacao_referencia + updated_at = now.
+  if (!travada && (force || !fresh)) {
     const fetched = await fetchUsdBrl()
     if ('value' in fetched) {
       referencia = fetched.value
@@ -86,12 +86,9 @@ export async function POST(req: Request) {
       }
       source = 'auto'
     } else {
-      // Busca FALHOU/inválida (ex.: 429). NÃO sobrescreve o VALOR cotacao_referencia (preserva a última
-      // referência boa) — só AVANÇA o carimbo updated_at p/ throttlar a PRÓXIMA busca por ~12h. É isso que
-      // faz o 429 sumir: sem avançar o carimbo, com a referência vazia cada page load rebuscaria e o
-      // rate-limit nunca cederia. (cotacao_manual/cotacao_travada/histórico continuam intocados.)
+      // Busca FALHOU/inválida (ex.: 429): NÃO sobrescreve NADA (nem cotacao_referencia, nem updated_at) —
+      // mantém a última referência boa e o fallback de EXIBIÇÃO. Só loga o motivo em [fx] (status/endpoint).
       console.error('[fx]', fetched.error)
-      await auth.supabase.from('fx_config').update({ updated_at: new Date().toISOString() }).eq('id', 1)
       const ref = referencia ?? manual ?? FX_FALLBACK
       const effective = travada && manual != null ? manual : ref
       return NextResponse.json(
