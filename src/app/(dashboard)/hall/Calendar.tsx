@@ -12,7 +12,6 @@ import {
   useEscape, getWeekDays, getMonthDays, getHourSlots,
 } from './calendarShared'
 import { EventModal } from './EventModal'
-import { DayDetailModal } from './DayDetailModal'
 
 // ─── Event Detail Modal ───────────────────────────────────────────────────────
 
@@ -123,7 +122,6 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
   }, {})
 
   // Tarefas por dia (mesma fonte do Mural: tabela tasks; casa pelo dia civil due_date, sem fuso).
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const tasksByDay = tasks.reduce<Record<string, Task[]>>((acc, t) => {
     if (t.due_date) (acc[t.due_date] = acc[t.due_date] ?? []).push(t)
     return acc
@@ -209,10 +207,9 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
             const pend = (tasksByDay[dateStr] ?? []).filter(t => !t.done)
             const isToday = dateStr === todayStr
             return (
-              <button key={i} onClick={() => setSelectedDay(s => s === dateStr ? null : dateStr)}
+              <button key={i} onClick={() => { setDailyDate(date); setView('daily') }}
                 className={`rounded-md p-1.5 min-h-[56px] border text-left transition-all hover:border-lime/50 ${
                   isToday ? 'bg-lime/15 border-lime/40' :
-                  selectedDay === dateStr ? 'border-lime/60 bg-bento-bg' :
                   isCurrentMonth ? 'bg-bento-bg border-bento-border' : 'bg-transparent border-bento-border/40'
                 }`}>
                 <span className={`font-display text-xs font-medium ${
@@ -245,9 +242,9 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
           const pend = (tasksByDay[dateStr] ?? []).filter(t => !t.done)
           const isToday = dateStr === todayStr
           return (
-            <button key={dateStr} onClick={() => setSelectedDay(s => s === dateStr ? null : dateStr)}
+            <button key={dateStr} onClick={() => { setDailyDate(date); setView('daily') }}
               className={cn('flex flex-col items-center gap-0.5 rounded-md border px-0.5 py-1.5 text-center transition-colors min-h-[52px]',
-                isToday ? 'bg-lime/15 border-lime/40' : selectedDay === dateStr ? 'border-lime/60 bg-bento-bg' : 'bg-bento-bg border-bento-border')}>
+                isToday ? 'bg-lime/15 border-lime/40' : 'bg-bento-bg border-bento-border')}>
               <span className={cn('font-tech text-[9px] uppercase tracking-tight', isToday ? 'text-lime-fg' : 'text-bento-muted')}>{label}</span>
               <span className={cn('font-display text-sm font-bold tabular-nums leading-none', isToday ? 'text-lime-fg' : 'text-bento-text')}>{date.getDate()}</span>
               <span className="flex items-center justify-center gap-0.5 h-1.5">
@@ -267,9 +264,9 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
           const pend = (tasksByDay[dateStr] ?? []).filter(t => !t.done)
           const isToday = dateStr === todayStr
           return (
-            <button key={dateStr} onClick={() => setSelectedDay(s => s === dateStr ? null : dateStr)}
+            <button key={dateStr} onClick={() => { setDailyDate(date); setView('daily') }}
               className={`min-w-[88px] shrink-0 snap-start sm:min-w-0 sm:shrink rounded-bento p-3 border text-center transition-all hover:border-lime/60 cursor-pointer ${
-                isToday ? 'bg-lime/15 border-lime/40' : selectedDay === dateStr ? 'border-lime/60 bg-bento-bg' : 'bg-bento-bg border-bento-border'
+                isToday ? 'bg-lime/15 border-lime/40' : 'bg-bento-bg border-bento-border'
               }`}>
               <p className={`font-tech text-[10px] uppercase tracking-[0.12em] ${isToday ? 'text-lime-fg' : 'text-bento-muted'}`}>{label}</p>
               <p className={`font-display text-xl font-bold mt-1 tabular-nums ${isToday ? 'text-lime-fg' : 'text-bento-text'}`}>
@@ -435,16 +432,6 @@ export function Calendar({ userId, events, tasks, onEventsChange, focusEvent, on
           event={detailEvent}
           onClose={() => setDetailEvent(null)}
           onDelete={handleEventDeleted}
-        />
-      )}
-
-      {selectedDay && (
-        <DayDetailModal
-          dateStr={selectedDay}
-          events={eventsMap[selectedDay] ?? []}
-          tasks={tasksByDay[selectedDay] ?? []}
-          todayStr={todayStr}
-          onClose={() => setSelectedDay(null)}
         />
       )}
     </>
