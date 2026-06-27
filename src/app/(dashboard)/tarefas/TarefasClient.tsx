@@ -538,7 +538,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
       {/* ── MOBILE (<1024): Tarefas em caixas por tempo. Desktop usa o bloco abaixo (inalterado). ── */}
       {view === 'tarefas' && (
-        <div className="xl:hidden px-4 py-4 space-y-3 pb-4">
+        <div className="xl:hidden px-4 py-4 space-y-3 pb-[calc(8rem_+_env(safe-area-inset-bottom,0px))]">
           {actionError && (
             <div className="flex items-start gap-2 rounded-bento border border-red-800/40 bg-red-900/20 px-3 py-2.5 text-sm text-red-400">
               <span className="flex-1">{actionError}</span>
@@ -614,7 +614,7 @@ export function TarefasClient({ initialTasks, linkOptions, currentUser }: Props)
 
       {/* Barra fixa do rodapé (mobile): criar por texto (IA) + Nova tarefa. Fica acima da BottomNav. */}
       {view === 'tarefas' && (
-        <div className="xl:hidden sticky bottom-0 z-20 border-t border-bento-border bg-bento-panel/95 backdrop-blur px-3 py-2 flex items-center gap-2">
+        <div className="xl:hidden sticky bottom-[calc(4rem_+_env(safe-area-inset-bottom,0px))] z-20 border-t border-bento-border bg-bento-panel/95 backdrop-blur px-3 py-2 flex items-center gap-2">
           <input value={aiText} onChange={e => { setAiText(e.target.value); if (aiError) setAiError('') }}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAiCreate() } }} disabled={aiLoading}
             placeholder="Escreva uma tarefa…"
