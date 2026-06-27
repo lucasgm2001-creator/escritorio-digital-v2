@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/require-auth'
+import { createServiceClient } from '@/lib/supabase/service'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -33,9 +34,11 @@ async function fetchUsdBrl(): Promise<{ value: number } | { error: string }> {
   }
 }
 
-// Cotação efetiva do dia (fetch-on-read com cache diário + fallback). NÃO altera
-// cotacao_manual/cotacao_travada nem qualquer cotacao_usd_brl histórico — só gerencia
-// a cotacao_referencia (automática). Escreve pela MESMA sessão autenticada do app.
+// Cotação efetiva (fetch-on-read com throttle de ~12h + fallback). NÃO altera cotacao_manual/
+// cotacao_travada nem qualquer cotacao_usd_brl histórico — só gerencia a cotacao_referencia (automática).
+// requireAuth p/ CHAMAR; o WRITE em fx_config (config GLOBAL) vai via SERVICE-ROLE — a policy RLS
+// barrava o write da sessão (cotacao_referencia/updated_at nunca gravavam). Service-role é o correto
+// p/ endpoint de sistema que atualiza config global (funciona inclusive sem sessão / via cron futuro).
 export async function POST(req: Request) {
   const auth = await requireAuth()
   if ('error' in auth) return auth.error
@@ -68,16 +71,17 @@ export async function POST(req: Request) {
   let source: 'auto' | 'fallback' = 'auto'
 
   // 4) Só busca se NÃO travada E (referência vazia OU > ~12h) — ou forçada. Travada NUNCA bate na API
-  //    (ponto 5). Quando busca e vem valor válido (>0), GRAVA cotacao_referencia + updated_at = now.
+  //    (ponto 5). TODO write em fx_config vai pelo SERVICE-ROLE (admin) — a RLS barrava o write da sessão.
   if (!travada && (force || !fresh)) {
+    const admin = createServiceClient()
     const fetched = await fetchUsdBrl()
     if ('value' in fetched) {
+      // Sucesso (valor > 0): grava cotacao_referencia + updated_at = now (via service-role).
       referencia = fetched.value
-      const { error: upErr } = await auth.supabase.from('fx_config')
+      const { error: upErr } = await admin.from('fx_config')
         .update({ cotacao_referencia: fetched.value, updated_at: new Date().toISOString() })
         .eq('id', 1)
       if (upErr) {
-        // Busca OK mas o WRITE falhou (provável RLS no fx_config). Surface — não engole.
         console.error('[fx] write da cotacao_referencia falhou:', upErr.message)
         return NextResponse.json(
           { referencia: fetched.value, effective: fetched.value, source: 'auto', travada, error: `[fx] write falhou: ${upErr.message}` },
@@ -86,9 +90,14 @@ export async function POST(req: Request) {
       }
       source = 'auto'
     } else {
-      // Busca FALHOU/inválida (ex.: 429): NÃO sobrescreve NADA (nem cotacao_referencia, nem updated_at) —
-      // mantém a última referência boa e o fallback de EXIBIÇÃO. Só loga o motivo em [fx] (status/endpoint).
+      // FALHA (ex.: 429): preserva o VALOR cotacao_referencia (última boa), mas GRAVA updated_at = now
+      // via SERVICE-ROLE. É isso que faz o throttle de 12h SEGURAR — a próxima dentro de 12h não chama a
+      // API e o 429 para. (Sem avançar o updated_at, todo page load rebuscava.) Loga o motivo em [fx].
       console.error('[fx]', fetched.error)
+      const { error: upErr } = await admin.from('fx_config')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', 1)
+      if (upErr) console.error('[fx] write do updated_at (throttle) falhou:', upErr.message)
       const ref = referencia ?? manual ?? FX_FALLBACK
       const effective = travada && manual != null ? manual : ref
       return NextResponse.json(
