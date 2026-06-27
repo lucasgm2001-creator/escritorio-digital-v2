@@ -20,8 +20,8 @@ const FUSO_LABEL: Record<Region, string> = { W: 'EUA Oeste', C: 'EUA Mont.', E: 
 const OPEN_EXCLUDE = new Set(['fechado', 'perdido', 'lixeira'])   // leads "fechados" não entram
 
 const HIT_PX = 26                              // área de toque generosa
-const LEAD_COLOR = '#2E7BFF', CLIENT_COLOR = '#00E08A', NEW_LEAD_COLOR = '#A78BFA'   // novos leads = lilás (cor própria)
-const NEW_LEAD_DAYS = 7   // "novo" = lead criado nos últimos 7 dias (mesma régua do "Leads novos" da Visão Geral)
+const LEAD_COLOR = '#2E7BFF', CLIENT_COLOR = '#00E08A', NEW_LEAD_COLOR = '#A78BFA'   // fase "Novo Lead" = lilás (cor própria)
+const NEW_LEAD_STATUS = 'novo'   // SÓ status === 'novo' (fase Novo Lead) é lilás; ao sair da fase vira azul. SEM heurística de data.
 
 const MAP = usMap as unknown as {
   W: number; H: number
@@ -90,14 +90,13 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
       if (code && MAP.areaCodes[code]) return MAP.areaCodes[code].st
       return null
     }
-    const novoCutoff = Date.now() - NEW_LEAD_DAYS * 86400000
-    const isNovo = (l: Lead): boolean => { const t = Date.parse(l.created_at); return !Number.isNaN(t) && t >= novoCutoff }
     for (const c of clients) { if (c.status !== 'ativo') continue; const st = stateOf(c); if (st) get(st)?.clients.push(c.name || 'Cliente') }
     for (const l of leads) {
       if (OPEN_EXCLUDE.has(l.status)) continue
       const st = stateOf(l); if (!st) continue
       const b = get(st); if (!b) continue
-      ;(isNovo(l) ? b.newLeads : b.leads).push(l.name || 'Lead')   // novo (lilás) ou lead comum (azul)
+      // Lilás SÓ na fase "Novo Lead" (status === 'novo'); qualquer outro lead em aberto = azul (ed-g-lead).
+      ;(l.status === NEW_LEAD_STATUS ? b.newLeads : b.leads).push(l.name || 'Lead')
     }
     return Array.from(map.values())
   }, [leads, clients])
@@ -212,7 +211,7 @@ export function MapaTab({ leads, clients, showLeads = true, showClients = true, 
 
         {/* Legenda */}
         <div className="flex items-center justify-center gap-x-4 gap-y-1 flex-wrap mt-2 font-tech text-[10.5px] text-bento-muted">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: NEW_LEAD_COLOR }} />Novos leads (7d)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: NEW_LEAD_COLOR }} />Novo Lead (fase)</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: LEAD_COLOR }} />Leads no estado</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: CLIENT_COLOR }} />Clientes no estado</span>
           <span className="text-bento-muted/70">lado a lado = categorias no mesmo estado</span>
