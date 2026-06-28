@@ -10,6 +10,7 @@ import { monthlySummary } from '@/lib/commission/calc'
 import type { SalaryPeriod, Meeting, WeeklyPayment, FxConfig } from '@/lib/commission/types'
 import { usd, brl } from '@/lib/format'
 import { useCommissionLock, CommissionPinPad, ChangePinPad } from '@/components/commission/CommissionLock'
+import { Portal } from '@/components/ui/Portal'
 import { Lock, KeyRound } from 'lucide-react'
 
 interface SellerRow {
@@ -260,7 +261,8 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <Portal>
+    <div className="fixed inset-0 z-[300] flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
       <div className="w-full max-w-md bg-bento-panel border-l border-bento-border flex flex-col shadow-card-hover animate-slide-up">
         {/* Header */}
@@ -459,6 +461,7 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -615,7 +618,8 @@ export function VendedoresTab() {
 
       {/* Novo Vendedor */}
       {addOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+        <Portal>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
           <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm max-h-[92vh] flex flex-col animate-slide-up">
             <div className="flex items-center justify-between p-5 border-b border-bento-border shrink-0">
               <h2 className="font-display font-bold text-bento-text text-base">Novo Vendedor</h2>
@@ -661,11 +665,13 @@ export function VendedoresTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* PIN do box do vendedor (verify_seller_box). Ao desbloquear, abre o detalhe dele. */}
       {pinSeller && (
-        <div className="fixed inset-0 z-[80] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
+        <Portal>
+        <div className="fixed inset-0 z-[300] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setPinSeller(null)} />
           <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
             <CommissionPinPad sellerId={pinSeller.id} sellerName={pinSeller.name}
@@ -673,16 +679,19 @@ export function VendedoresTab() {
               onClose={() => setPinSeller(null)} />
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Alterar meu PIN (set_my_commission_pin) */}
       {changePinOpen && (
-        <div className="fixed inset-0 z-[80] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
+        <Portal>
+        <div className="fixed inset-0 z-[300] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChangePinOpen(false)} />
           <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
             <ChangePinPad onClose={() => setChangePinOpen(false)} />
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Painel do vendedor */}

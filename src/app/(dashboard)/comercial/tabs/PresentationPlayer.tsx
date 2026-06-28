@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
+import { Portal } from '@/components/ui/Portal'
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
@@ -245,7 +246,8 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
   }
 
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[100] bg-black flex flex-col select-none">
+    <Portal>
+    <div ref={rootRef} className="fixed inset-0 z-[300] bg-black flex flex-col select-none">
       {/* Topbar fina: menu + nome/cliente + contador + fechar. Desce com o safe-area (não fica sob o notch). */}
       <div className="shrink-0 flex items-center gap-3 min-h-12 px-3 pt-[env(safe-area-inset-top)] bg-black/70 backdrop-blur-sm border-b border-white/10">
         <button onClick={e => { blur(e); setMenuOpen(o => !o) }} title="Materiais" aria-label="Materiais"
@@ -312,5 +314,6 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
         <div className="h-full bg-lime" style={{ width: `${progress}%` }} />
       </div>
     </div>
+    </Portal>
   )
 }

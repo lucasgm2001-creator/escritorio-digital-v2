@@ -9,6 +9,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 import { cn, formatDate } from '@/lib/utils'
+import { Portal } from '@/components/ui/Portal'
 import {
   Upload, Search, Plus, Play, X, ChevronUp, ChevronDown, Trash2, Pencil,
   GripVertical, FileText, FolderOpen, Layers, Star, Folder, Tag,
@@ -132,7 +133,8 @@ function LeadBriefModal({ leadId, fallbackName, onContinue, onClose }: {
   const contato = [lead?.company, lead?.phone].filter(Boolean).join(' · ')
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <Portal>
+    <div onClick={onClose} className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-lg max-h-[90vh] flex flex-col animate-slide-up overflow-hidden">
         <div className="flex items-start justify-between gap-2 p-5 border-b border-bento-border shrink-0">
           <div className="min-w-0">
@@ -180,6 +182,7 @@ function LeadBriefModal({ leadId, fallbackName, onContinue, onClose }: {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -762,7 +765,8 @@ export function ApresentacaoTab() {
 
       {/* Editar metadados do material (pasta) */}
       {editMat && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+        <Portal>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setEditMat(null)} />
           <div className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -784,11 +788,13 @@ export function ApresentacaoTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Pré-visualização de um material */}
       {presenting && (
-        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+        <Portal>
+        <div className="fixed inset-0 z-[300] bg-black flex items-center justify-center">
           <button onClick={() => setPresenting(null)} title="Fechar (ESC)" className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-xl transition-colors backdrop-blur-sm">
             <X className="w-5 h-5" />
           </button>
@@ -799,6 +805,7 @@ export function ApresentacaoTab() {
             <MaterialFrame material={presenting} />
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )
