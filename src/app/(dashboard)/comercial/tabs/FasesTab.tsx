@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { Portal } from '@/components/ui/Portal'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent,
 } from '@dnd-kit/core'
@@ -302,7 +303,8 @@ export function FasesTab() {
 
       {/* Excluir-mesclar: escolher destino dos leads */}
       {delState && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+        <Portal>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDelState(null)} />
           <div className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -321,6 +323,7 @@ export function FasesTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       <p className="font-tech text-[11px] text-bento-muted/70">Mudanças aparecem no funil ao reabrir/atualizar a aba Comercial. Fases de venda/perda/sistema são protegidas (cadeado) e não afetam dinheiro por aqui.</p>

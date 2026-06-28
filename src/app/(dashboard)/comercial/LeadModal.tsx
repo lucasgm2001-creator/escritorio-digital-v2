@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast'
 import { ymd } from '@/lib/format'
 import { wonSlug, type FunnelStage } from '@/lib/funnelStages'
 import type { Client } from '../clientes/ClientesClient'
+import { Portal } from '@/components/ui/Portal'
 
 interface Seller { id: string; name: string }
 
@@ -241,7 +242,8 @@ export function LeadModal({ onClose, onCreated, currentUser, stages, clients }: 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <Portal>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
       <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-2xl max-h-[92dvh] flex flex-col animate-slide-up">
 
         {/* Header */}
@@ -533,5 +535,6 @@ export function LeadModal({ onClose, onCreated, currentUser, stages, clients }: 
         </form>
       </div>
     </div>
+    </Portal>
   )
 }

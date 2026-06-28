@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { dayBR } from './dateBR'
 import { type CalendarEvent, EVENT_TYPE_LABELS, bentoInput, useEscape } from './calendarShared'
+import { Portal } from '@/components/ui/Portal'
 
 interface EventModalProps {
   date: Date
@@ -63,7 +64,8 @@ export function EventModal({ date, hour, userId, onClose, onSaved }: EventModalP
   useEscape(onClose)
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <Portal>
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
       <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
         <div className="flex items-center justify-between p-5 border-b border-bento-border">
           <h2 className="font-display font-bold text-bento-text text-base">Novo Evento</h2>
@@ -139,5 +141,6 @@ export function EventModal({ date, hour, userId, onClose, onSaved }: EventModalP
         </div>
       </div>
     </div>
+    </Portal>
   )
 }

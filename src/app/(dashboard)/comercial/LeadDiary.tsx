@@ -12,6 +12,7 @@ import { type FunnelStage } from '@/lib/funnelStages'
 import { usdCompact } from '@/lib/format'
 import { waNumber } from '@/lib/phone'
 import { LeadTasks } from './LeadTasks'
+import { Portal } from '@/components/ui/Portal'
 import { Sparkles, MessageCircle, MessageSquare, Copy, ChevronDown } from 'lucide-react'
 
 // Saudação pré-preenchida do WhatsApp (leads são US → inglês). Editável aqui.
@@ -433,7 +434,8 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex h-[100dvh]">
+    <Portal>
+    <div className="fixed inset-0 z-[300] flex h-[100dvh]">
       {/* Overlay */}
       <div className="flex-1 bg-black/30" onClick={onClose} />
 
@@ -830,5 +832,6 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
         </div>{/* fim do scroll único */}
       </div>
     </div>
+    </Portal>
   )
 }

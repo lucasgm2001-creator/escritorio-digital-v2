@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
 import { payDueWeeks, voidClientWeek } from '@/lib/commission/actions'
 import { ClienteModal } from './ClienteModal'
+import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase/client'
 import { useSave } from '@/lib/useSave'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -640,7 +641,8 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
 
       {/* Modal novo cliente */}
       {newOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+        <Portal>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
           <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
             <div className="flex items-center justify-between p-5 border-b border-bento-border">
               <h2 className="font-display font-bold text-bento-text">Novo Cliente</h2>
@@ -719,6 +721,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
             </form>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Edição de cliente — modal compartilhado (mesmo usado na aba Contatos) */}

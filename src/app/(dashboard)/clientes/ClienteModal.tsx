@@ -7,6 +7,7 @@ import { useSave } from '@/lib/useSave'
 import { FUSO_OPTIONS } from '../comercial/types'
 import { US_STATES, sanitizeAreaCode } from '@/lib/usStates'
 import { cn } from '@/lib/utils'
+import { Portal } from '@/components/ui/Portal'
 import { DossieTab } from './DossieTab'
 import type { Client } from './ClientesClient'
 
@@ -94,7 +95,8 @@ export function ClienteModal({ client, onClose, onSaved, initialTab }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
+    <Portal>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
       <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden animate-slide-up">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-display font-bold text-bento-text truncate">{client.name}</h2>
@@ -182,5 +184,6 @@ export function ClienteModal({ client, onClose, onSaved, initialTab }: {
         )}
       </div>
     </div>
+    </Portal>
   )
 }

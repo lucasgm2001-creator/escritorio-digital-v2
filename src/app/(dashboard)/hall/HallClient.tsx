@@ -11,6 +11,7 @@ import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
 import { X, Clock, CalendarDays, Activity as ActivityIcon, Newspaper } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 import type { Activity, Notice } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
 import type { Lead } from '../comercial/types'
@@ -139,7 +140,8 @@ function HistoryModal({ kind, onClose }: {
   const title = kind === 'activities' ? 'Atividade Recente' : 'Mural de Avisos'
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-stretch sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+    <Portal>
+    <div className="fixed inset-0 z-[300] flex items-stretch sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[82vh] bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-bento-border shrink-0">
@@ -192,6 +194,7 @@ function HistoryModal({ kind, onClose }: {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 

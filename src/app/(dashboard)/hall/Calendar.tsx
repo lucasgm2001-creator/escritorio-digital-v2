@@ -12,6 +12,7 @@ import {
   useEscape, getWeekDays, getMonthDays, getHourSlots,
 } from './calendarShared'
 import { EventModal } from './EventModal'
+import { Portal } from '@/components/ui/Portal'
 
 // ─── Event Detail Modal ───────────────────────────────────────────────────────
 
@@ -35,7 +36,8 @@ function EventDetailModal({ event, onClose, onDelete }: { event: CalendarEvent; 
   useEscape(onClose)
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <Portal>
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
       <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm animate-slide-up">
         <div className="flex items-center justify-between p-5 border-b border-bento-border">
           <div className="flex items-center gap-2.5">
@@ -79,6 +81,7 @@ function EventDetailModal({ event, onClose, onDelete }: { event: CalendarEvent; 
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 

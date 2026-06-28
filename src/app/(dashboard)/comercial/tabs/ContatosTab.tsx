@@ -11,6 +11,7 @@ import { rangeFor, inPeriodByActivity, type Range } from '@/lib/period'
 import { ALL_COLUMNS, FUSO_LABELS, type Lead } from '../types'
 import type { Client } from '../../clientes/ClientesClient'
 import { ClienteModal } from '../../clientes/ClienteModal'
+import { Portal } from '@/components/ui/Portal'
 
 // Lista UNIFICADA de contatos (leads + clientes), deduplicada por telefone/email. Cliente prevalece.
 // Só leitura/navegação — clicar abre o perfil existente (LeadDiary p/ lead, aba Clientes p/ cliente).
@@ -314,7 +315,8 @@ export function ContatosTab({ leads, clients, onOpenLead, onClientUpdated }: Pro
 
       {/* Confirmação de exclusão PERMANENTE — só leads */}
       {confirm && (
-        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <Portal>
+        <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (!deleting) setConfirm(null) }} />
           <div className="relative bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
             <div className="p-5 space-y-4">
@@ -347,6 +349,7 @@ export function ContatosTab({ leads, clients, onOpenLead, onClientUpdated }: Pro
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* Edição de cliente na própria aba Contatos (modal compartilhado). Salva e reflete no mapa. */}
