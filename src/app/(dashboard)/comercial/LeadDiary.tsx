@@ -540,6 +540,14 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
           </button>
           {phaseOpen && (
             <div className="absolute left-5 right-5 z-20 mt-1 bg-bento-panel border border-bento-border rounded-btn shadow-card-hover overflow-hidden">
+              {/* Topo do aberto: rótulo + X pra recolher de volta pro estado fechado. */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-bento-border/60">
+                <span className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted">Mover para</span>
+                <button type="button" onClick={() => setPhaseOpen(false)} aria-label="Fechar seletor de fase"
+                  className="-mr-1 p-1 rounded text-bento-muted hover:text-bento-text">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
               {ALL_COLUMNS.map(c => (
                 <button
                   key={c.key}
