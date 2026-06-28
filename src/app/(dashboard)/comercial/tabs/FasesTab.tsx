@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent,
 } from '@dnd-kit/core'
@@ -92,6 +93,7 @@ export function FasesTab() {
   }, [stages, emptyGroups])
   const groupNames = useMemo(() => displayGroups.map(g => g.name), [displayGroups])
   const sel = selSlug ? stages.find(s => s.slug === selSlug) ?? null : null
+  const router = useRouter()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
   // Persiste uma ordem PLANA (slug + grupo) → grava posicao (índice+1) e grupo só nas linhas que
@@ -107,6 +109,7 @@ export function FasesTab() {
       return ordered.map((o, i) => ({ ...prev.find(p => p.slug === o.slug)!, posicao: i + 1, grupo: o.grupo }))
     })
     await Promise.all(updates.map(u => supabase.from('funnel_stages').update({ posicao: u.posicao, grupo: u.grupo }).eq('slug', u.slug)))
+    router.refresh()   // Funil reflete reordenação/grupo sem refresh manual
   }
 
   // Arrastar fase: reordena dentro do grupo OU entra noutro grupo (soltando sobre um card de lá).
@@ -154,7 +157,7 @@ export function FasesTab() {
       const { error } = await supabase.from('funnel_stages').update({ grupo: nn }).eq('grupo', oldName)
       setBusy(false)
       if (error) { toast({ type: 'error', message: `Não foi possível renomear: ${error.message}` }); return }
-      setEmptyGroups(p => p.filter(n => n !== oldName)); load()
+      setEmptyGroups(p => p.filter(n => n !== oldName)); load(); router.refresh()
     } else {
       setEmptyGroups(p => p.map(n => (n === oldName ? nn : n)))
     }
@@ -176,7 +179,7 @@ export function FasesTab() {
     setBusy(false)
     if (error) { toast({ type: 'error', message: `Não foi possível adicionar a fase: ${error.message}` }); return }
     setEmptyGroups(p => p.filter(n => n !== groupName))
-    setSelSlug(slug); await load()
+    setSelSlug(slug); await load(); router.refresh()
   }
 
   // Patch de colunas PERMITIDAS apenas (nunca flags de dinheiro).
@@ -184,6 +187,7 @@ export function FasesTab() {
     setStages(prev => prev.map(s => s.slug === slug ? { ...s, ...patch } : s))
     const { error } = await supabase.from('funnel_stages').update(patch).eq('slug', slug)
     if (error) { toast({ type: 'error', message: `Não foi possível salvar: ${error.message}` }); load() }
+    else router.refresh()   // Funil reflete renomear/cor/arquivar sem refresh manual
   }
 
   // Mover fase p/ outro grupo (select do painel) — posicao no FIM (não bagunça a ordem).
@@ -193,6 +197,7 @@ export function FasesTab() {
     setStages(prev => prev.map(s => s.slug === slug ? { ...s, grupo, posicao } : s))
     setEmptyGroups(p => p.filter(n => n !== groupName))
     await supabase.from('funnel_stages').update({ grupo, posicao }).eq('slug', slug)
+    router.refresh()
   }
 
   // Excluir-mesclar: move os leads do slug antigo → destino ANTES de apagar. NÃO toca stage_events.
@@ -207,7 +212,7 @@ export function FasesTab() {
     const { error: e2 } = await supabase.from('funnel_stages').delete().eq('slug', stage.slug)
     setBusy(false)
     if (e2) { toast({ type: 'error', message: `Falha ao excluir: ${e2.message}` }); return }
-    setDelState(null); setSelSlug(null); load()
+    setDelState(null); setSelSlug(null); load(); router.refresh()
     toast({ type: 'success', message: 'Fase excluída e leads movidos.' })
   }
 
