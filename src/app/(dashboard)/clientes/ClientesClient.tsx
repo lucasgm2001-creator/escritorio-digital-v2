@@ -5,6 +5,7 @@ import { useRealtimeRows } from '@/lib/hooks/useRealtimeRows'
 import { payDueWeeks, voidClientWeek } from '@/lib/commission/actions'
 import { ClienteModal } from './ClienteModal'
 import { Portal } from '@/components/ui/Portal'
+import { useDialog } from '@/components/ui/useDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useSave } from '@/lib/useSave'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -305,6 +306,7 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
   useRealtimeRows<Client>('clients', setClients)
   const [search, setSearch] = useState('')
   const [newOpen, setNewOpen] = useState(false)
+  const newDialog = useDialog<HTMLDivElement>(() => setNewOpen(false), newOpen)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [editTab, setEditTab] = useState<'editar' | 'dossie'>('editar')   // aba inicial do modal do cliente
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', plano_id: '', dia_pagamento_semana: '', fuso: '', nicho: '', city: '', state: '', area_code: '' })
@@ -643,9 +645,9 @@ export function ClientesClient({ initialClients, currentUser, focusClientId, onF
       {newOpen && (
         <Portal>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
-          <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
+          <div ref={newDialog.ref} {...newDialog.dialogProps} aria-labelledby="newclient-title" className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
             <div className="flex items-center justify-between p-5 border-b border-bento-border">
-              <h2 className="font-display font-bold text-bento-text">Novo Cliente</h2>
+              <h2 id="newclient-title" className="font-display font-bold text-bento-text">Novo Cliente</h2>
               <button onClick={() => setNewOpen(false)} className="text-bento-muted hover:text-bento-text transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

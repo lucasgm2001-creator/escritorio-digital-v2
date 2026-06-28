@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 import { cn, formatDate } from '@/lib/utils'
 import { Portal } from '@/components/ui/Portal'
+import { useDialog } from '@/components/ui/useDialog'
 import {
   Upload, Search, Plus, Play, X, ChevronUp, ChevronDown, Trash2, Pencil,
   GripVertical, FileText, FolderOpen, Layers, Star, Folder, Tag,
@@ -131,15 +132,16 @@ function LeadBriefModal({ leadId, fallbackName, onContinue, onClose }: {
 
   const nome = lead?.name ?? fallbackName ?? 'Lead'
   const contato = [lead?.company, lead?.phone].filter(Boolean).join(' · ')
+  const { ref, dialogProps } = useDialog(onClose)
 
   return (
     <Portal>
     <div onClick={onClose} className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-lg max-h-[90vh] flex flex-col animate-slide-up overflow-hidden">
+      <div ref={ref} {...dialogProps} aria-labelledby="leadbrief-title" onClick={e => e.stopPropagation()} className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-lg max-h-[90vh] flex flex-col animate-slide-up overflow-hidden">
         <div className="flex items-start justify-between gap-2 p-5 border-b border-bento-border shrink-0">
           <div className="min-w-0">
             <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-lime-fg">Resumo do lead</p>
-            <h2 className="font-display font-bold text-bento-text text-base truncate">{nome}</h2>
+            <h2 id="leadbrief-title" className="font-display font-bold text-bento-text text-base truncate">{nome}</h2>
             {contato && <p className="font-tech text-xs text-bento-muted truncate">{contato}</p>}
           </div>
           <button onClick={onClose} aria-label="Fechar" className="text-bento-muted hover:text-bento-text shrink-0 p-1"><X className="w-5 h-5" /></button>
@@ -229,6 +231,10 @@ export function ApresentacaoTab() {
   const [playing, setPlaying] = useState<{ name: string; client: string | null; materials: Material[] } | null>(null)
   // Resumo do lead (cadastro + histórico) mostrado ANTES de apresentar, quando há lead vinculado.
   const [leadBrief, setLeadBrief] = useState<{ play: { name: string; client: string | null; materials: Material[] }; leadId: string } | null>(null)
+
+  // A8: diálogos dos overlays INLINE (ativam só quando abertos → sem travar o scroll com o modal fechado).
+  const editMatDialog = useDialog<HTMLDivElement>(() => setEditMat(null), !!editMat)
+  const presentingDialog = useDialog<HTMLDivElement>(() => setPresenting(null), !!presenting)
 
   const matById = new Map(materials.map(m => [m.id, m]))
   const leadName = (id: string | null) => (id ? leads.find(l => l.id === id)?.name ?? null : null)
@@ -768,9 +774,9 @@ export function ApresentacaoTab() {
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setEditMat(null)} />
-          <div className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
+          <div ref={editMatDialog.ref} {...editMatDialog.dialogProps} aria-labelledby="editmat-title" className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-bento-text">Editar material</h3>
+              <h3 id="editmat-title" className="font-display font-bold text-bento-text">Editar material</h3>
               <button onClick={() => setEditMat(null)} aria-label="Fechar" className="p-1 text-bento-muted hover:text-bento-text"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-xs text-bento-muted truncate">{editMat.name}</p>
@@ -794,12 +800,12 @@ export function ApresentacaoTab() {
       {/* Pré-visualização de um material */}
       {presenting && (
         <Portal>
-        <div className="fixed inset-0 z-[300] bg-black flex items-center justify-center">
+        <div ref={presentingDialog.ref} {...presentingDialog.dialogProps} aria-labelledby="presenting-title" className="fixed inset-0 z-[300] bg-black flex items-center justify-center">
           <button onClick={() => setPresenting(null)} title="Fechar (ESC)" className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-xl transition-colors backdrop-blur-sm">
             <X className="w-5 h-5" />
           </button>
           <div className="absolute top-4 left-4 z-10">
-            <p className="text-white/60 text-xs font-medium bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">{presenting.name}</p>
+            <p id="presenting-title" className="text-white/60 text-xs font-medium bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">{presenting.name}</p>
           </div>
           <div className="w-full h-full flex items-center justify-center p-4 sm:p-8">
             <MaterialFrame material={presenting} />

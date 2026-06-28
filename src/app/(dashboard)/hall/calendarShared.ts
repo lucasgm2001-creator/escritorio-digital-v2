@@ -1,5 +1,5 @@
 // Tipos/consts/helpers compartilhados da Agenda do Hall — extraídos do HallClient (refactor puro,
-// sem mudança de comportamento). Importado por Calendar/EventModal/DayDetailModal e pelo HallClient.
+// sem mudança de comportamento). Importado por Calendar/EventModal e pelo HallClient.
 import { useEffect } from 'react'
 import { dayBR } from './dateBR'
 

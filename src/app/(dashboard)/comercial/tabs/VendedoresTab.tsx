@@ -514,6 +514,10 @@ export function VendedoresTab() {
   }, [])
 
   const closeAdd = () => { setAddOpen(false); setForm(emptyForm); setPhotoFile(null); setPhotoPreview(null) }
+  // A8: diálogos dos 3 overlays inline (ativam só quando abertos → sem travar o scroll com o modal fechado).
+  const addDialog = useDialog<HTMLDivElement>(closeAdd, addOpen)
+  const pinDialog = useDialog<HTMLDivElement>(() => setPinSeller(null), !!pinSeller)
+  const changePinDialog = useDialog<HTMLDivElement>(() => setChangePinOpen(false), changePinOpen)
 
   const pickAddPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -622,9 +626,9 @@ export function VendedoresTab() {
       {addOpen && (
         <Portal>
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[300] p-0 sm:p-4">
-          <div className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm max-h-[92vh] flex flex-col animate-slide-up">
+          <div ref={addDialog.ref} {...addDialog.dialogProps} aria-labelledby="novo-vendedor-title" className="bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-sm max-h-[92vh] flex flex-col animate-slide-up">
             <div className="flex items-center justify-between p-5 border-b border-bento-border shrink-0">
-              <h2 className="font-display font-bold text-bento-text text-base">Novo Vendedor</h2>
+              <h2 id="novo-vendedor-title" className="font-display font-bold text-bento-text text-base">Novo Vendedor</h2>
               <button onClick={closeAdd} className="text-bento-muted hover:text-bento-text">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -675,7 +679,7 @@ export function VendedoresTab() {
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setPinSeller(null)} />
-          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
+          <div ref={pinDialog.ref} {...pinDialog.dialogProps} aria-label={`PIN de ${pinSeller.name}`} className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
             <CommissionPinPad sellerId={pinSeller.id} sellerName={pinSeller.name}
               onUnlock={() => { const s = pinSeller; setPinSeller(null); setSelected(s) }}
               onClose={() => setPinSeller(null)} />
@@ -689,7 +693,7 @@ export function VendedoresTab() {
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-stretch sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChangePinOpen(false)} />
-          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
+          <div ref={changePinDialog.ref} {...changePinDialog.dialogProps} aria-label="Alterar meu PIN" className="relative w-full h-full sm:h-auto sm:max-w-sm bg-bento-panel border border-bento-border rounded-none sm:rounded-bento shadow-card-hover overflow-y-auto flex items-center justify-center">
             <ChangePinPad onClose={() => setChangePinOpen(false)} />
           </div>
         </div>

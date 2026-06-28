@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Portal } from '@/components/ui/Portal'
+import { useDialog } from '@/components/ui/useDialog'
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
@@ -166,6 +167,14 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
   onClose: () => void
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
+  // A8: useDialog (ESC/focus-trap/scroll-lock/retorno de foco + role/aria). O nó é COMPARTILHADO com o
+  // rootRef (fullscreen) via callback ref que seta os dois.
+  const { ref: dialogRef, dialogProps } = useDialog<HTMLDivElement>(onClose)
+  const setRoot = useCallback((el: HTMLDivElement | null) => {
+    // os dois são RefObject (current readonly p/ o TS) — set manual no callback ref via cast.
+    ;(rootRef as unknown as { current: HTMLDivElement | null }).current = el
+    ;(dialogRef as unknown as { current: HTMLDivElement | null }).current = el
+  }, [dialogRef])
   const [index, setIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   // Deck montado: cada slide visitado (+ vizinhos) fica MONTADO; só alterna a opacity → troca
@@ -247,7 +256,7 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
 
   return (
     <Portal>
-    <div ref={rootRef} className="fixed inset-0 z-[300] bg-black flex flex-col select-none">
+    <div ref={setRoot} {...dialogProps} aria-labelledby="player-title" className="fixed inset-0 z-[300] bg-black flex flex-col select-none">
       {/* Topbar fina: menu + nome/cliente + contador + fechar. Desce com o safe-area (não fica sob o notch). */}
       <div className="shrink-0 flex items-center gap-3 min-h-12 px-3 pt-[env(safe-area-inset-top)] bg-black/70 backdrop-blur-sm border-b border-white/10">
         <button onClick={e => { blur(e); setMenuOpen(o => !o) }} title="Materiais" aria-label="Materiais"
@@ -255,7 +264,7 @@ export function PresentationPlayer({ name, client, materials, onClose }: {
           <Menu className="w-4 h-4" />
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="text-white text-sm font-medium truncate">{name}</p>
+          <p id="player-title" className="text-white text-sm font-medium truncate">{name}</p>
           {client && <p className="font-tech text-[10px] uppercase tracking-wider text-white/45 truncate">{client}</p>}
         </div>
         <span className="font-tech text-xs text-white/60 tabular-nums shrink-0">{index + 1} / {total}</span>

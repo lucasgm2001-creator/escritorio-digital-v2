@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Portal } from '@/components/ui/Portal'
+import { useDialog } from '@/components/ui/useDialog'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent,
 } from '@dnd-kit/core'
@@ -77,6 +78,7 @@ export function FasesTab() {
   const [editingGroup, setEditingGroup] = useState<string | null>(null)  // grupo em renome inline
   const [renameDraft, setRenameDraft] = useState('')
   const [delState, setDelState] = useState<{ stage: FunnelStage; dest: string } | null>(null)
+  const delDialog = useDialog<HTMLDivElement>(() => setDelState(null), !!delState)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('funnel_stages').select('*').order('posicao')
@@ -306,9 +308,9 @@ export function FasesTab() {
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDelState(null)} />
-          <div className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
+          <div ref={delDialog.ref} {...delDialog.dialogProps} aria-labelledby="delstate-title" className="relative w-full max-w-sm bg-bento-panel border border-bento-border rounded-bento shadow-card-hover p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-bento-text">Excluir “{delState.stage.nome}”</h3>
+              <h3 id="delstate-title" className="font-display font-bold text-bento-text">Excluir “{delState.stage.nome}”</h3>
               <button onClick={() => setDelState(null)} aria-label="Fechar" className="p-1 text-bento-muted hover:text-bento-text"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-xs text-bento-muted">Os leads desta fase serão movidos para a fase escolhida ANTES de excluir (nenhum lead fica órfão). O histórico não é apagado.</p>

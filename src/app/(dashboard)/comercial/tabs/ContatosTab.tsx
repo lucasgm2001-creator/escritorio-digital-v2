@@ -12,6 +12,7 @@ import { ALL_COLUMNS, FUSO_LABELS, type Lead } from '../types'
 import type { Client } from '../../clientes/ClientesClient'
 import { ClienteModal } from '../../clientes/ClienteModal'
 import { Portal } from '@/components/ui/Portal'
+import { useDialog } from '@/components/ui/useDialog'
 
 // Lista UNIFICADA de contatos (leads + clientes), deduplicada por telefone/email. Cliente prevalece.
 // Só leitura/navegação — clicar abre o perfil existente (LeadDiary p/ lead, aba Clientes p/ cliente).
@@ -94,6 +95,7 @@ export function ContatosTab({ leads, clients, onOpenLead, onClientUpdated }: Pro
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())   // exclusão otimista (ids de lead apagados)
   const [confirm, setConfirm] = useState<Row | null>(null)               // linha aguardando confirmação de exclusão
   const [deleting, setDeleting] = useState(false)
+  const confirmDialog = useDialog<HTMLDivElement>(() => { if (!deleting) setConfirm(null) }, !!confirm)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -318,14 +320,14 @@ export function ContatosTab({ leads, clients, onOpenLead, onClientUpdated }: Pro
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (!deleting) setConfirm(null) }} />
-          <div className="relative bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
+          <div ref={confirmDialog.ref} {...confirmDialog.dialogProps} aria-labelledby="contato-del-title" className="relative bento-fx rounded-t-frame sm:rounded-frame shadow-card-hover w-full sm:max-w-md animate-slide-up">
             <div className="p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="w-9 h-9 rounded-full bg-red-500/15 flex items-center justify-center flex-none">
                   <Trash2 className="w-4 h-4 text-red-400" />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-bento-text leading-tight">Excluir de vez</h2>
+                  <h2 id="contato-del-title" className="font-display font-bold text-bento-text leading-tight">Excluir de vez</h2>
                   <p className="text-sm text-bento-dim truncate">{confirm.name || 'Sem nome'}</p>
                 </div>
               </div>
