@@ -1,6 +1,6 @@
 import 'server-only'
 import { google, type calendar_v3 } from 'googleapis'
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 
 // OAuth do USUÁRIO p/ o sync da Agenda: conectado, os eventos são criados COMO o usuário e o Google Meet é
@@ -31,12 +31,14 @@ function stateSecret(): string {
   if (process.env.NODE_ENV === 'production') throw new Error('OAUTH_STATE_SECRET ausente')
   return 'dev-only-state-secret'
 }
-export function signState(userId: string): string {
-  const payload = Buffer.from(JSON.stringify({ u: userId, n: randomBytes(8).toString('hex'), t: Date.now() })).toString('base64url')
+// O `nonce` vem de fora (gerado no initiate) p/ ir TAMBÉM num cookie httpOnly de uso único (anti-replay, M15).
+export function signState(userId: string, nonce: string): string {
+  const payload = Buffer.from(JSON.stringify({ u: userId, n: nonce, t: Date.now() })).toString('base64url')
   const sig = createHmac('sha256', stateSecret()).update(payload).digest('base64url')
   return `${payload}.${sig}`
 }
-export function verifyState(state: string | null | undefined): string | null {
+// Devolve { userId, nonce } (ou null) — o callback ainda confere o nonce contra o cookie de uso único.
+export function verifyState(state: string | null | undefined): { userId: string; nonce: string } | null {
   if (!state || !state.includes('.')) return null
   const [payload, sig] = state.split('.')
   const expected = createHmac('sha256', stateSecret()).update(payload).digest('base64url')
@@ -47,8 +49,9 @@ export function verifyState(state: string | null | undefined): string | null {
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
     if (!data?.u || typeof data.u !== 'string') return null
+    if (!data?.n || typeof data.n !== 'string') return null
     if (typeof data.t !== 'number' || Date.now() - data.t > 10 * 60_000) return null   // expira em 10min
-    return data.u
+    return { userId: data.u, nonce: data.n }
   } catch { return null }
 }
 

@@ -41,8 +41,8 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
   }
-  // Loga o payload BRUTO (pra confirmar os nomes reais dos campos do GHL). NUNCA loga segredo/keys.
-  console.log('[leads/transcript] payload:', JSON.stringify(body))
+  // Loga só os NOMES dos campos (pra mapear os campos do GHL) — NUNCA o CONTEÚDO (transcript = PII). B3.
+  console.log('[leads/transcript] payload keys:', Object.keys(body).join(','))
 
   try {
     const contact = body.contact && typeof body.contact === 'object' ? (body.contact as Record<string, unknown>) : undefined
