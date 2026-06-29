@@ -52,23 +52,33 @@ function slugify(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 }
 
+const groupKeyOf = (s: FunnelStage) => (s.grupo && s.grupo.trim()) || NO_GROUP
+// Bloco TERMINAL (fim do funil) — won/lost/lixeira. NÃO use is_system sozinho: 'novo' é system e fica no começo.
+const isTerminalEnd = (s: FunnelStage) => s.is_won || s.is_lost || s.slug === 'lixeira'
+
 // Agrupa as fases por `grupo` (null → "Sem grupo"), grupos por MENOR posição, fases por posicao.
 function buildGroups(stages: FunnelStage[]): { name: string; items: FunnelStage[] }[] {
   const map = new Map<string, FunnelStage[]>()
   for (const s of [...stages].sort((a, b) => a.posicao - b.posicao)) {
-    const g = (s.grupo && s.grupo.trim()) || NO_GROUP
+    const g = groupKeyOf(s)
     if (!map.has(g)) map.set(g, [])
     map.get(g)!.push(s)
   }
   return Array.from(map.entries()).map(([name, items]) => ({ name, items }))
 }
 
-// Editor PROFISSIONAL do funil. SÓ escreve: nome, cor, grupo, posicao, dias_esfriamento,
-// conta_interagiu, arquivada — e cria/exclui conforme regras. NUNCA escreve slug/is_won/is_lost/
-// is_system/conta_reuniao/conta_fechou em fase existente (DINHEIRO intocado). stage_events intocado.
+// Campos que o editor pode gravar numa fase EXISTENTE (nunca slug/flags de dinheiro).
+type StagePatch = Partial<Pick<FunnelStage, 'nome' | 'cor' | 'dias_esfriamento' | 'conta_interagiu' | 'arquivada'>>
+
+// Editor PROFISSIONAL do funil. SÓ escreve: nome, cor, grupo, posicao, dias_esfriamento, conta_interagiu,
+// arquivada — e cria/exclui conforme regras. NUNCA escreve slug/is_won/is_lost/is_system/conta_reuniao/
+// conta_fechou em fase existente (DINHEIRO intocado). stage_events intocado. NADA grava sem confirmação
+// explícita: criar fase é RASCUNHO (botão Adicionar), editar fase tem "Salvar alterações", renomear grupo
+// tem ✓/Enter, excluir tem modal. (Reordenar/mover-de-grupo = o próprio gesto é a confirmação.)
 export function FasesTab() {
   const supabase = createClient()
   const { toast } = useToast()
+  const router = useRouter()
   const [stages, setStages] = useState<FunnelStage[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -77,7 +87,8 @@ export function FasesTab() {
   const [emptyGroups, setEmptyGroups] = useState<string[]>([])           // grupos criados ainda SEM fase (locais)
   const [editingGroup, setEditingGroup] = useState<string | null>(null)  // grupo em renome inline
   const [renameDraft, setRenameDraft] = useState('')
-  const [delState, setDelState] = useState<{ stage: FunnelStage; dest: string } | null>(null)
+  const [draft, setDraft] = useState<{ group: string; nome: string; dias: string } | null>(null)  // fase NOVA (rascunho)
+  const [delState, setDelState] = useState<{ stage: FunnelStage; dest: string; count: number } | null>(null)
   const delDialog = useDialog<HTMLDivElement>(() => setDelState(null), !!delState)
 
   const load = useCallback(async () => {
@@ -96,7 +107,6 @@ export function FasesTab() {
   }, [stages, emptyGroups])
   const groupNames = useMemo(() => displayGroups.map(g => g.name), [displayGroups])
   const sel = selSlug ? stages.find(s => s.slug === selSlug) ?? null : null
-  const router = useRouter()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
   // Persiste uma ordem PLANA (slug + grupo) → grava posicao (índice+1) e grupo só nas linhas que
@@ -116,7 +126,7 @@ export function FasesTab() {
   }
 
   // Arrastar fase: reordena dentro do grupo OU entra noutro grupo (soltando sobre um card de lá).
-  // arrayMove (dnd-kit) calcula o índice destino certo — sem off-by-one ao remover antes de inserir.
+  // arrayMove (dnd-kit) calcula o índice destino certo — grupo E posicao saem juntos (persist reescreve contíguo).
   const onDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e
     if (!over || active.id === over.id) return
@@ -147,14 +157,15 @@ export function FasesTab() {
     setEmptyGroups(p => [...p, name]); setEditingGroup(name); setRenameDraft(name)
   }
 
-  // Renomeia o grupo: COM fases → UPDATE funnel_stages SET grupo=novo WHERE grupo=antigo; vazio → local.
+  // Renomeia o grupo (confirmação EXPLÍCITA: Enter ou ✓; Esc cancela — sem auto-save no blur). COM fases →
+  // UPDATE funnel_stages SET grupo=novo WHERE grupo=antigo; vazio → local.
   const saveGroupName = async (oldName: string) => {
     const nn = renameDraft.trim()
     setEditingGroup(null)
     if (!nn || nn === oldName || oldName === NO_GROUP) return
     // Nome já existe → seria MERGE silencioso. Confirma antes (evita fundir A em B sem querer).
     if (groupNames.some(n => n !== oldName && n === nn) && !window.confirm(`Já existe um grupo "${nn}". Mesclar as fases de "${oldName}" nele?`)) return
-    const hasStages = stages.some(s => ((s.grupo && s.grupo.trim()) || NO_GROUP) === oldName)
+    const hasStages = stages.some(s => groupKeyOf(s) === oldName)
     if (hasStages) {
       setBusy(true)
       const { error } = await supabase.from('funnel_stages').update({ grupo: nn }).eq('grupo', oldName)
@@ -166,20 +177,37 @@ export function FasesTab() {
     }
   }
 
-  // "+ Adicionar fase aqui": cria fase NOVA neutra, JÁ FUNCIONAL. Entra na pipeline ATIVA, ANTES do bloco
-  // terminal (ganho/perda/lixeira) — nunca depois da Lixeira. Slug único do nome (com tratamento da colisão
-  // UNIQUE). Aparece na hora no funil/seletor porque tudo lê funnel_stages (data-driven).
-  const addFaseToGroup = async (groupName: string) => {
+  // POSIÇÃO de uma fase nova/movida no grupo `groupName`: FIM do grupo (maior posicao do grupo + 1) → o grupo
+  // clicado cresce UMA coluna no lugar, grupo e posicao CONSISTENTES. Grupo vazio → ANTES do bloco terminal
+  // (nunca depois da Lixeira). O caller empurra +1 quem está em posicao >= alvo.
+  const insertPosForGroup = (groupName: string): number => {
+    const inGroup = stages.filter(s => groupKeyOf(s) === groupName)
+    if (inGroup.length) return Math.max(...inGroup.map(s => s.posicao)) + 1
+    const termPos = stages.filter(isTerminalEnd).map(s => s.posicao)
+    return termPos.length ? Math.min(...termPos) : Math.max(0, ...stages.map(s => s.posicao)) + 1
+  }
+
+  // "+ Adicionar fase aqui": abre RASCUNHO (não grava nada ainda). selSlug fecha p/ não confundir.
+  const startDraft = (groupName: string) => {
     if (busy) return
+    setSelSlug(null)
+    setCollapsed(p => { const n = new Set(p); n.delete(groupName); return n })
+    setDraft({ group: groupName, nome: '', dias: '' })
+  }
+
+  // CONFIRMAR o rascunho → cria a fase de fato. Slug do NOME (slugify) único + retry no erro UNIQUE. Entra
+  // no FIM do grupo (insertPosForGroup) empurrando posicao>=alvo. Flags de dinheiro = false. JÁ funcional.
+  const commitDraft = async () => {
+    if (!draft || busy) return
+    const groupName = draft.group
+    const nome = draft.nome.trim()
+    if (!nome) { toast({ type: 'error', message: 'Dê um nome pra fase.' }); return }
     setBusy(true)
     try {
       const grupo = groupName === NO_GROUP ? null : groupName
+      const insertPos = insertPosForGroup(groupName)
 
-      // POSIÇÃO: logo ANTES do bloco terminal. Terminal = won/lost/lixeira — NÃO use is_system sozinho
-      // ('novo' é system e fica no começo). Sem terminais → vai pro fim. Abre espaço empurrando posicao>=alvo.
-      const isTerminalEnd = (s: FunnelStage) => s.is_won || s.is_lost || s.slug === 'lixeira'
-      const termPos = stages.filter(isTerminalEnd).map(s => s.posicao)
-      const insertPos = termPos.length ? Math.min(...termPos) : Math.max(0, ...stages.map(s => s.posicao)) + 1
+      // Abre espaço: tudo com posicao >= alvo sobe +1 (o grupo cresce no lugar; demais mantêm a ordem).
       const bump = stages.filter(s => s.posicao >= insertPos)
       if (bump.length) {
         const results = await Promise.all(bump.map(s => supabase.from('funnel_stages').update({ posicao: s.posicao + 1 }).eq('slug', s.slug)))
@@ -187,15 +215,15 @@ export function FasesTab() {
         if (bErr) { toast({ type: 'error', message: `Não foi possível abrir espaço pra fase: ${bErr.message}` }); return }
       }
 
-      // SLUG único do NOME (placeholder 'Nova fase'): minúsculo/sem acento; colisão → sufixo _2,_3… Tratamos
-      // TAMBÉM o erro UNIQUE do banco (corrida/estado velho): re-tenta com o próximo sufixo.
-      const baseSlug = slugify('Nova fase') || 'fase'
+      // SLUG do NOME final (ex.: "Não Respondeu" → nao_respondeu). Único: dedup local + sufixo; trata UNIQUE.
+      const baseSlug = slugify(nome) || 'fase'
       const used = new Set(stages.map(s => s.slug))
       let slug = baseSlug; let n = 2
       while (used.has(slug)) slug = `${baseSlug}_${n++}`
+      const diasNum = draft.dias.trim() === '' ? null : Math.max(2, Number(draft.dias) || 5)
 
       const row = {
-        nome: 'Nova fase', posicao: insertPos, grupo, dias_esfriamento: null, cor: null,
+        nome, posicao: insertPos, grupo, dias_esfriamento: diasNum, cor: null,
         is_won: false, is_lost: false, is_system: false, conta_interagiu: true, conta_reuniao: false, conta_fechou: false, arquivada: false,
       }
       let lastErr: { message: string } | null = null
@@ -203,51 +231,74 @@ export function FasesTab() {
         const { error } = await supabase.from('funnel_stages').insert({ ...row, slug })
         if (!error) { lastErr = null; break }
         lastErr = error
-        if (error.code === '23505') { slug = `${baseSlug}_${n++}`; continue }   // UNIQUE (slug) → próximo sufixo, tenta de novo
+        if (error.code === '23505') { slug = `${baseSlug}_${n++}`; continue }   // UNIQUE (slug) → próximo sufixo
         break
       }
       if (lastErr) { toast({ type: 'error', message: `Não foi possível adicionar a fase: ${lastErr.message}` }); return }
 
       setEmptyGroups(p => p.filter(nm => nm !== groupName))
-      setSelSlug(slug)
+      setDraft(null); setSelSlug(slug)
       await load(); router.refresh()
     } finally {
       setBusy(false)
     }
   }
 
-  // Patch de colunas PERMITIDAS apenas (nunca flags de dinheiro).
-  const patchStage = async (slug: string, patch: Partial<Pick<FunnelStage, 'nome' | 'cor' | 'dias_esfriamento' | 'conta_interagiu' | 'arquivada'>>) => {
+  // Salvar edições de UMA fase (nome/cor/dias/conta_interagiu/arquivada) — confirmação explícita do StagePanel.
+  const patchStage = async (slug: string, patch: StagePatch) => {
+    if (!Object.keys(patch).length) return
+    setBusy(true)
     setStages(prev => prev.map(s => s.slug === slug ? { ...s, ...patch } : s))
     const { error } = await supabase.from('funnel_stages').update(patch).eq('slug', slug)
+    setBusy(false)
     if (error) { toast({ type: 'error', message: `Não foi possível salvar: ${error.message}` }); load() }
-    else router.refresh()   // Funil reflete renomear/cor/arquivar sem refresh manual
+    else { router.refresh(); toast({ type: 'success', message: 'Fase atualizada.' }) }
   }
 
-  // Mover fase p/ outro grupo (select do painel) — posicao no FIM (não bagunça a ordem).
+  // Mover fase p/ outro grupo (select do painel): vai pro FIM do grupo alvo, grupo E posicao CONSISTENTES
+  // (reusa persist → ordem plana contígua). Grupo vazio → antes do bloco terminal. Nunca "grupo de um, posição
+  // de outro" nem depois da Lixeira.
   const moveToGroup = async (slug: string, groupName: string) => {
-    const grupo = groupName === NO_GROUP ? null : groupName
-    const posicao = Math.max(0, ...stages.map(s => s.posicao)) + 1
-    setStages(prev => prev.map(s => s.slug === slug ? { ...s, grupo, posicao } : s))
+    const targetGrupo = groupName === NO_GROUP ? null : groupName
+    const flat = buildGroups(stages).flatMap(g => g.items.map(s => ({ slug: s.slug, grupo: g.name === NO_GROUP ? null : g.name })))
+    const without = flat.filter(f => f.slug !== slug)
+    const termSlugs = new Set(stages.filter(isTerminalEnd).map(s => s.slug))
+    let insertAt = without.findIndex(f => termSlugs.has(f.slug))   // grupo vazio → antes do 1º terminal
+    if (insertAt < 0) insertAt = without.length
+    for (let i = 0; i < without.length; i++) {
+      if ((without[i].grupo ?? NO_GROUP) === (targetGrupo ?? NO_GROUP)) insertAt = i + 1   // após o último item do grupo alvo
+    }
+    const moved = [...without.slice(0, insertAt), { slug, grupo: targetGrupo }, ...without.slice(insertAt)]
     setEmptyGroups(p => p.filter(n => n !== groupName))
-    await supabase.from('funnel_stages').update({ grupo, posicao }).eq('slug', slug)
-    router.refresh()
+    await persist(moved)
   }
 
-  // Excluir-mesclar: move os leads do slug antigo → destino ANTES de apagar. NÃO toca stage_events.
+  // Abre o modal de exclusão JÁ com a contagem de leads da fase (decide se exige destino).
+  const askDelete = async (stage: FunnelStage) => {
+    const { count } = await supabase.from('leads').select('id', { count: 'exact', head: true }).eq('status', stage.slug)
+    setDelState({ stage, dest: '', count: count ?? 0 })
+  }
+
+  // Excluir: NUNCA orfana lead. Se a fase tem leads, exige destino e MOVE antes de apagar. Sistema/protegida
+  // não exclui. NÃO toca stage_events.
   const confirmDelete = async () => {
     if (!delState) return
-    const { stage, dest } = delState
+    const { stage, dest, count } = delState
     if (isStageProtected(stage)) { toast({ type: 'error', message: 'Fase protegida não pode ser excluída.' }); return }
-    if (!dest || dest === stage.slug) { toast({ type: 'error', message: 'Escolha a fase de destino dos leads.' }); return }
+    if (count > 0 && (!dest || dest === stage.slug)) { toast({ type: 'error', message: 'Escolha pra qual fase mover os leads.' }); return }
     setBusy(true)
-    const { error: e1 } = await supabase.from('leads').update({ status: dest }).eq('status', stage.slug)
-    if (e1) { setBusy(false); toast({ type: 'error', message: `Falha ao mover leads: ${e1.message}` }); return }
-    const { error: e2 } = await supabase.from('funnel_stages').delete().eq('slug', stage.slug)
-    setBusy(false)
-    if (e2) { toast({ type: 'error', message: `Falha ao excluir: ${e2.message}` }); return }
-    setDelState(null); setSelSlug(null); load(); router.refresh()
-    toast({ type: 'success', message: 'Fase excluída e leads movidos.' })
+    try {
+      if (count > 0) {
+        const { error: e1 } = await supabase.from('leads').update({ status: dest }).eq('status', stage.slug)
+        if (e1) { toast({ type: 'error', message: `Falha ao mover leads: ${e1.message}` }); return }
+      }
+      const { error: e2 } = await supabase.from('funnel_stages').delete().eq('slug', stage.slug)
+      if (e2) { toast({ type: 'error', message: `Falha ao excluir: ${e2.message}` }); return }
+      setDelState(null); setSelSlug(null); await load(); router.refresh()
+      toast({ type: 'success', message: count > 0 ? 'Fase excluída e leads movidos.' : 'Fase excluída.' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -255,7 +306,7 @@ export function FasesTab() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display font-bold text-bento-text text-base">Fases do funil</h2>
-          <p className="text-bento-muted text-xs mt-0.5">Crie grupos, adicione fases e arraste pra reordenar. Renomear muda só o rótulo — o identificador interno é preservado, então nenhum lead muda de fase. Protegidas (cadeado) não podem ser excluídas.</p>
+          <p className="text-bento-muted text-xs mt-0.5">Crie grupos, adicione fases e arraste pra reordenar. Renomear muda só o rótulo — o identificador interno é preservado, então nenhum lead muda de fase. Nada é salvo sem confirmar. Protegidas (cadeado) não podem ser excluídas.</p>
         </div>
         <button onClick={newGroup} className="bento-btn flex items-center gap-1.5 px-3 py-2 rounded-btn text-xs font-semibold shrink-0 min-h-[40px]"><Plus className="w-4 h-4" />Novo grupo</button>
       </div>
@@ -268,12 +319,13 @@ export function FasesTab() {
             {displayGroups.map((g, gi) => {
               const isClosed = collapsed.has(g.name)
               const editing = editingGroup === g.name
+              const drafting = draft?.group === g.name
               // Setas só ativas entre grupos COM fases (igual o guard do moveGroup) → sem no-op enganoso.
               const canUp = g.items.length > 0 && displayGroups.slice(0, gi).some(x => x.items.length > 0)
               const canDown = g.items.length > 0 && displayGroups.slice(gi + 1).some(x => x.items.length > 0)
               return (
                 <div key={g.name} className="bento-fx p-2">
-                  {/* Cabeçalho do grupo: colapsar + nome(renome inline) + contagem + reordenar + adicionar fase */}
+                  {/* Cabeçalho do grupo: colapsar + nome(renome inline) + contagem + reordenar */}
                   <div className="flex items-center gap-1.5 px-1.5 py-1">
                     <button onClick={() => setCollapsed(p => { const n = new Set(p); if (n.has(g.name)) n.delete(g.name); else n.add(g.name); return n })}
                       className="p-1 text-bento-muted hover:text-bento-text" aria-label="Colapsar grupo">
@@ -282,17 +334,22 @@ export function FasesTab() {
                     {editing ? (
                       <input value={renameDraft} onChange={e => setRenameDraft(e.target.value)} autoFocus
                         onKeyDown={e => { if (e.key === 'Enter') saveGroupName(g.name); if (e.key === 'Escape') setEditingGroup(null) }}
-                        onBlur={() => saveGroupName(g.name)}
                         className="flex-1 bg-bento-bg border border-bento-border rounded-btn px-2 py-1 text-xs text-bento-text focus:outline-none focus:border-lime" />
                     ) : (
                       <button onClick={() => { if (g.name !== NO_GROUP) { setEditingGroup(g.name); setRenameDraft(g.name) } }}
                         className="font-tech text-[11px] uppercase tracking-[0.12em] text-bento-dim flex-1 truncate text-left hover:text-bento-text">{g.name}</button>
                     )}
                     <span className="font-tech text-[10px] text-bento-muted tabular-nums">{g.items.length}</span>
-                    {g.name !== NO_GROUP && !editing && (
-                      <button onClick={() => { setEditingGroup(g.name); setRenameDraft(g.name) }} className="p-1 text-bento-muted hover:text-bento-text" aria-label="Renomear grupo" title="Renomear grupo"><Pencil className="w-3.5 h-3.5" /></button>
+                    {editing ? (
+                      <>
+                        <button onClick={() => saveGroupName(g.name)} className="p-1 text-lime-fg" aria-label="Salvar nome do grupo"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setEditingGroup(null)} className="p-1 text-bento-muted hover:text-bento-text" aria-label="Cancelar"><X className="w-4 h-4" /></button>
+                      </>
+                    ) : (
+                      g.name !== NO_GROUP && (
+                        <button onClick={() => { setEditingGroup(g.name); setRenameDraft(g.name) }} className="p-1 text-bento-muted hover:text-bento-text" aria-label="Renomear grupo" title="Renomear grupo"><Pencil className="w-3.5 h-3.5" /></button>
+                      )
                     )}
-                    {editing && <button onClick={() => saveGroupName(g.name)} className="p-1 text-lime-fg" aria-label="Salvar"><Check className="w-4 h-4" /></button>}
                     <button onClick={() => moveGroup(g.name, -1)} disabled={!canUp || busy} className="p-1 text-bento-muted hover:text-bento-text disabled:opacity-30" aria-label="Subir grupo"><ChevronUp className="w-4 h-4" /></button>
                     <button onClick={() => moveGroup(g.name, 1)} disabled={!canDown || busy} className="p-1 text-bento-muted hover:text-bento-text disabled:opacity-30" aria-label="Descer grupo"><ChevronDown className="w-4 h-4" /></button>
                   </div>
@@ -302,15 +359,36 @@ export function FasesTab() {
                       <SortableContext items={g.items.map(s => s.slug)} strategy={verticalListSortingStrategy}>
                         <div className="space-y-1.5 pt-1">
                           {g.items.map(s => (
-                            <SortableFase key={s.slug} stage={s} selected={selSlug === s.slug} onSelect={setSelSlug} />
+                            <SortableFase key={s.slug} stage={s} selected={selSlug === s.slug} onSelect={(slug) => { setDraft(null); setSelSlug(slug) }} />
                           ))}
                         </div>
                       </SortableContext>
-                      <button onClick={() => addFaseToGroup(g.name)} disabled={busy || editing}
-                        title={editing ? 'Salve o nome do grupo primeiro' : undefined}
-                        className="mt-1.5 w-full flex items-center justify-center gap-1.5 border border-dashed border-bento-border rounded-md py-2 text-xs text-bento-muted hover:border-lime hover:text-lime-fg transition-colors disabled:opacity-50">
-                        <Plus className="w-3.5 h-3.5" />Adicionar fase aqui
-                      </button>
+
+                      {/* RASCUNHO de fase nova (só persiste no "Adicionar"); ou o botão que abre o rascunho. */}
+                      {drafting ? (
+                        <div className="mt-2 bento-fx p-2.5 space-y-2 border border-lime/40">
+                          <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-dim">Nova fase em “{g.name}”</p>
+                          <input autoFocus value={draft!.nome} onChange={e => setDraft(d => d && { ...d, nome: e.target.value })}
+                            onKeyDown={e => { if (e.key === 'Enter') commitDraft(); if (e.key === 'Escape') setDraft(null) }}
+                            placeholder="Nome da fase (ex.: Não Respondeu)"
+                            className="w-full bg-bento-bg border border-bento-border rounded-btn px-2.5 py-1.5 text-sm text-bento-text focus:outline-none focus:border-lime" />
+                          <input type="number" min="2" inputMode="numeric" value={draft!.dias} onChange={e => setDraft(d => d && { ...d, dias: e.target.value })}
+                            onKeyDown={e => { if (e.key === 'Enter') commitDraft(); if (e.key === 'Escape') setDraft(null) }}
+                            placeholder="Esfria em (dias) — opcional, padrão 5"
+                            className="w-full bg-bento-bg border border-bento-border rounded-btn px-2.5 py-1.5 text-sm text-bento-text focus:outline-none focus:border-lime" />
+                          <div className="flex gap-2">
+                            <button onClick={commitDraft} disabled={busy || !draft!.nome.trim()}
+                              className="bento-btn flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-btn text-xs font-semibold disabled:opacity-50"><Check className="w-3.5 h-3.5" />Adicionar</button>
+                            <button onClick={() => setDraft(null)} className="flex-1 border border-bento-border text-bento-dim py-1.5 rounded-btn text-xs hover:border-lime transition-colors">Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => startDraft(g.name)} disabled={busy || editing || !!draft}
+                          title={editing ? 'Salve o nome do grupo primeiro' : undefined}
+                          className="mt-1.5 w-full flex items-center justify-center gap-1.5 border border-dashed border-bento-border rounded-md py-2 text-xs text-bento-muted hover:border-lime hover:text-lime-fg transition-colors disabled:opacity-50">
+                          <Plus className="w-3.5 h-3.5" />Adicionar fase aqui
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -320,21 +398,21 @@ export function FasesTab() {
         </DndContext>
       )}
 
-      {/* Painel de edição da fase selecionada */}
+      {/* Painel de edição da fase selecionada — edições viram RASCUNHO; só gravam em "Salvar alterações". */}
       {sel && (
         <StagePanel
           key={sel.slug}
           stage={sel}
           groupNames={groupNames}
+          busy={busy}
           onClose={() => setSelSlug(null)}
-          onPatch={patchStage}
+          onSave={(slug, patch) => patchStage(slug, patch)}
           onMoveGroup={moveToGroup}
-          onArchive={(archived) => patchStage(sel.slug, { arquivada: archived })}
-          onAskDelete={() => setDelState({ stage: sel, dest: '' })}
+          onAskDelete={() => askDelete(sel)}
         />
       )}
 
-      {/* Excluir-mesclar: escolher destino dos leads */}
+      {/* Excluir: mostra quantos leads tem; exige destino e MOVE antes (nunca orfana). */}
       {delState && (
         <Portal>
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -344,15 +422,21 @@ export function FasesTab() {
               <h3 id="delstate-title" className="font-display font-bold text-bento-text">Excluir “{delState.stage.nome}”</h3>
               <button onClick={() => setDelState(null)} aria-label="Fechar" className="p-1 text-bento-muted hover:text-bento-text"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-xs text-bento-muted">Os leads desta fase serão movidos para a fase escolhida ANTES de excluir (nenhum lead fica órfão). O histórico não é apagado.</p>
-            <select value={delState.dest} onChange={e => setDelState(d => d && { ...d, dest: e.target.value })}
-              className="w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime">
-              <option value="">Mover leads para…</option>
-              {stages.filter(s => s.slug !== delState.stage.slug).map(s => <option key={s.slug} value={s.slug}>{s.nome}</option>)}
-            </select>
+            {delState.count > 0 ? (
+              <>
+                <p className="text-xs text-bento-muted">Esta fase tem <span className="text-bento-text font-semibold">{delState.count}</span> lead(s). Eles serão movidos para a fase escolhida ANTES de excluir (nenhum lead fica órfão). O histórico não é apagado.</p>
+                <select value={delState.dest} onChange={e => setDelState(d => d && { ...d, dest: e.target.value })}
+                  className="w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime">
+                  <option value="">Mover leads para…</option>
+                  {stages.filter(s => s.slug !== delState.stage.slug).map(s => <option key={s.slug} value={s.slug}>{s.nome}</option>)}
+                </select>
+              </>
+            ) : (
+              <p className="text-xs text-bento-muted">Esta fase não tem nenhum lead — pode excluir com segurança. O histórico não é apagado.</p>
+            )}
             <div className="flex gap-2 pt-1">
               <button onClick={() => setDelState(null)} className="flex-1 border border-bento-border text-bento-dim py-2 rounded-btn text-sm hover:border-lime transition-colors">Cancelar</button>
-              <button onClick={confirmDelete} disabled={busy || !delState.dest} className="flex-1 bg-red-500/90 hover:bg-red-500 text-white py-2 rounded-btn text-sm font-semibold disabled:opacity-50">Mover e excluir</button>
+              <button onClick={confirmDelete} disabled={busy || (delState.count > 0 && !delState.dest)} className="flex-1 bg-red-500/90 hover:bg-red-500 text-white py-2 rounded-btn text-sm font-semibold disabled:opacity-50">{delState.count > 0 ? 'Mover e excluir' : 'Excluir'}</button>
             </div>
           </div>
         </div>
@@ -382,22 +466,44 @@ function SortableFase({ stage, selected, onSelect }: { stage: FunnelStage; selec
   )
 }
 
-// ── Painel de edição de UMA fase ──
-function StagePanel({ stage, groupNames, onClose, onPatch, onMoveGroup, onArchive, onAskDelete }: {
+// ── Painel de edição de UMA fase — tudo é RASCUNHO; só grava em "Salvar alterações" (grupo = ação à parte). ──
+function StagePanel({ stage, groupNames, busy, onClose, onSave, onMoveGroup, onAskDelete }: {
   stage: FunnelStage
   groupNames: string[]
+  busy: boolean
   onClose: () => void
-  onPatch: (slug: string, patch: Partial<Pick<FunnelStage, 'nome' | 'cor' | 'dias_esfriamento' | 'conta_interagiu'>>) => void
+  onSave: (slug: string, patch: StagePatch) => void
   onMoveGroup: (slug: string, grupo: string) => void
-  onArchive: (archived: boolean) => void
   onAskDelete: () => void
 }) {
   const prot = isStageProtected(stage)
-  const role = stageRole(stage)
   const [nome, setNome] = useState(stage.nome)
+  const [cor, setCor] = useState<string | null>(stage.cor)
   const [dias, setDias] = useState(stage.dias_esfriamento != null ? String(stage.dias_esfriamento) : '')
+  const [arquivada, setArquivada] = useState(stage.arquivada)
+  const [contaInteragiu, setContaInteragiu] = useState(stage.conta_interagiu)
   const curGroup = (stage.grupo && stage.grupo.trim()) || NO_GROUP
   const groupOptions = Array.from(new Set([NO_GROUP, ...groupNames, curGroup]))
+
+  // Papel exibido = derivado do rascunho `arquivada` (won/lost são fixos/protegidos).
+  const draftRole: StageRole = stage.is_won ? 'ganho' : stage.is_lost ? 'perdido' : arquivada ? 'arquivo' : 'ativo'
+  const diasNum = dias.trim() === '' ? null : Math.max(2, Number(dias) || 5)
+  const nomeTrim = nome.trim()
+
+  // Diff rascunho × fase → habilita "Salvar alterações".
+  const patch: StagePatch = {}
+  if (nomeTrim && nomeTrim !== stage.nome) patch.nome = nomeTrim
+  if ((cor ?? null) !== (stage.cor ?? null)) patch.cor = cor
+  if (diasNum !== (stage.dias_esfriamento ?? null)) patch.dias_esfriamento = diasNum
+  if (arquivada !== stage.arquivada) patch.arquivada = arquivada
+  if (contaInteragiu !== stage.conta_interagiu) patch.conta_interagiu = contaInteragiu
+  const dirty = Object.keys(patch).length > 0
+
+  const reset = () => {
+    setNome(stage.nome); setCor(stage.cor)
+    setDias(stage.dias_esfriamento != null ? String(stage.dias_esfriamento) : '')
+    setArquivada(stage.arquivada); setContaInteragiu(stage.conta_interagiu)
+  }
 
   return (
     <div className="bento-fx p-4 space-y-4">
@@ -408,7 +514,7 @@ function StagePanel({ stage, groupNames, onClose, onPatch, onMoveGroup, onArchiv
 
       <div>
         <label className="block text-xs font-medium text-bento-dim mb-1">Nome</label>
-        <input value={nome} onChange={e => setNome(e.target.value)} onBlur={() => nome.trim() && nome !== stage.nome && onPatch(stage.slug, { nome: nome.trim() })}
+        <input value={nome} onChange={e => setNome(e.target.value)}
           className="w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime" />
         <p className="font-tech text-[10px] text-bento-muted/70 mt-1">Identificador interno (slug): {stage.slug} — não muda no renomear.</p>
       </div>
@@ -417,11 +523,11 @@ function StagePanel({ stage, groupNames, onClose, onPatch, onMoveGroup, onArchiv
         <label className="block text-xs font-medium text-bento-dim mb-1">Cor da fase</label>
         <div className="flex items-center gap-1.5 flex-wrap">
           {PALETTE.map(c => (
-            <button key={c.hex} onClick={() => onPatch(stage.slug, { cor: c.hex })} aria-label={c.label} title={c.label}
-              className={cn('w-7 h-7 rounded-full border-2 transition-transform', stage.cor?.toUpperCase() === c.hex ? 'border-bento-text scale-110' : 'border-transparent hover:scale-105')}
+            <button key={c.hex} onClick={() => setCor(c.hex)} aria-label={c.label} title={c.label}
+              className={cn('w-7 h-7 rounded-full border-2 transition-transform', (cor ?? '').toUpperCase() === c.hex ? 'border-bento-text scale-110' : 'border-transparent hover:scale-105')}
               style={{ backgroundColor: c.hex }} />
           ))}
-          <button onClick={() => onPatch(stage.slug, { cor: null })} className="text-[10px] text-bento-muted hover:text-bento-text px-1.5">limpar</button>
+          <button onClick={() => setCor(null)} className="text-[10px] text-bento-muted hover:text-bento-text px-1.5">limpar</button>
         </div>
       </div>
 
@@ -432,38 +538,47 @@ function StagePanel({ stage, groupNames, onClose, onPatch, onMoveGroup, onArchiv
             className="w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime">
             {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
+          <p className="font-tech text-[10px] text-bento-muted/70 mt-1">Aplica na hora (vai pro fim do grupo).</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-bento-dim mb-1">Esfria em (dias)</label>
           <input type="number" min="2" inputMode="numeric" value={dias} onChange={e => setDias(e.target.value)}
-            onBlur={() => onPatch(stage.slug, { dias_esfriamento: dias.trim() === '' ? null : Math.max(2, Number(dias) || 5) })}
             placeholder="padrão (5)" className="w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text focus:outline-none focus:border-lime" />
         </div>
       </div>
 
-      {/* Papel — protegido = read-only (cadeado); comum = alterna Ativo/Arquivo (arquivada). */}
+      {/* Papel — protegido = read-only (cadeado); comum = alterna Ativo/Arquivo (rascunho, salva no botão). */}
       <div>
         <label className="block text-xs font-medium text-bento-dim mb-1">Papel</label>
         {prot ? (
-          <div className="flex items-center gap-2 text-sm text-bento-muted"><Lock className="w-3.5 h-3.5" /><span className={cn('px-2 py-0.5 rounded-full border text-xs font-semibold', ROLE_CLS[role])}>{ROLE_LABEL[role]}</span><span className="text-[11px]">protegida (somente leitura)</span></div>
+          <div className="flex items-center gap-2 text-sm text-bento-muted"><Lock className="w-3.5 h-3.5" /><span className={cn('px-2 py-0.5 rounded-full border text-xs font-semibold', ROLE_CLS[draftRole])}>{ROLE_LABEL[draftRole]}</span><span className="text-[11px]">protegida (somente leitura)</span></div>
         ) : (
           <div className="flex bg-bento-bg border border-bento-border rounded-btn p-1 gap-1 w-max">
             {([['ativo', 'Ativo'], ['arquivo', 'Arquivo']] as [StageRole, string][]).map(([v, l]) => (
-              <button key={v} onClick={() => onArchive(v === 'arquivo')}
-                className={cn('px-3 py-1.5 rounded-[8px] text-xs font-medium transition-colors', role === v ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>{l}</button>
+              <button key={v} onClick={() => setArquivada(v === 'arquivo')}
+                className={cn('px-3 py-1.5 rounded-[8px] text-xs font-medium transition-colors', draftRole === v ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>{l}</button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Conta como interação (conta_interagiu) — relatório, não comissão. */}
-      <button onClick={() => onPatch(stage.slug, { conta_interagiu: !stage.conta_interagiu })}
+      {/* Conta como interação (conta_interagiu) — relatório, não comissão. Rascunho. */}
+      <button onClick={() => setContaInteragiu(v => !v)}
         className="flex items-center justify-between w-full text-sm text-bento-text">
         <span>Conta como interação</span>
-        <span className={cn('relative w-10 h-6 rounded-full transition-colors', stage.conta_interagiu ? 'bg-lime' : 'bg-bento-border')}>
-          <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', stage.conta_interagiu && 'translate-x-4')} />
+        <span className={cn('relative w-10 h-6 rounded-full transition-colors', contaInteragiu ? 'bg-lime' : 'bg-bento-border')}>
+          <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', contaInteragiu && 'translate-x-4')} />
         </span>
       </button>
+
+      {/* Rodapé: confirmação EXPLÍCITA — nada acima grava sem "Salvar alterações". */}
+      <div className="flex items-center gap-2 pt-1 border-t border-bento-border/60">
+        <button onClick={() => onSave(stage.slug, patch)} disabled={!dirty || busy}
+          className="bento-btn flex items-center justify-center gap-1.5 px-4 py-2 rounded-btn text-sm font-semibold disabled:opacity-50 min-h-[40px]"><Check className="w-4 h-4" />Salvar alterações</button>
+        <button onClick={reset} disabled={!dirty || busy}
+          className="border border-bento-border text-bento-dim px-4 py-2 rounded-btn text-sm hover:border-lime transition-colors disabled:opacity-40 min-h-[40px]">Cancelar</button>
+        {dirty && <span className="font-tech text-[10px] text-amber-400/80 ml-auto">alterações não salvas</span>}
+      </div>
 
       {/* Excluir — só em fase NÃO protegida (obriga mover leads). */}
       {!prot && (
