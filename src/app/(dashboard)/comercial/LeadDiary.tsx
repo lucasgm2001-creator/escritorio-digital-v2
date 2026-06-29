@@ -8,7 +8,7 @@ import { markMilestones } from '@/lib/leadMilestones'
 import { cn } from '@/lib/utils'
 import { TimeAgo } from '@/components/system/TimeAgo'
 import { ALL_COLUMNS, FUSO_OPTIONS, type Lead, type LeadStatus, type ColumnTone } from './types'
-import { type FunnelStage } from '@/lib/funnelStages'
+import { columnsFromStages, type FunnelStage } from '@/lib/funnelStages'
 import { usdCompact } from '@/lib/format'
 import { waNumber } from '@/lib/phone'
 import { LeadTasks } from './LeadTasks'
@@ -161,7 +161,10 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
   const supabase = createClient()
   const { toast } = useToast()
   const scoreInfo = getScoreInfo(currentLead.score)
-  const currentPhase = ALL_COLUMNS.find(c => c.key === currentLead.status)
+  // Opções de fase = fases ATIVAS de funnel_stages (data-driven, igual ao board) → fase NOVA aparece aqui sem
+  // rebuild. Fallback a ALL_COLUMNS só se as stages não vierem. (Vale mobile E desktop — o seletor é o mesmo.)
+  const phaseOptions = useMemo(() => columnsFromStages(stages ?? []), [stages])
+  const currentPhase = phaseOptions.find(c => c.key === currentLead.status) ?? ALL_COLUMNS.find(c => c.key === currentLead.status)
 
   // Trava o scroll do fundo (body) enquanto o perfil está aberto; restaura ao fechar (preserva posição).
   useEffect(() => {
@@ -203,7 +206,7 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
     setPhaseOpen(false)
     if (!onMoveStage || newStatus === currentLead.status) return
     const prev = currentLead.status
-    const destLabel = ALL_COLUMNS.find(c => c.key === newStatus)?.label ?? newStatus
+    const destLabel = phaseOptions.find(c => c.key === newStatus)?.label ?? ALL_COLUMNS.find(c => c.key === newStatus)?.label ?? newStatus
     setMovingPhase(true)
     setCurrentLead(c => ({ ...c, status: newStatus }))
     // onMoveStage = MESMO fluxo do arrastar. Ao escolher "Venda Fechada" ele retorna false aqui e
@@ -548,7 +551,7 @@ export function LeadDiary({ lead, onClose, onUpdated, onMoveStage, onDeleted, cu
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              {ALL_COLUMNS.map(c => (
+              {phaseOptions.map(c => (
                 <button
                   key={c.key}
                   type="button"

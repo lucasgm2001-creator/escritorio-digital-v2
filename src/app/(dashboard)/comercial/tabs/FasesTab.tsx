@@ -166,23 +166,54 @@ export function FasesTab() {
     }
   }
 
-  // "+ Adicionar fase aqui": cria fase NOVA neutra no grupo, no fim. Aparece na hora (editor + funil).
+  // "+ Adicionar fase aqui": cria fase NOVA neutra, JÁ FUNCIONAL. Entra na pipeline ATIVA, ANTES do bloco
+  // terminal (ganho/perda/lixeira) — nunca depois da Lixeira. Slug único do nome (com tratamento da colisão
+  // UNIQUE). Aparece na hora no funil/seletor porque tudo lê funnel_stages (data-driven).
   const addFaseToGroup = async (groupName: string) => {
     if (busy) return
     setBusy(true)
-    const baseSlug = slugify('Nova fase') || 'fase'
-    let slug = baseSlug; let i = 2
-    while (stages.some(s => s.slug === slug)) slug = `${baseSlug}_${i++}`
-    const posicao = Math.max(0, ...stages.map(s => s.posicao)) + 1
-    const grupo = groupName === NO_GROUP ? null : groupName
-    const { error } = await supabase.from('funnel_stages').insert({
-      slug, nome: 'Nova fase', posicao, grupo, dias_esfriamento: null, cor: null,
-      is_won: false, is_lost: false, is_system: false, conta_interagiu: true, conta_reuniao: false, conta_fechou: false, arquivada: false,
-    })
-    setBusy(false)
-    if (error) { toast({ type: 'error', message: `Não foi possível adicionar a fase: ${error.message}` }); return }
-    setEmptyGroups(p => p.filter(n => n !== groupName))
-    setSelSlug(slug); await load(); router.refresh()
+    try {
+      const grupo = groupName === NO_GROUP ? null : groupName
+
+      // POSIÇÃO: logo ANTES do bloco terminal. Terminal = won/lost/lixeira — NÃO use is_system sozinho
+      // ('novo' é system e fica no começo). Sem terminais → vai pro fim. Abre espaço empurrando posicao>=alvo.
+      const isTerminalEnd = (s: FunnelStage) => s.is_won || s.is_lost || s.slug === 'lixeira'
+      const termPos = stages.filter(isTerminalEnd).map(s => s.posicao)
+      const insertPos = termPos.length ? Math.min(...termPos) : Math.max(0, ...stages.map(s => s.posicao)) + 1
+      const bump = stages.filter(s => s.posicao >= insertPos)
+      if (bump.length) {
+        const results = await Promise.all(bump.map(s => supabase.from('funnel_stages').update({ posicao: s.posicao + 1 }).eq('slug', s.slug)))
+        const bErr = results.find(r => r.error)?.error
+        if (bErr) { toast({ type: 'error', message: `Não foi possível abrir espaço pra fase: ${bErr.message}` }); return }
+      }
+
+      // SLUG único do NOME (placeholder 'Nova fase'): minúsculo/sem acento; colisão → sufixo _2,_3… Tratamos
+      // TAMBÉM o erro UNIQUE do banco (corrida/estado velho): re-tenta com o próximo sufixo.
+      const baseSlug = slugify('Nova fase') || 'fase'
+      const used = new Set(stages.map(s => s.slug))
+      let slug = baseSlug; let n = 2
+      while (used.has(slug)) slug = `${baseSlug}_${n++}`
+
+      const row = {
+        nome: 'Nova fase', posicao: insertPos, grupo, dias_esfriamento: null, cor: null,
+        is_won: false, is_lost: false, is_system: false, conta_interagiu: true, conta_reuniao: false, conta_fechou: false, arquivada: false,
+      }
+      let lastErr: { message: string } | null = null
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const { error } = await supabase.from('funnel_stages').insert({ ...row, slug })
+        if (!error) { lastErr = null; break }
+        lastErr = error
+        if (error.code === '23505') { slug = `${baseSlug}_${n++}`; continue }   // UNIQUE (slug) → próximo sufixo, tenta de novo
+        break
+      }
+      if (lastErr) { toast({ type: 'error', message: `Não foi possível adicionar a fase: ${lastErr.message}` }); return }
+
+      setEmptyGroups(p => p.filter(nm => nm !== groupName))
+      setSelSlug(slug)
+      await load(); router.refresh()
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Patch de colunas PERMITIDAS apenas (nunca flags de dinheiro).
