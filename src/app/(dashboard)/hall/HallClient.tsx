@@ -15,7 +15,7 @@ import { Portal } from '@/components/ui/Portal'
 import { useDialog } from '@/components/ui/useDialog'
 import type { Activity, Notice } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
-import type { MapLead, MapClient } from '../comercial/tabs/MapaTab'
+import type { MapLead, MapClient } from '../comercial/mapTypes'
 import { TarefasClient } from '../tarefas/TarefasClient'
 import { useTasksState } from '../tarefas/useTasksState'
 import { RelatorioComercial } from '../tarefas/RelatorioComercial'
@@ -486,10 +486,11 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
             )}
             {/* Mapa CHEIO — enche a LARGURA; a altura vem da proporção (height:auto do SVG). Sem altura
                 fixa (não letterboxa). Mobile: padding mínimo no card pra o mapa usar quase a tela toda. */}
-            <Panel className="max-lg:p-1" headerClassName="max-lg:hidden" label="Mapa de Clientes e Leads">
+            {/* Título ÚNICO: o header do LeadMap ("Mapa de Leads" + relógios). O Panel fica SEM label p/ não duplicar. */}
+            <Panel className="max-lg:p-1">
               <div className="w-full max-w-[960px] mx-auto">
                 <ErrorBoundary>
-                  <LeadMap markers={mapMarkers} showControls={false} showHeader={true} view={mapPrefs.view} tilt={mapPrefs.tilt} mode={mapPrefs.mode} theme={mapPrefs.theme} />
+                  <LeadMap markers={mapMarkers} showControls={false} showHeader={true} show={mapPrefs.show} resumo={mapPrefs.resumo} view={mapPrefs.view} tilt={mapPrefs.tilt} mode={mapPrefs.mode} theme={mapPrefs.theme} />
                 </ErrorBoundary>
               </div>
             </Panel>

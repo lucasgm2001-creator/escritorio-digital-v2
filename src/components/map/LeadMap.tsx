@@ -37,6 +37,7 @@ export interface LeadMarker {
   lon: number;
   uf: string;       // 2-letter US state code (e.g. 'TX')
   type: LeadType;
+  name: string;     // nome do registro (lead/cliente) — listado no painel de clique
   city?: string;
 }
 
@@ -47,6 +48,8 @@ export interface LeadMapProps {
   tilt?: number;          // degrees (only used in 3D)
   mode?: DisplayMode;
   theme?: ThemeKey;
+  show?: Partial<Record<LeadType, boolean>>; // visibilidade por tipo (default todos true)
+  resumo?: boolean;                          // tooltip de resumo no hover (default true)
   showControls?: boolean; // built-in vista/modo/tema bar (default true)
   showHeader?: boolean;   // title + live timezone clocks (default true)
   topoUrl?: string;
@@ -143,7 +146,7 @@ function mix(h1: string, h2: string, t: number) {
   return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 
-export const SAMPLE_MARKERS: LeadMarker[] = [
+export const SAMPLE_MARKERS: LeadMarker[] = ([
   { city: 'Seattle', uf: 'WA', lat: 47.61, lon: -122.33, type: 'novo' },
   { city: 'Spokane', uf: 'WA', lat: 47.66, lon: -117.43, type: 'lead' },
   { city: 'Sacramento', uf: 'CA', lat: 38.58, lon: -121.49, type: 'novo' },
@@ -180,11 +183,14 @@ export const SAMPLE_MARKERS: LeadMarker[] = [
   { city: 'Boston', uf: 'MA', lat: 42.36, lon: -71.06, type: 'novo' },
   { city: 'Worcester', uf: 'MA', lat: 42.26, lon: -71.8, type: 'lead' },
   { city: 'Washington', uf: 'DC', lat: 38.9, lon: -77.04, type: 'cliente' },
-];
+] as Omit<LeadMarker, 'name'>[]).map((m) => ({ ...m, name: m.city ?? m.uf }));
 
 type StateCount = { novo: number; lead: number; cliente: number; total: number };
 
 const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace";
+// Dimensões estimadas do tooltip — usadas p/ clampar nas bordas e centrá-lo verticalmente no cursor.
+const TOOLTIP_W = 184;
+const TOOLTIP_H = 132;
 
 export default function LeadMap({
   markers = SAMPLE_MARKERS,
@@ -193,6 +199,8 @@ export default function LeadMap({
   tilt: tiltProp = 15,
   mode: modeProp = 'individual',
   theme: themeProp = 'ciber',
+  show,
+  resumo = true,
   showControls = true,
   showHeader = true,
   topoUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json',
@@ -205,6 +213,7 @@ export default function LeadMap({
   const [mode, setMode] = useState<DisplayMode>(modeProp);
   const [themeKey, setThemeKey] = useState<ThemeKey>(themeProp);
   const [hover, setHover] = useState<{ abbr: string; x: number; y: number } | null>(null);
+  const [panelUf, setPanelUf] = useState<string | null>(null);   // estado do painel de clique (registros do estado)
 
   // Config salva é a FONTE ÚNICA: quando as props mudam (Configurações > Mapa salvou), o mapa reflete.
   // Com showControls=false não há toggles internos; estes effects garantem o sync mesmo assim.
@@ -217,6 +226,12 @@ export default function LeadMap({
   const [w, setW] = useState(900);
   const H = height;
   const th = THEMES[themeKey];
+
+  // VISIBILIDADE por tipo (Configurações > Mapa). Esconder = some de verdade em TODOS os modos; as contagens
+  // (hover/estado/calor) só somam markers visíveis.
+  const vis = { novo: show?.novo ?? true, lead: show?.lead ?? true, cliente: show?.cliente ?? true };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps são os campos primitivos de `vis` (objeto recriado a cada render).
+  const visMarkers = useMemo(() => markers.filter((m) => vis[m.type]), [markers, vis.novo, vis.lead, vis.cliente]);
 
   useEffect(() => {
     let on = true;
@@ -238,14 +253,22 @@ export default function LeadMap({
     return () => clearInterval(id);
   }, []);
 
+  // Painel de registros (clique no estado): fecha no Esc.
+  useEffect(() => {
+    if (!panelUf) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPanelUf(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panelUf]);
+
   const counts = useMemo(() => {
     const m: Record<string, StateCount> = {};
-    markers.forEach((k) => {
+    visMarkers.forEach((k) => {
       if (!m[k.uf]) m[k.uf] = { novo: 0, lead: 0, cliente: 0, total: 0 };
       m[k.uf][k.type]++; m[k.uf].total++;
     });
     return m;
-  }, [markers]);
+  }, [visMarkers]);
   const maxT = useMemo(() => Math.max(1, ...Object.values(counts).map((c) => c.total)), [counts]);
 
   const built = useMemo(() => {
@@ -269,9 +292,14 @@ export default function LeadMap({
   const onPathMove = (abbr: string) => (e: React.MouseEvent) => {
     const r = panelRef.current?.getBoundingClientRect();
     if (!r) return;
-    let x = e.clientX - r.left + 16;
-    let y = e.clientY - r.top + 16;
-    if (x + 180 > r.width) x = e.clientX - r.left - 180;
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    // À DIREITA do cursor e centrado verticalmente nele; se não couber à direita, vira pra esquerda. Clampa nas bordas.
+    let x = cx + 14;
+    if (x + TOOLTIP_W > r.width) x = cx - TOOLTIP_W - 14;
+    let y = cy - TOOLTIP_H / 2;
+    if (x < 6) x = 6;
+    if (y < 6) y = 6;
+    if (y + TOOLTIP_H > r.height - 6) y = r.height - TOOLTIP_H - 6;
     setHover({ abbr, x, y });
   };
 
@@ -387,7 +415,8 @@ export default function LeadMap({
                       <path key={i} d={built.path(f) || ''} fill={fill}
                         stroke={isHover ? th.accent : th.stateStroke} strokeWidth={isHover ? 1.5 : 0.6}
                         style={{ cursor: 'pointer' }}
-                        onMouseMove={onPathMove(abbr)} onMouseLeave={() => setHover(null)} />
+                        onMouseMove={onPathMove(abbr)} onMouseLeave={() => setHover(null)}
+                        onClick={() => { if (abbr) setPanelUf(abbr); }} />
                     );
                   })}
 
@@ -412,11 +441,11 @@ export default function LeadMap({
                     return <text key={`z${i}`} x={p[0]} y={p[1]} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={2.5} fill={th.labelColor} style={{ pointerEvents: 'none' }}>{zl.txt}</text>;
                   })}
 
-                  {mode === 'individual' && markers.map((m, i) => {
+                  {mode === 'individual' && visMarkers.map((m, i) => {
                     const p = built.proj([m.lon, m.lat]); if (!p) return null;
                     const col = COLORS[m.type];
                     return (
-                      <g key={`m${i}`} filter="url(#lm-mglow)" style={{ pointerEvents: 'none' }}>
+                      <g key={`m${i}`} filter="url(#lm-mglow)" style={{ cursor: 'pointer' }} onClick={() => setPanelUf(m.uf)}>
                         <circle cx={p[0]} cy={p[1]} r={9} fill={col} fillOpacity={0.18} />
                         <circle cx={p[0]} cy={p[1]} r={5.4} fill={col} stroke="rgba(255,255,255,0.65)" strokeWidth={1.1} />
                         <circle cx={p[0] - 1.6} cy={p[1] - 1.7} r={1.5} fill="rgba(255,255,255,0.85)" />
@@ -432,8 +461,9 @@ export default function LeadMap({
                     const order = ([['lead', cnt.lead], ['cliente', cnt.cliente], ['novo', cnt.novo]] as [LeadType, number][]).sort((a, b) => b[1] - a[1]);
                     const col = COLORS[order[0][0]];
                     const r = 10 + Math.sqrt(cnt.total) * 6;
+                    const bAbbr = NAME_TO_ABBR[f.properties.name];
                     return (
-                      <g key={`b${i}`} filter="url(#lm-mglow)" style={{ pointerEvents: 'none' }}>
+                      <g key={`b${i}`} filter="url(#lm-mglow)" style={{ cursor: 'pointer' }} onClick={() => { if (bAbbr) setPanelUf(bAbbr); }}>
                         <circle cx={ce[0]} cy={ce[1]} r={r + 4} fill={col} fillOpacity={0.16} />
                         <circle cx={ce[0]} cy={ce[1]} r={r} fill={col} fillOpacity={0.92} stroke="rgba(255,255,255,0.7)" strokeWidth={1.2} />
                         <text x={ce[0]} y={ce[1]} dy="0.35em" textAnchor="middle" fontFamily={MONO} fontWeight={500} fontSize={cnt.total >= 4 ? 13 : 11} fill="#0a0f16">{cnt.total}</text>
@@ -448,10 +478,10 @@ export default function LeadMap({
           </div>
         </div>
 
-        {hover && tip && (
-          <div style={{ position: 'absolute', left: hover.x, top: hover.y, zIndex: 6, pointerEvents: 'none', minWidth: 158, padding: '11px 13px', borderRadius: 12, background: 'rgba(9,13,21,0.92)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 16px 40px -12px rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
+        {hover && tip && resumo && !panelUf && (
+          <div style={{ position: 'absolute', left: hover.x, top: hover.y, zIndex: 6, pointerEvents: 'none', width: TOOLTIP_W, padding: '11px 13px', borderRadius: 12, background: 'rgba(9,13,21,0.92)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 16px 40px -12px rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 7 }}>{ABBR_TO_NAME[hover.abbr] || hover.abbr}</div>
-            {(['novo', 'lead', 'cliente'] as LeadType[]).map((t) => (
+            {(['novo', 'lead', 'cliente'] as LeadType[]).filter((t) => vis[t]).map((t) => (
               <div key={t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '2px 0' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'rgba(220,228,242,0.85)' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[t], boxShadow: `0 0 6px ${COLORS[t]}` }} />{TYPE_LABEL[t]}
@@ -465,6 +495,45 @@ export default function LeadMap({
             </div>
           </div>
         )}
+
+        {/* PAINEL DE CLIQUE: registros do estado, agrupados por tipo, com NOMES (respeita o filtro de visibilidade).
+            Centrado na área do mapa (nunca sai da tela); fecha no X / clicar fora / Esc. */}
+        {panelUf && (() => {
+          const recs = visMarkers.filter((m) => m.uf === panelUf);
+          const groups: Record<LeadType, string[]> = { novo: [], lead: [], cliente: [] };
+          recs.forEach((m) => groups[m.type].push(m.name));
+          const order: [LeadType, string][] = [['novo', 'Novos leads'], ['lead', 'Leads'], ['cliente', 'Clientes']];
+          return (
+            <div onClick={() => setPanelUf(null)} style={{ position: 'absolute', inset: 0, zIndex: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(2,4,9,0.55)', backdropFilter: 'blur(3px)' }}>
+              <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Registros — ${ABBR_TO_NAME[panelUf] || panelUf}`}
+                style={{ width: 'min(360px, 100%)', maxHeight: '88%', display: 'flex', flexDirection: 'column', borderRadius: 16, background: 'rgba(10,14,22,0.97)', border: '1px solid rgba(255,255,255,0.13)', boxShadow: '0 28px 70px -18px rgba(0,0,0,0.88)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{ABBR_TO_NAME[panelUf] || panelUf}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'rgba(170,195,225,0.6)', marginTop: 2 }}>{recs.length} {recs.length === 1 ? 'registro' : 'registros'}</div>
+                  </div>
+                  <button onClick={() => setPanelUf(null)} aria-label="Fechar" style={{ cursor: 'pointer', flex: 'none', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.13)', borderRadius: 9, width: 30, height: 30, color: '#fff', fontSize: 17, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                </div>
+                <div style={{ overflowY: 'auto', padding: '12px 16px 16px' }}>
+                  {recs.length === 0 ? (
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: 'rgba(180,200,225,0.6)' }}>Nada visível neste estado (confira os filtros em Configurações &gt; Mapa).</div>
+                  ) : order.filter(([t]) => groups[t].length > 0).map(([t, label]) => (
+                    <div key={t} style={{ marginBottom: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(185,205,230,0.72)' }}>
+                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLORS[t], boxShadow: `0 0 6px ${COLORS[t]}` }} />{label}<span style={{ color: 'rgba(150,175,205,0.55)' }}>· {groups[t].length}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {groups[t].map((nm, i) => (
+                          <div key={i} style={{ fontSize: 13.5, color: 'rgba(228,235,246,0.92)', paddingLeft: 16, lineHeight: 1.35 }}>{nm}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px 20px', flexWrap: 'wrap' }}>

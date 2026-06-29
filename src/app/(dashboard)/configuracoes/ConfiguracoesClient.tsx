@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
   Sun, Moon, Monitor, Home, Briefcase, ListChecks, Projector, Users,
-  Palette, Accessibility, Image as ImageIcon, User, LayoutGrid, Database, Plug, Info,
-  Download, RefreshCw, ExternalLink, BadgePercent, Workflow, ChevronRight, ChevronLeft, CalendarDays,
+  Palette, Accessibility, Image as ImageIcon, User, LayoutGrid, Database, Plug, Info, Map,
+  Download, RefreshCw, ExternalLink, BadgePercent, Workflow, ChevronRight, ChevronLeft, ChevronDown, CalendarDays,
   type LucideIcon,
 } from 'lucide-react'
 import { Panel } from '@/components/bento/Panel'
@@ -22,10 +22,7 @@ import { FasesTab } from '../comercial/tabs/FasesTab'
 import { useMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/mapPrefs'
 import { getHallSettings, setHallSettings, DEFAULT_HALL_SETTINGS, type HallSettings } from '@/lib/hallSettings'
 import { funnelConversionLabel } from '@/lib/funnelMetrics'
-import { ErrorBoundary } from '@/components/system/ErrorBoundary'
-import dynamic from 'next/dynamic'
-import type { MapLead, MapClient } from '../comercial/tabs/MapaTab'
-const MapaTabDyn = dynamic(() => import('../comercial/tabs/MapaTab').then(m => ({ default: m.MapaTab })), { ssr: false })
+import type { MapLead, MapClient } from '../comercial/mapTypes'
 
 // classes compartilhadas
 const inputCls = 'w-full bg-bento-bg border border-bento-border rounded-btn px-3 py-2 text-sm text-bento-text placeholder:text-bento-muted focus:outline-none focus:border-lime min-h-[44px]'
@@ -554,6 +551,27 @@ function MapSettingsContent() {
             ))}
           </div>
         </div>
+        {/* Mostrar no mapa: visibilidade por tipo (esconde do mapa E das contagens). */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div><p className="text-sm text-bento-text">Mostrar no mapa</p><p className="font-tech text-[11px] text-bento-dim">Liga/desliga cada tipo no mapa e nas contagens</p></div>
+          <div className={seg}>
+            {([['novo', 'Novos leads', '#A78BFA'], ['lead', 'Leads', '#38BDF8'], ['cliente', 'Clientes', '#34D399']] as [keyof MapPrefs['show'], string, string][]).map(([k, l, c]) => (
+              <button key={k} aria-pressed={prefs.show[k]} onClick={() => set({ show: { ...prefs.show, [k]: !prefs.show[k] } })}
+                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-medium', prefs.show[k] ? 'bg-lime text-lime-ink' : 'text-bento-muted hover:text-bento-text')}>
+                <span className="w-2 h-2 rounded-full" style={{ background: c, opacity: prefs.show[k] ? 1 : 0.4 }} />{l}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Resumo (tooltip) ao passar o mouse. */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div><p className="text-sm text-bento-text">Resumo ao passar o mouse</p><p className="font-tech text-[11px] text-bento-dim">Mostra a contagem do estado no hover</p></div>
+          <div className={seg}>
+            {([[true, 'Ligado'], [false, 'Desligado']] as [boolean, string][]).map(([v, l]) => (
+              <button key={String(v)} onClick={() => set({ resumo: v })} className={btn(prefs.resumo === v)}>{l}</button>
+            ))}
+          </div>
+        </div>
       </div>
     </Panel>
   )
@@ -696,7 +714,6 @@ function HallSettingsSection({ userId }: { userId: string }) {
   const apply = (next: HallSettings) => { setCfg(next); setHallSettings(userId, next) }
   const tB = (k: keyof HallSettings['blocks']) => apply({ ...cfg, blocks: { ...cfg.blocks, [k]: !cfg.blocks[k] } })
   const tM = (k: keyof HallSettings['metrics']) => apply({ ...cfg, metrics: { ...cfg.metrics, [k]: !cfg.metrics[k] } })
-  const tMap = (k: keyof HallSettings['map']) => apply({ ...cfg, map: { ...cfg.map, [k]: !cfg.map[k] } })
 
   const clientesAtivos = clients.filter(c => c.status === 'ativo').length
   const leadsAbertos = leads.filter(l => l.origem !== 'cliente_existente' && !['fechado', 'perdido', 'lixeira'].includes(l.status)).length
@@ -725,16 +742,7 @@ function HallSettingsSection({ userId }: { userId: string }) {
             <HallSwitchRow label="Leads novos" on={cfg.metrics.leadsNovos} onToggle={() => tM('leadsNovos')} />
             <HallSwitchRow label="Conversão" on={cfg.metrics.conversao} onToggle={() => tM('conversao')} />
           </HallSwitchGroup>
-          <HallSwitchGroup title="Mapa">
-            <HallSwitchRow label="Mostrar leads" on={cfg.map.leads} onToggle={() => tMap('leads')} />
-            <HallSwitchRow label="Mostrar clientes" on={cfg.map.clients} onToggle={() => tMap('clients')} />
-            <HallSwitchRow label="Faixas de fuso" on={cfg.map.fusos} onToggle={() => tMap('fusos')} />
-          </HallSwitchGroup>
-          {/* Estilo do mapa (pele, separação, agrupamento) — veio do antigo Comercial → Mapa. */}
-          <div className="space-y-2">
-            <p className="font-tech text-[10px] uppercase tracking-[0.14em] text-bento-muted">Estilo do mapa</p>
-            <MapSettingsContent />
-          </div>
+          {/* Config do mapa saiu daqui: virou a seção própria "Mapa" (controles do LeadMap). */}
         </div>
 
         {/* Prévia AO VIVO — atualiza conforme liga/desliga os switches. */}
@@ -751,10 +759,7 @@ function HallSettingsSection({ userId }: { userId: string }) {
                 ))}
               </div>
             )}
-            {/* Mini-mapa: reflete os toggles do Mapa (leads/clientes/fusos) em tempo real. */}
-            <div className="h-[200px] rounded-bento overflow-hidden border border-bento-border">
-              <ErrorBoundary><MapaTabDyn embedded leads={leads} clients={clients} showLeads={cfg.map.leads} showClients={cfg.map.clients} showFusos={cfg.map.fusos} /></ErrorBoundary>
-            </div>
+            {/* (Mini-preview do mapa ANTIGO removido — o único mapa é o LeadMap, no Hall.) */}
             {cfg.blocks.agenda && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Agenda</div>}
             {cfg.blocks.tarefas && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Tarefas de hoje</div>}
             {cfg.blocks.atividade && <div className="bento-fx px-3 py-2 font-tech text-[11px] text-bento-muted">Atividade recente</div>}
@@ -775,6 +780,7 @@ const ANDARES: NavItem[] = [
 ]
 const SISTEMA: NavItem[] = [
   { key: 'tema', label: 'Tema', Icon: Palette },
+  { key: 'mapa', label: 'Mapa', Icon: Map },
   { key: 'acessibilidade', label: 'Acessibilidade', Icon: Accessibility },
   { key: 'logo', label: 'Logo do sistema', Icon: ImageIcon },
   { key: 'conta', label: 'Conta', Icon: User },
@@ -873,49 +879,31 @@ function PlanosSection() {
   )
 }
 
-function NavGroup({ title, items, active, onSelect }: { title: string; items: NavItem[]; active: string; onSelect: (k: string) => void }) {
-  return (
-    <div>
-      <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted px-2 mb-1.5">{title}</p>
-      <div className="space-y-0.5">
-        {items.map(it => (
-          <button key={it.key} onClick={() => onSelect(it.key)}
-            className={cn('w-full flex items-center gap-2 px-2.5 py-2 rounded-btn text-sm text-left transition-colors',
-              active === it.key ? 'bg-lime/15 text-lime-fg font-semibold' : 'text-bento-dim hover:text-bento-text hover:bg-bento-bg')}>
-            <it.Icon className="w-4 h-4 flex-none" />{it.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+// ─── Main ───────────────────────────────────────────────────────────────────────
+interface Props { userId: string; google: { connected: boolean; email: string | null } }
 
-// Mobile (<1024px): master-detail — lista de categorias (ANDARES + SISTEMA); tocar abre o painel
-// daquela categoria em tela cheia (ver render principal). Desktop (>=1024px) usa a nav vertical (NavGroup).
-const MOBILE_GROUPS: { title: string; items: NavItem[] }[] = [
+const GROUPS: { title: string; items: NavItem[] }[] = [
   { title: 'Andares', items: ANDARES },
   { title: 'Sistema', items: SISTEMA },
 ]
 
-// ─── Main ───────────────────────────────────────────────────────────────────────
-interface Props { userId: string; google: { connected: boolean; email: string | null } }
-
 export function ConfiguracoesClient({ userId, google }: Props) {
-  const [active, setActive] = useState('tema')
-  const [mobileOpen, setMobileOpen] = useState(false)   // mobile (<1024): false = lista; true = painel tela cheia
-  const [sub, setSub] = useState<string | null>(null)   // sub-tela dedicada (ex.: 'fases', 'mapa') — não sanfona
-  // Trocar de seção zera a sub-tela (volta pro conteúdo da seção).
-  const selectSection = (k: string) => { setActive(k); setSub(null) }
+  // Accordion: NENHUMA seção aberta ao carregar; clicar no cabeçalho expande/recolhe (uma por vez).
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [sub, setSub] = useState<string | null>(null)   // sub-tela (ex.: 'fases') dentro da seção aberta
+  const toggle = (k: string) => { setSub(null); setOpenKey(cur => (cur === k ? null : k)) }
 
-  const content = (() => {
+  // Conteúdo de cada seção (renderizado só quando aberta).
+  const renderContent = (key: string) => {
     if (sub === 'fases') return <FasesTab />
-    if (active === 'andar-hall') return <HallSettingsSection userId={userId} />
-    if (active.startsWith('andar-')) {
-      const label = ANDARES.find(a => a.key === active)?.label ?? 'Andar'
-      return <AndarSection keyId={active} label={label} onOpenSub={setSub} />
+    if (key === 'andar-hall') return <HallSettingsSection userId={userId} />
+    if (key.startsWith('andar-')) {
+      const label = ANDARES.find(a => a.key === key)?.label ?? 'Andar'
+      return <AndarSection keyId={key} label={label} onOpenSub={setSub} />
     }
-    switch (active) {
+    switch (key) {
       case 'tema': return <ThemeSection />
+      case 'mapa': return <MapSettingsContent />
       case 'acessibilidade': return <AccessibilitySection />
       case 'logo': return <Panel label="Logo do sistema"><LogoUploadSection userId={userId} /></Panel>
       case 'sobre': return <AboutSection />
@@ -926,57 +914,48 @@ export function ConfiguracoesClient({ userId, google }: Props) {
       case 'planos': return <PlanosSection />
       default: return null
     }
-  })()
+  }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto font-body">
-      {/* Cabeçalho da LISTA (mobile) + desktop. No painel mobile some (vira "‹ Configurações"). */}
-      <div className={cn('mb-5', mobileOpen && 'hidden lg:block')}>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto font-body">
+      <div className="mb-5">
         <h1 className="font-display text-2xl font-bold text-bento-text tracking-tight">Configurações</h1>
-        <p className="text-bento-muted text-sm mt-0.5">Andares e Sistema</p>
+        <p className="text-bento-muted text-sm mt-0.5">Toque numa seção para abrir</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-5">
-        {/* MOBILE (<1024): LISTA agrupada (só quando nenhuma categoria aberta). */}
-        <div className={cn('lg:hidden space-y-4', mobileOpen && 'hidden')}>
-          {MOBILE_GROUPS.map(g => (
-            <div key={g.title}>
-              <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted mb-1.5 px-1">{g.title}</p>
-              <div className="bento-fx p-0 overflow-hidden divide-y divide-bento-border/60">
-                {g.items.map(it => (
-                  <button key={it.key} onClick={() => { selectSection(it.key); setMobileOpen(true) }}
-                    className="w-full flex items-center gap-3 px-3 min-h-[52px] text-left hover:bg-bento-bg/50 transition-colors">
-                    <it.Icon className="w-4 h-4 text-bento-muted flex-none" />
-                    <span className="text-sm text-bento-text flex-1 min-w-0 truncate">{it.label}</span>
-                    <ChevronRight className="w-4 h-4 text-bento-muted flex-none" />
-                  </button>
-                ))}
-              </div>
+      <div className="space-y-5">
+        {GROUPS.map(g => (
+          <div key={g.title}>
+            <p className="font-tech text-[10px] uppercase tracking-[0.12em] text-bento-muted mb-1.5 px-1">{g.title}</p>
+            <div className="space-y-2">
+              {g.items.map(it => {
+                const open = openKey === it.key
+                return (
+                  <div key={it.key} className="bento-fx p-0 overflow-hidden">
+                    <button type="button" onClick={() => toggle(it.key)} aria-expanded={open}
+                      className="w-full flex items-center gap-3 px-4 min-h-[52px] text-left hover:bg-bento-bg/50 transition-colors">
+                      <it.Icon className={cn('w-4 h-4 flex-none', open ? 'text-lime-fg' : 'text-bento-muted')} />
+                      <span className="text-sm text-bento-text flex-1 min-w-0 truncate">{it.label}</span>
+                      <ChevronDown className={cn('w-4 h-4 text-bento-muted flex-none transition-transform', open && 'rotate-180')} />
+                    </button>
+                    {open && (
+                      <div className="px-4 pb-4 pt-1 border-t border-bento-border/60">
+                        {/* "‹ Voltar" da sub-tela (Fases) → volta pro conteúdo da seção. */}
+                        {sub && (
+                          <button type="button" onClick={() => setSub(null)}
+                            className="flex items-center gap-1 -ml-1 mb-4 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
+                            <ChevronLeft className="w-4 h-4" />Voltar
+                          </button>
+                        )}
+                        {renderContent(it.key)}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          ))}
-        </div>
-
-        {/* DESKTOP (>=1024): nav vertical à esquerda — inalterada. */}
-        <nav className="hidden lg:block lg:w-56 shrink-0 space-y-4">
-          <NavGroup title="Andares" items={ANDARES} active={active} onSelect={selectSection} />
-          <NavGroup title="Sistema" items={SISTEMA} active={active} onSelect={selectSection} />
-        </nav>
-
-        {/* CONTEÚDO: desktop sempre; mobile só quando uma categoria está aberta (tela cheia + voltar). */}
-        <div className={cn('flex-1 min-w-0', !mobileOpen && 'hidden lg:block')}>
-          <button type="button" onClick={() => { setMobileOpen(false); setSub(null) }}
-            className="lg:hidden flex items-center gap-1 -ml-1 mb-4 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
-            <ChevronLeft className="w-4 h-4" />Configurações
-          </button>
-          {/* "‹ Voltar" da sub-tela (Fases/Mapa) → volta pro conteúdo da seção (desktop e mobile). */}
-          {sub && (
-            <button type="button" onClick={() => setSub(null)}
-              className="flex items-center gap-1 -ml-1 mb-4 text-sm font-medium text-bento-dim hover:text-bento-text min-h-[44px]">
-              <ChevronLeft className="w-4 h-4" />Voltar
-            </button>
-          )}
-          {content}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   )

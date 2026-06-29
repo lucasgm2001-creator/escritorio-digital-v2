@@ -20,31 +20,32 @@ const CENTROIDS: Record<string, [number, number]> = {
 // Leads "abertos" (mesma regra do funil/mapa): exclui fechado/perdido/lixeira.
 const CLOSED = new Set(['fechado', 'perdido', 'lixeira'])
 
-type Row = { state?: string | null; status?: string | null }
+type Row = { name?: string | null; state?: string | null; status?: string | null }
 
 // Converte leads + clients reais em markers do LeadMap.
 //  • cliente ativo → 'cliente'; lead aberto com status 'novo' → 'novo'; demais leads abertos → 'lead'.
+//  • carrega o NOME real (leads.name / clients.name) p/ o painel de clique listar os registros.
 //  • posiciona no centro do estado (UF de `state`); sem UF válida → ignora.
 //  • espiral determinística por índice-no-estado (golden angle) p/ não empilhar no modo individual.
 export function toLeadMarkers(leads: Row[], clients: Row[]): LeadMarker[] {
   const out: LeadMarker[] = []
   const perState: Record<string, number> = {}
-  const push = (uf: string, type: LeadType) => {
+  const push = (uf: string, type: LeadType, name: string | null | undefined) => {
     const ce = CENTROIDS[uf]
     if (!ce) return
     const n = (perState[uf] = (perState[uf] ?? 0) + 1) - 1   // 0-based dentro do estado
     const ang = n * 2.39996323                                // golden angle (rad)
     const rad = 0.2 * Math.sqrt(n)                            // graus; cresce devagar p/ caber no estado
-    out.push({ uf, type, lon: ce[0] + Math.cos(ang) * rad, lat: ce[1] + Math.sin(ang) * rad })
+    out.push({ uf, type, name: (name ?? '').trim() || 'Sem nome', lon: ce[0] + Math.cos(ang) * rad, lat: ce[1] + Math.sin(ang) * rad })
   }
   for (const c of clients) {
     if ((c.status ?? '') !== 'ativo') continue
-    push((c.state ?? '').trim().toUpperCase(), 'cliente')
+    push((c.state ?? '').trim().toUpperCase(), 'cliente', c.name)
   }
   for (const l of leads) {
     const st = (l.status ?? '')
     if (CLOSED.has(st)) continue
-    push((l.state ?? '').trim().toUpperCase(), st === 'novo' ? 'novo' : 'lead')
+    push((l.state ?? '').trim().toUpperCase(), st === 'novo' ? 'novo' : 'lead', l.name)
   }
   return out
 }
