@@ -23,26 +23,12 @@ export async function signIn(email: string, password: string) {
   redirect('/hall')
 }
 
-// Cadastro com TRAVA (fail-safe): só cria conta se o DOMÍNIO do e-mail estiver liberado
-// (NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS) OU se o CÓDIGO DE CONVITE bater (INVITE_CODE, validado AQUI no
-// servidor). Sem nenhuma das duas envs setadas → cadastro BLOQUEADO por padrão. Não expõe segredo.
-export async function signUp(name: string, email: string, password: string, inviteCode: string) {
+// Cadastro ABERTO (multi-tenant): qualquer e-mail+senha cria conta. O acesso aos dados é controlado pela
+// EQUIPE — a guarda no layout do dashboard manda quem não tem equipe pro /onboarding (criar/entrar em equipe).
+export async function signUp(name: string, email: string, password: string) {
   const nm = (name ?? '').trim()
   const em = (email ?? '').trim().toLowerCase()
   if (!nm || !em || !password) return { error: 'Preencha nome, e-mail e senha.' }
-
-  const domain = em.split('@')[1] ?? ''
-  const allowedDomains = (process.env.NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS ?? '')
-    .split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
-  const expectedCode = (process.env.INVITE_CODE ?? '').trim()
-  const code = (inviteCode ?? '').trim()
-  const domainOk = allowedDomains.length > 0 && !!domain && allowedDomains.includes(domain)
-  const codeOk = expectedCode.length > 0 && code.length > 0 && code === expectedCode
-  if (!domainOk && !codeOk) {
-    if (allowedDomains.length === 0 && expectedCode.length === 0) return { error: 'Cadastro indisponível no momento.' }
-    if (code) return { error: 'Código de convite inválido.' }
-    return { error: 'E-mail não autorizado. Use um e-mail autorizado ou um código de convite.' }
-  }
 
   const supabase = createClient()
   const { data, error } = await supabase.auth.signUp({ email: em, password, options: { data: { name: nm } } })

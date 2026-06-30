@@ -25,7 +25,6 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -40,7 +39,7 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       if (isSignup) {
-        const result = await signUp(name, email, password, inviteCode)
+        const result = await signUp(name, email, password)
         if (result?.error) { setError(result.error); setLoading(false) }
         else if (result?.needsConfirm) { setInfo('Conta criada! Confira seu e-mail para confirmar antes de entrar.'); setLoading(false) }
         // sucesso com sessão → o servidor redireciona pra /hall
@@ -125,19 +124,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {/* Código de convite (só no cadastro) */}
-            {isSignup && (
-              <div>
-                <label htmlFor="invite" className="block text-sm font-medium text-white/90 mb-2">Código de convite</label>
-                <input id="invite" type="text" value={inviteCode}
-                  onChange={e => { setInviteCode(e.target.value); setError('') }}
-                  placeholder="Se você tiver um"
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-lime/60 transition-colors"
-                  disabled={loading} />
-                <p className="text-white/40 text-xs mt-1.5">Necessário se seu e-mail não for de um domínio autorizado.</p>
-              </div>
-            )}
 
             {/* Esqueci minha senha (só no login) */}
             {!isSignup && (
