@@ -237,7 +237,8 @@ export default function LeadMap({
     nationEdge: 'rgba(71,85,105,0.55)',
     zoneFill: { PT: '#E8EDF3', MT: '#E5EAF1', CT: '#EAEEF4', ET: '#E7ECF2', HT: '#E5EAF1' },  // estado sem dado = cinza claro
     labelColor: 'rgba(51,65,85,0.72)',       // labels de fuso escuros
-    baseDark: '#E8EDF3',                      // base do "calor": estado com dado vai pro acento, sem dado fica claro
+    baseDark: '#E8EDF3',                      // estado SEM dado = cinza claro
+    heat: baseTh.accent,                      // brilho do calor no claro = acento do tema (verde-limão #C2F73A no padrão)
   } : baseTh;
   const panelBg = isLight ? 'linear-gradient(180deg,#FFFFFF,#F4F7FA)' : 'linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))';
   const panelBorder = isLight ? '1px solid rgba(15,23,42,0.12)' : '1px solid rgba(255,255,255,0.09)';
@@ -248,6 +249,9 @@ export default function LeadMap({
   const chipBg = isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)';
   const chipBorder = isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)';
   const nationShadowFill = isLight ? '#DCE3EB' : '#04060d';
+  // LIGHT, calor: âncora "suave" da escala = acento clareado (mix com branco). O topo é o próprio acento
+  // (saturado). Estado COM dado salta no verde-limão; a escala separa pouco/muito volume contra o cinza claro.
+  const lightHeatLo = isLight ? mix('#FFFFFF', th.accent, 0.42) : '#000000';
 
   // VISIBILIDADE por tipo (Configurações > Mapa). Esconder = some de verdade em TODOS os modos; as contagens
   // (hover/estado/calor) só somam markers visíveis.
@@ -441,7 +445,12 @@ export default function LeadMap({
                     const z = tzOfName(f.properties.name);
                     const cnt = counts[abbr]?.total || 0;
                     const fill = mode === 'calor'
-                      ? (cnt > 0 ? mix(th.baseDark, th.heat, Math.min(1, cnt / maxT) * 0.92) : th.baseDark)
+                      ? (cnt > 0
+                          ? (isLight
+                              // verde-limão por volume: piso 0.3 (1 lead já é claramente verde) + curva que levanta os baixos; topo = acento saturado.
+                              ? mix(lightHeatLo, th.accent, Math.max(0.3, Math.pow(Math.min(1, cnt / maxT), 0.7)))
+                              : mix(th.baseDark, th.heat, Math.min(1, cnt / maxT) * 0.92))
+                          : th.baseDark)
                       : (th.zoneFill[z] || th.baseDark);
                     const isHover = hover?.abbr === abbr;
                     return (
