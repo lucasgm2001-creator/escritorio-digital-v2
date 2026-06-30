@@ -5,21 +5,15 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Phone, MessageCircle, FileText, ArrowRight, ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { daysInStage, heatLevel, nextActionLabel, type Heat } from './leadSignals'
+import { nextActionLabel } from './leadSignals'
 import { LeadTasks } from './LeadTasks'
 import { type Lead, type LeadStatus } from './types'
 
-const HEAT: Record<Heat, { dot: string; text: string; label: string }> = {
-  hot:  { dot: 'bg-lime',      text: 'text-lime-fg',   label: 'Quente' },
-  warm: { dot: 'bg-amber-500', text: 'text-amber-400', label: 'Atenção' },
-  cold: { dot: 'bg-red-500',   text: 'text-red-400',   label: 'Esfriando' },
-}
-
 const onlyDigits = (s?: string) => (s ?? '').replace(/\D/g, '')
 
-export function FunnelLeadCard({ lead, coldDays, moveTargets, onMove, onOpenDiary, onLog, userId }: {
+export function FunnelLeadCard({ lead, moveTargets, onMove, onOpenDiary, onLog, userId }: {
   lead: Lead
-  coldDays?: number | null   // dias_esfriamento da fase (limite "esfriando"); null = padrão global
+  coldDays?: number | null   // aceito p/ compat do KanbanColumn; NÃO usado (temperatura saiu do card)
   moveTargets: { key: LeadStatus; label: string }[]   // fases REAIS (funnel_stages) p/ o "Mover para"
   onMove: (status: LeadStatus) => void
   onOpenDiary: () => void
@@ -30,13 +24,10 @@ export function FunnelLeadCard({ lead, coldDays, moveTargets, onMove, onOpenDiar
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
 
-  const terminal = lead.status === 'fechado' || lead.status === 'perdido' || lead.status === 'lixeira'
-  const heat = heatLevel(lead, coldDays)
+  // Bolinha = marcador de DESFECHO apenas: fechado=verde, perdido=vermelho; demais status sem bolinha (sem temperatura).
   const dotClass = lead.status === 'fechado' ? 'bg-green-500'
     : lead.status === 'perdido' ? 'bg-red-500'
-    : lead.status === 'lixeira' ? 'bg-bento-muted'
-    : HEAT[heat].dot
-  const days = daysInStage(lead)
+    : null
   const next = nextActionLabel(lead)
   const phone = onlyDigits(lead.phone)
   const stop = (e: React.MouseEvent) => e.stopPropagation()
@@ -52,21 +43,13 @@ export function FunnelLeadCard({ lead, coldDays, moveTargets, onMove, onOpenDiar
     >
       {/* Topo (sempre visível) */}
       <div className="flex items-center gap-2">
-        <span className={cn('w-2 h-2 rounded-full flex-none', dotClass)} />
+        {dotClass && <span className={cn('w-2 h-2 rounded-full flex-none', dotClass)} />}
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-bento-text text-xs leading-snug truncate">{lead.name}</p>
           {(lead.company || lead.nicho) && (
             <p className="font-tech text-[10px] text-bento-muted truncate">{lead.company || lead.nicho}</p>
           )}
         </div>
-        {!terminal && (
-          <span className={cn('font-tech text-[10px] font-bold tabular-nums px-1 py-px rounded flex-none',
-            heat === 'hot' ? 'text-lime-fg bg-lime/15'
-              : heat === 'warm' ? 'text-amber-400 bg-amber-400/[0.12]'
-              : 'text-red-400 bg-red-400/[0.12]')}>
-            {days}D
-          </span>
-        )}
         <ChevronDown className={cn('w-3.5 h-3.5 text-bento-muted flex-none transition-transform', open && 'rotate-180')} />
       </div>
 
@@ -76,12 +59,6 @@ export function FunnelLeadCard({ lead, coldDays, moveTargets, onMove, onOpenDiar
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 font-tech text-[10px]">
             <Info label="Responsável" value={lead.assigned_name || '—'} />
             <Info label="Nicho" value={lead.nicho || '—'} />
-            <div className="min-w-0">
-              <p className="text-bento-muted">Temperatura</p>
-              <p className={cn('font-semibold', terminal ? 'text-bento-dim' : HEAT[heat].text)}>
-                {terminal ? '—' : HEAT[heat].label}
-              </p>
-            </div>
             <div className="min-w-0">
               <p className="text-bento-muted">Próxima ação</p>
               <p className="font-semibold text-bento-text flex items-center gap-1 truncate">
