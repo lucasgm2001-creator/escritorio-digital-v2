@@ -3,7 +3,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell'
 import { ToastProvider } from '@/components/ui/toast'
 import { capitalizeName } from '@/lib/utils'
 import { getSessionUser, getProfile } from '@/lib/supabase/session'
-import { createClient } from '@/lib/supabase/server'
+import { getActiveTeam } from '@/lib/supabase/team'
 import { CommissionLockProvider } from '@/components/commission/CommissionLock'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -25,11 +25,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // GUARDA DE EQUIPE (multi-tenant): sem linha em team_members (RLS já restringe à própria equipe) → manda
   // pro /onboarding (criar/entrar em equipe). Quem JÁ tem equipe segue direto, sem nunca ver o onboarding.
-  // Fail-open: erro de query NÃO redireciona (não derruba quem já está dentro nem cria loop).
-  const supabase = createClient()
-  const { data: membership, error: memErr } = await supabase
-    .from('team_members').select('id').eq('user_id', user.id).limit(1)
-  if (!memErr && (!membership || membership.length === 0)) redirect('/onboarding')
+  const { memberships } = await getActiveTeam(user.id)
+  if (memberships.length === 0) redirect('/onboarding')
 
   // profile (name + avatar numa query só, cacheada por request). A marca do app é estática
   // (public/logo-full.png na Sidebar/cabeçalho) — não depende mais do logo do Storage.
