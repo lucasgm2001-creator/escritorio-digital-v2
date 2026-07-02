@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { MetricCard, type MetricTone } from '@/components/ui/MetricCard'
 import type { Lead } from '../types'
 import { ALL_COLUMNS } from '../types'
 import { usdCompact as fmt, ymd } from '@/lib/format'
@@ -118,13 +119,13 @@ export function MetricasTab({ leads: allLeads }: Props) {
     return { bySeller: list, maxSellerValue: Math.max(...list.map(x => x.value), 1) }
   }, [revenue, range])
 
-  const KPIS = [
-    { label: 'Recebidos',         value: String(m.recebidos),         sub: 'novos no período',                       cls: 'text-foreground' },
-    { label: 'Fechados',          value: String(m.fechados),          sub: 'no período',                             cls: 'text-lime-fg' },
-    { label: 'Taxa de Conversão', value: `${m.convRate.toFixed(0)}%`,  sub: `${m.fechados} de ${m.recebidos} recebidos`, cls: 'text-emerald-400' },
-    { label: 'Pipeline',          value: fmt(m.pipeline),             sub: 'ativos criados no período',              cls: 'text-foreground' },
-    { label: 'Ticket Médio',      value: fmt(m.avgTicket),            sub: 'vendas no período',                      cls: 'text-blue-400' },
-    { label: 'Receita Fechada',   value: fmt(m.closedValue),          sub: `${m.fechados} no período`,                cls: 'text-lime-fg' },
+  const KPIS: { label: string; value: string; sub: string; tone: MetricTone }[] = [
+    { label: 'Recebidos',         value: String(m.recebidos),         sub: 'novos no período',                          tone: 'default' },
+    { label: 'Fechados',          value: String(m.fechados),          sub: 'no período',                                tone: 'positive' },
+    { label: 'Taxa de Conversão', value: `${m.convRate.toFixed(0)}%`,  sub: `${m.fechados} de ${m.recebidos} recebidos`, tone: 'emerald' },
+    { label: 'Pipeline',          value: fmt(m.pipeline),             sub: 'ativos criados no período',                 tone: 'default' },
+    { label: 'Ticket Médio',      value: fmt(m.avgTicket),            sub: 'vendas no período',                         tone: 'blue' },
+    { label: 'Receita Fechada',   value: fmt(m.closedValue),          sub: `${m.fechados} no período`,                  tone: 'positive' },
   ]
 
   return (
@@ -146,11 +147,7 @@ export function MetricasTab({ leads: allLeads }: Props) {
       {/* Topo: KPIs do PERÍODO */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {KPIS.map(kpi => (
-          <div key={kpi.label} className={card}>
-            <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
-            <p className={`text-2xl font-bold mt-1 tabular-nums ${kpi.cls}`}>{kpi.value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</p>
-          </div>
+          <MetricCard key={kpi.label} size="lg" tone={kpi.tone} title={kpi.label} value={kpi.value} subtitle={kpi.sub} />
         ))}
       </div>
 
