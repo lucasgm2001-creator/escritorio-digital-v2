@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { TimeAgo } from '@/components/system/TimeAgo'
 import { Panel } from '@/components/bento/Panel'
 import { LiveDot } from '@/components/bento/LiveDot'
-import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -17,9 +16,7 @@ import { useDialog } from '@/components/ui/useDialog'
 import type { Activity } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
 import type { MapLead, MapClient } from '../comercial/mapTypes'
-import { TarefasClient } from '../tarefas/TarefasClient'
 import { useTasksState } from '../tarefas/useTasksState'
-import { RelatorioComercial } from '../tarefas/RelatorioComercial'
 import { ErrorBoundary } from '@/components/system/ErrorBoundary'
 import { Calendar } from './Calendar'
 import { type CalendarEvent } from './calendarShared'
@@ -32,6 +29,17 @@ import { toLeadMarkers } from '@/lib/leadMarkers'
 // LeadMap (mapa de leads 3D/vidro, geografia us-atlas) — só no client, sob demanda. A config (Vista/Modo/
 // Tema/inclinação) vem de Configurações > Mapa (localStorage 'mapPrefs'); a barra de controle saiu do mapa.
 const LeadMap = dynamic(() => import('@/components/map/LeadMap'), { ssr: false })
+
+// Fallback discreto (DS-005) enquanto o chunk da aba carrega.
+function HallSectionLoading() {
+  return <div className="py-16 text-center text-sm text-bento-muted">Carregando…</div>
+}
+// Componentes pesados EXCLUSIVOS de abas nao-default (agent/relatorio/tarefas) — fora do bundle
+// inicial da /hall. So baixam ao abrir a aba; nao aparecem no first paint da Visao Geral (PERF-003).
+// (AgentChat arrasta react-markdown/remark-gfm; TarefasClient ~43KB; RelatorioComercial idem.)
+const AgentChat = dynamic(() => import('./AgentChat').then(m => m.AgentChat), { ssr: false, loading: HallSectionLoading })
+const TarefasClient = dynamic(() => import('../tarefas/TarefasClient').then(m => m.TarefasClient), { ssr: false, loading: HallSectionLoading })
+const RelatorioComercial = dynamic(() => import('../tarefas/RelatorioComercial').then(m => m.RelatorioComercial), { ssr: false, loading: HallSectionLoading })
 
 type Tab = 'activities' | 'mapa' | 'tarefas' | 'relatorio' | 'agent'
 
