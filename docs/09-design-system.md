@@ -15,6 +15,7 @@
 6. **Só UI.** DS não toca regra de negócio, banco, integrações, cálculo, Services ou Repositories.
 7. **Componentes invisíveis (DS-005).** O usuário percebe a **tarefa**, nunca o componente. Sensação-alvo: **rápido, limpo, confiável, profissional**. O componente existe para reduzir atrito — não para chamar atenção.
 8. **Guiados pelo produto (DS-008).** Componentes existem para servir o Escritório Digital — **não** para ser uma biblioteca genérica de React. Nunca criar algo porque "é comum em Design Systems"; só por necessidade real do produto. Cada componente oficial custa manutenção → queremos o **menor DS possível**: poucos, excelentes, reutilizadíssimos. Prefiro 25 componentes excelentes a 80 medianos.
+9. **Evolução antes de criação (DS-009).** Criar componente novo é sempre a **última** opção. Ordem obrigatória: reutilizar oficial → evoluir oficial → promover local → (só então) criar novo. O DS cresce o mais lentamente possível: poucos componentes muito flexíveis, não muitas variações. **Sucesso = menos duplicação / menos manutenção / menos APIs / menos decisões** — não a quantidade de componentes.
 
 ### DS-005 — Componentes invisíveis (regras concretas)
 
@@ -37,6 +38,18 @@ Responder (rápido) **antes** de criar cada componente. Se "Vale entrar no DS?" 
 - **Vale entrar no DS? (Sim/Não)**
 
 Regra: só entra no DS o que é **guiado por necessidade do produto** e **reutilizado de fato**. Componente trivial (ex.: um divisor de 1px) ou redundante com um existente **não** vira componente oficial.
+
+### DS-009 — Ordem obrigatória: evolução antes de criação
+
+Criar componente novo é a **última** opção. Antes de qualquer criação, seguir e responder nesta ordem:
+
+1. **Existe equivalente oficial?** → reutilizar.
+2. **Existe um oficial que pode evoluir?** → evoluir (props opcionais, sem breaking nos call-sites).
+3. **Existe componente local que merece promoção?** → promover para `@/components/ui`.
+4. **Só se nada acima resolver** → criar novo — e responder explicitamente: *por que criar é realmente necessário?*
+
+Respostas obrigatórias antes de criar: **equivalente oficial? equivalente local? dá para evoluir algum? por que um novo é necessário?**
+Meta: sempre tentar **diminuir** a contagem de componentes; nunca aumentá-la sem justificativa.
 
 ## Casa oficial e estrutura
 
