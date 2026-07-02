@@ -146,44 +146,8 @@ function mix(h1: string, h2: string, t: number) {
   return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 
-export const SAMPLE_MARKERS: LeadMarker[] = ([
-  { city: 'Seattle', uf: 'WA', lat: 47.61, lon: -122.33, type: 'novo' },
-  { city: 'Spokane', uf: 'WA', lat: 47.66, lon: -117.43, type: 'lead' },
-  { city: 'Sacramento', uf: 'CA', lat: 38.58, lon: -121.49, type: 'novo' },
-  { city: 'San Francisco', uf: 'CA', lat: 37.77, lon: -122.42, type: 'lead' },
-  { city: 'San Jose', uf: 'CA', lat: 37.34, lon: -121.89, type: 'cliente' },
-  { city: 'Los Angeles', uf: 'CA', lat: 34.05, lon: -118.24, type: 'cliente' },
-  { city: 'San Diego', uf: 'CA', lat: 32.72, lon: -117.16, type: 'lead' },
-  { city: 'Phoenix', uf: 'AZ', lat: 33.45, lon: -112.07, type: 'lead' },
-  { city: 'Tucson', uf: 'AZ', lat: 32.22, lon: -110.97, type: 'cliente' },
-  { city: 'Denver', uf: 'CO', lat: 39.74, lon: -104.99, type: 'novo' },
-  { city: 'Colorado Springs', uf: 'CO', lat: 38.83, lon: -104.82, type: 'lead' },
-  { city: 'Dallas', uf: 'TX', lat: 32.78, lon: -96.8, type: 'lead' },
-  { city: 'Fort Worth', uf: 'TX', lat: 32.75, lon: -97.33, type: 'lead' },
-  { city: 'Austin', uf: 'TX', lat: 30.27, lon: -97.74, type: 'novo' },
-  { city: 'San Antonio', uf: 'TX', lat: 29.42, lon: -98.49, type: 'lead' },
-  { city: 'Houston', uf: 'TX', lat: 29.76, lon: -95.37, type: 'cliente' },
-  { city: 'Chicago', uf: 'IL', lat: 41.85, lon: -87.65, type: 'lead' },
-  { city: 'Springfield', uf: 'IL', lat: 39.8, lon: -89.64, type: 'novo' },
-  { city: 'Nashville', uf: 'TN', lat: 36.16, lon: -86.78, type: 'cliente' },
-  { city: 'Memphis', uf: 'TN', lat: 35.15, lon: -90.05, type: 'lead' },
-  { city: 'Atlanta', uf: 'GA', lat: 33.75, lon: -84.39, type: 'lead' },
-  { city: 'Savannah', uf: 'GA', lat: 32.08, lon: -81.09, type: 'novo' },
-  { city: 'Miami', uf: 'FL', lat: 25.76, lon: -80.19, type: 'lead' },
-  { city: 'Orlando', uf: 'FL', lat: 28.54, lon: -81.38, type: 'cliente' },
-  { city: 'Tampa', uf: 'FL', lat: 27.95, lon: -82.46, type: 'novo' },
-  { city: 'Jacksonville', uf: 'FL', lat: 30.33, lon: -81.66, type: 'lead' },
-  { city: 'Charlotte', uf: 'NC', lat: 35.23, lon: -80.84, type: 'lead' },
-  { city: 'Raleigh', uf: 'NC', lat: 35.78, lon: -78.64, type: 'cliente' },
-  { city: 'New York', uf: 'NY', lat: 40.71, lon: -74.0, type: 'lead' },
-  { city: 'Buffalo', uf: 'NY', lat: 42.89, lon: -78.88, type: 'novo' },
-  { city: 'Albany', uf: 'NY', lat: 42.65, lon: -73.75, type: 'cliente' },
-  { city: 'Philadelphia', uf: 'PA', lat: 39.95, lon: -75.16, type: 'cliente' },
-  { city: 'Pittsburgh', uf: 'PA', lat: 40.44, lon: -79.99, type: 'novo' },
-  { city: 'Boston', uf: 'MA', lat: 42.36, lon: -71.06, type: 'novo' },
-  { city: 'Worcester', uf: 'MA', lat: 42.26, lon: -71.8, type: 'lead' },
-  { city: 'Washington', uf: 'DC', lat: 38.9, lon: -77.04, type: 'cliente' },
-] as Omit<LeadMarker, 'name'>[]).map((m) => ({ ...m, name: m.city ?? m.uf }));
+// SAMPLE_MARKERS (dados fake de exemplo) removido — o mapa nunca deve renderizar
+// dados ficticios; markers agora tem default [] (DASH-002).
 
 type StateCount = { novo: number; lead: number; cliente: number; total: number };
 
@@ -193,7 +157,7 @@ const TOOLTIP_W = 184;
 const TOOLTIP_H = 132;
 
 export default function LeadMap({
-  markers = SAMPLE_MARKERS,
+  markers = [],
   height = 540,
   view: viewProp = '3d',
   tilt: tiltProp = 15,

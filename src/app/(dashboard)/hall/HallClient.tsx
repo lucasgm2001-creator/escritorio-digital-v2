@@ -13,7 +13,7 @@ import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
 import { X, Clock, CalendarDays, Activity as ActivityIcon, Newspaper } from 'lucide-react'
 import { Portal } from '@/components/ui/Portal'
 import { useDialog } from '@/components/ui/useDialog'
-import type { Activity, Notice } from '@/types'
+import type { Activity } from '@/types'
 import type { Task, LinkOption } from '../tarefas/types'
 import type { MapLead, MapClient } from '../comercial/mapTypes'
 import { TarefasClient } from '../tarefas/TarefasClient'
@@ -36,7 +36,6 @@ type Tab = 'activities' | 'mapa' | 'tarefas' | 'relatorio' | 'agent'
 
 interface Props {
   initialActivities: Activity[]
-  initialNotices: Notice[]
   initialTasks: Task[]
   linkOptions: LinkOption[]
   userName: string
@@ -60,24 +59,6 @@ const ACTIVITY_COLORS: Record<string, string> = {
   task:     'bg-amber-900/40 text-amber-400',
   campaign: 'bg-purple-900/40 text-purple-400',
   system:   'bg-slate-800/60 text-slate-400',
-}
-
-const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  lead: 'Leads', client: 'Clientes', payment: 'Pagamentos',
-  task: 'Tarefas', campaign: 'Campanhas', system: 'Sistema',
-}
-
-const NOTICE_BORDER: Record<string, string> = {
-  info:    'border-blue-800/50 bg-blue-900/20',
-  warning: 'border-amber-800/50 bg-amber-900/20',
-  urgent:  'border-red-800/50 bg-red-900/20',
-}
-
-const NOTICE_LABEL: Record<string, string> = { info: 'Info', warning: 'Atenção', urgent: 'Urgente' }
-const NOTICE_PILL: Record<string, string> = {
-  info:    'bg-blue-900/40 text-blue-400 border-blue-800/50',
-  warning: 'bg-amber-900/40 text-amber-400 border-amber-800/50',
-  urgent:  'bg-red-900/40 text-red-400 border-red-800/50',
 }
 
 function computeGreeting(): string {
@@ -116,12 +97,9 @@ function MuralTaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
 
 // Modal "ver histórico": abre com os itens já em memória (view maior) e, no botão
 // "Ver histórico", busca o histórico PERSISTIDO inteiro da tabela (activities/notices).
-function HistoryModal({ kind, onClose }: {
-  kind: 'activities' | 'notices'
-  onClose: () => void
-}) {
+function HistoryModal({ onClose }: { onClose: () => void }) {
   const PAGE = 200
-  const [items, setItems] = useState<(Activity | Notice)[]>([])
+  const [items, setItems] = useState<Activity[]>([])
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
 
@@ -131,9 +109,9 @@ function HistoryModal({ kind, onClose }: {
     setLoading(true)
     const supabase = createClient()
     const from = items.length
-    const { data } = await supabase.from(kind).select('*')
+    const { data } = await supabase.from('activities').select('*')
       .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
-    const rows = (data ?? []) as (Activity | Notice)[]
+    const rows = (data ?? []) as Activity[]
     setItems(prev => [...prev, ...rows])
     setHasMore(rows.length === PAGE)
     setLoading(false)
@@ -142,7 +120,7 @@ function HistoryModal({ kind, onClose }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadMore() }, [])
 
-  const title = kind === 'activities' ? 'Atividade Recente' : 'Mural de Avisos'
+  const title = 'Atividade Recente'
 
   const { ref, dialogProps } = useDialog(onClose)
   return (
@@ -158,29 +136,16 @@ function HistoryModal({ kind, onClose }: {
           {loading && items.length === 0 ? (
             <p className="text-sm text-bento-muted text-center py-10">Carregando histórico…</p>
           ) : items.length === 0 ? (
-            <p className="text-sm text-bento-muted text-center py-10">Nada {kind === 'activities' ? 'registrado' : 'no mural'} ainda.</p>
-          ) : kind === 'activities' ? (
+            <p className="text-sm text-bento-muted text-center py-10">Nada registrado ainda.</p>
+          ) : (
             <div className="divide-y divide-bento-border/60">
-              {(items as Activity[]).map(a => (
+              {items.map(a => (
                 <div key={a.id} className="flex items-start gap-3 py-3 first:pt-0">
                   <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${ACTIVITY_COLORS[a.type] ?? 'bg-slate-800/60 text-slate-400'}`}>{ACTIVITY_ICONS[a.type]}</div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-bento-text leading-snug">{a.description}</p>
                     <p className="font-tech text-xs text-bento-muted mt-0.5">{a.user_name ? `${a.user_name} · ` : ''}<TimeAgo date={a.created_at} /></p>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {(items as Notice[]).map(n => (
-                <div key={n.id} className={`rounded-bento border p-3 ${NOTICE_BORDER[n.priority] ?? 'border-bento-border'}`}>
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <p className="text-sm font-semibold text-bento-text">{n.title}</p>
-                    <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-semibold ${NOTICE_PILL[n.priority] ?? 'border-bento-border text-bento-muted'}`}>{NOTICE_LABEL[n.priority] ?? n.priority}</span>
-                  </div>
-                  {n.content && <p className="text-xs text-bento-dim">{n.content}</p>}
-                  {n.author_name && <p className="font-tech text-xs text-bento-muted/70 mt-1">— {n.author_name} · <TimeAgo date={n.created_at} /></p>}
                 </div>
               ))}
             </div>
@@ -215,7 +180,7 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
   useEffect(() => { setActivities(initialActivities) }, [initialActivities])
   const [greeting, setGreeting]       = useState('')
   const [today, setToday]             = useState('')
-  const [history, setHistory] = useState<null | 'activities' | 'notices'>(null)
+  const [showHistory, setShowHistory] = useState(false)
   const [calEvents, setCalEvents]     = useState<CalendarEvent[]>([])
   const [focusEvent, setFocusEvent]   = useState<CalendarEvent | null>(null)
   const [activitiesExpanded, setActivitiesExpanded] = useState(false)
@@ -309,12 +274,6 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
     { key: 'conversao', label: 'Conversão', value: `${conversao}%`, mobile: false },
   ]
 
-  // Proporção por tipo de atividade (funil → barras de proporção).
-  const typeCounts = useMemo(() => Object.entries(
-    activities.reduce<Record<string, number>>((acc, a) => { acc[a.type] = (acc[a.type] ?? 0) + 1; return acc }, {})
-  ).sort((a, b) => b[1] - a[1]), [activities])
-  const maxType = Math.max(1, ...typeCounts.map(([, c]) => c))
-
   const TABS = [
     {
       id: 'activities' as Tab, label: 'Visão Geral',
@@ -401,24 +360,6 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
               {hallCfg.blocks.atividade && (
               <CollapsibleSection title="Atividades Recentes" icon={ActivityIcon}>
                 <Panel className="h-full max-lg:p-3" headerClassName="max-lg:hidden" label="Atividades Recentes" action={<LiveDot />}>
-                {/* Resumo por tipo — barras de proporção */}
-                {typeCounts.length > 0 && (
-                  <div className="space-y-2 mb-4 pb-4 border-b border-bento-border/60">
-                    <p className="font-tech text-[10px] uppercase tracking-wide text-bento-muted">Atividades por tipo</p>
-                    {typeCounts.slice(0, 4).map(([type, count], i) => (
-                      <div key={type}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-bento-dim">{ACTIVITY_TYPE_LABELS[type] ?? type}</span>
-                          <span className="font-tech text-xs font-semibold text-bento-text tabular-nums">{String(count).padStart(2, '0')}</span>
-                        </div>
-                        <div className="bento-track">
-                          <div className={cn('bento-fill', i === 0 ? '' : i < 2 ? 'dim' : 'mut')} style={{ width: `${(count / maxType) * 100}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 <div className="space-y-0 divide-y divide-bento-border/60">
                   {activities.length === 0 ? (
                     <p className="text-sm text-bento-muted py-6 text-center">Nenhuma atividade ainda.</p>
@@ -452,7 +393,7 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
                     {activitiesExpanded ? 'Ver menos' : `Ver mais (${activities.length - 3})`}
                   </button>
                 )}
-                <button type="button" onClick={() => setHistory('activities')}
+                <button type="button" onClick={() => setShowHistory(true)}
                   className="mt-3 pt-3 border-t border-bento-border/60 w-full text-center font-tech text-[11px] uppercase tracking-wide text-bento-muted hover:text-lime-fg transition-colors">
                   Ver histórico
                 </button>
@@ -517,8 +458,8 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
 
       </div>
 
-      {history && (
-        <HistoryModal kind={history} onClose={() => setHistory(null)} />
+      {showHistory && (
+        <HistoryModal onClose={() => setShowHistory(false)} />
       )}
     </div>
   )
