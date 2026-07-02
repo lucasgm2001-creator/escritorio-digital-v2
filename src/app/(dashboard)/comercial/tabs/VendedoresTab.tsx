@@ -267,8 +267,9 @@ function SellerProfile({ seller, onClose, onUpdated, onDeleted }: {
     <div className="fixed inset-0 z-[300] flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
       <div ref={ref} {...dialogProps} aria-labelledby="seller-profile-title" className="w-full max-w-md bg-bento-panel border-l border-bento-border flex flex-col shadow-card-hover animate-slide-up">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-bento-border shrink-0">
+        {/* Header — pt respeita a safe-area do iPhone (viewport-fit=cover): sem isso o X caía embaixo
+            do relogio/status bar. Mobile-only: env(safe-area-inset-top)=0 no desktop/iPad (nao muda). */}
+        <div className="flex items-start justify-between gap-3 px-5 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] border-b border-bento-border shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative">
               <Avatar name={current.name} photoUrl={current.photo_url} size="lg" />
