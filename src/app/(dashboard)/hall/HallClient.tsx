@@ -10,6 +10,7 @@ import { LiveDot } from '@/components/bento/LiveDot'
 import { AgentChat } from './AgentChat'
 import { NewsSection } from './NewsSection'
 import { CollapsibleSection } from '@/components/mobile/CollapsibleSection'
+import { MetricCard } from '@/components/ui/MetricCard'
 import { X, Clock, CalendarDays, Activity as ActivityIcon, Newspaper } from 'lucide-react'
 import { Portal } from '@/components/ui/Portal'
 import { useDialog } from '@/components/ui/useDialog'
@@ -360,10 +361,7 @@ export function HallClient({ initialActivities, initialTasks, linkOptions, userN
             {METRICS.some(m => hallCfg.metrics[m.key]) && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {METRICS.filter(m => hallCfg.metrics[m.key]).map(m => (
-                  <div key={m.key} className="bento-fx px-3 py-2.5 flex flex-col gap-1">
-                    <span className="font-tech text-[11px] uppercase tracking-wide text-bento-muted truncate">{m.label}</span>
-                    <span className="font-display text-2xl font-bold text-bento-text tabular-nums leading-none">{m.value}</span>
-                  </div>
+                  <MetricCard key={m.key} title={m.label} value={m.value} />
                 ))}
               </div>
             )}
